@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+
+@source "../../../content/**/*";
+
+@theme static {
+  --font-sans: 'Public Sans', sans-serif;
+
+  --color-primary-50: #FFF1F2;
+  --color-primary-100: #FFE4E6;
+  --color-primary-200: #FECDD3;
+  --color-primary-300: #FDA4AF;
+  --color-primary-400: #FB7185;
+  --color-primary-500: #E60012; 
+  --color-primary-600: #DC2626;
+  --color-primary-700: #B91C1C;
+  --color-primary-800: #991B1B;
+  --color-primary-900: #7F1D1D;
+  --color-primary-950: #450A0A;
+
+}
+
+:root{
+--ui-primary: var(--color-primary-600);
+}
+
+.menu-section {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #111827;
+  position: relative;
+  padding-bottom: 6px;
+}
+
+.menu-section::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #dc2626;
+}
+
+
