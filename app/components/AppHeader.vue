@@ -103,11 +103,11 @@ const items = computed<NavigationMenuItem[]>(() => [
             <div>
               <h4 class="font-bold mb-2 border-b-2 border-red-500">Ordinateurs Et Accessoires</h4>
               <ul class="space-y-1">
-                <li><NuxtLink to="/categories/ordinateurs/laptops">Laptops</NuxtLink></li>
-                <li><NuxtLink to="/categories/desktops">Desktops</NuxtLink></li>
-                <li><NuxtLink to="/categories/desktops">All in One </NuxtLink></li>
-                <li><NuxtLink to="/categories/desktops">Ecran Ordinateurs</NuxtLink></li>
-                <li><NuxtLink to="/categories/desktops">Clavier Et Souris</NuxtLink></li>
+                <li><NuxtLink to="/categories/ordinateurs/laptop">Laptops</NuxtLink></li>
+                <li><NuxtLink to="/categories/ordinateurs/Desktops">Desktops</NuxtLink></li>
+                <li><NuxtLink to="/categories/ordinateurs/all-in-one">All in One </NuxtLink></li>
+                <li><NuxtLink to="/categories/accessoires-ordinateurs/ecran-ordinateurs">Ecran Ordinateurs</NuxtLink></li>
+                <li><NuxtLink to="/categories/accessoires-ordinateurs">Accessoires Ordinateurs</NuxtLink></li>
               </ul>
             </div>
 
@@ -115,10 +115,10 @@ const items = computed<NavigationMenuItem[]>(() => [
             <div>
               <h4 class="font-bold mb-2 border-b-2 border-red-500">Imprimantes / Scanners</h4>
               <ul class="space-y-1">
-                <li><NuxtLink to="/categories/claviers-souris">Imprimantes</NuxtLink></li>
-                <li><NuxtLink to="/categories/claviers-souris">Scanners</NuxtLink></li>
-                <li><NuxtLink to="/categories/accessoires">Imprimante Consommables</NuxtLink></li>
-                <li><NuxtLink to="/categories/claviers-souris">Etiqueteuse</NuxtLink></li>
+                <li><NuxtLink to="/categories/imprimantes">Imprimantes</NuxtLink></li>
+                <li><NuxtLink to="/categories/scanners">Scanners</NuxtLink></li>
+                <li><NuxtLink to="/categories/accessoire-imprimante">Imprimante Consommables</NuxtLink></li>
+                <li><NuxtLink to="/categories/etiqueteuse">Etiqueteuse</NuxtLink></li>
               </ul>
             </div>
 
@@ -126,33 +126,34 @@ const items = computed<NavigationMenuItem[]>(() => [
             <div>
               <h4 class="font-bold mb-2 border-b-2 border-red-500">Smartphones et Tablettes</h4>
               <ul class="space-y-1">
-                <li><NuxtLink to="/categories/imprimantes">Iphones</NuxtLink></li>
+                <li><NuxtLink to="/categories/smartphones/iphones">Iphones</NuxtLink></li>
+                <li><NuxtLink to="/categories/smartphones/androides">Androide</NuxtLink></li>
                 <li><NuxtLink to="/categories/smartphones">Téléphones Mobiles</NuxtLink></li>
-                <li><NuxtLink to="/categories/tv">Tablettes</NuxtLink></li>
+                <li><NuxtLink to="/categories/Tablettes">Tablettes</NuxtLink></li>
                 
               </ul>
             </div>
             <!-- Autres Produits -->
             <div>
-              <h4 class="font-bold mb-2 border-b-2 border-red-500">Matériel Reseau</h4>
+              <h4 class="font-bold mb-2 border-b-2 border-red-500">Matériel Reseaux</h4>
               <ul class="space-y-1">
-                <li><NuxtLink to="/categories/imprimantes">Serveurs</NuxtLink></li>
-                <li><NuxtLink to="/categories/smartphones">Routeurs</NuxtLink></li>
-                <li><NuxtLink to="/categories/tv">Switchs</NuxtLink></li>
-                <li><NuxtLink to="/categories/tv">Fibre Optique</NuxtLink></li>
-                <li><NuxtLink to="/categories/tv">Baie De Brassage</NuxtLink></li>
-                <li><NuxtLink to="/categories/tv">UTM/FIREWALL/QOS</NuxtLink></li>
+                <li><NuxtLink to="/categories/reseau-telecom/serveurs">Serveurs</NuxtLink></li>
+                <li><NuxtLink to="/categories/reseau-telecom/routeurs">Routeurs</NuxtLink></li>
+                <li><NuxtLink to="/categories/reseau-telecom/Switchs">Switchs</NuxtLink></li>
+                <li><NuxtLink to="/categories/reseau-telecom/fibre-optique">Fibre Optique</NuxtLink></li>
+                <li><NuxtLink to="/categoriess/reseau-telecom/baie-de-brassage">Baie De Brassage</NuxtLink></li>
+                <li><NuxtLink to="/categoriess/reseau-telecom/utm-firewall-qos">UTM/FIREWALL/QOS</NuxtLink></li>
               </ul>
             </div>
 
             <div>
               <h4 class="font-bold mb-2 border-b-2 border-red-500">Sécurité/Biometrie</h4>
               <ul class="space-y-1">
-                <li><NuxtLink to="/categories/imprimantes">Caméra/NVR/DVR</NuxtLink></li>
-                <li><NuxtLink to="/categories/smartphones">Videophone</NuxtLink></li>
-                <li><NuxtLink to="/categories/tv">Alarmes</NuxtLink></li>
-                <li><NuxtLink to="/categories/tv">Biometrie</NuxtLink></li>
-                <li><NuxtLink to="/categories/tv">GPS Tracker</NuxtLink></li>
+                <li><NuxtLink to="/categories/securite/camera">Caméra/NVR/DVR</NuxtLink></li>
+                <li><NuxtLink to="/categories/securite/videophones">Videophone</NuxtLink></li>
+                <li><NuxtLink to="/categories/securite/alarmes">Alarmes</NuxtLink></li>
+                <li><NuxtLink to="/categories/securite/biometrie">Biometrie</NuxtLink></li>
+                <li><NuxtLink to="/categories/securite/gps-tracker">GPS Tracker</NuxtLink></li>
                 
               </ul>
             </div>
@@ -160,9 +161,9 @@ const items = computed<NavigationMenuItem[]>(() => [
             <div>
               <h4 class="font-bold mb-2 border-b-2 border-red-500">Stockage</h4>
               <ul class="space-y-1">
-                <li><NuxtLink to="/categories/imprimantes">Disque Dur Interne</NuxtLink></li>
-                <li><NuxtLink to="/categories/smartphones">Disque Dur Externe</NuxtLink></li>
-                <li><NuxtLink to="/categories/tv">Clé USB</NuxtLink></li>
+                <li><NuxtLink to="/categories/accessoires-ordinateurs/disque-dur-interne">Disque Dur Interne</NuxtLink></li>
+                <li><NuxtLink to="/categories/accessoires-ordinateurs/disque-dur-externe">Disque Dur Externe</NuxtLink></li>
+                <li><NuxtLink to="/categories/accessoires-ordinateurs/cle-usb">Clé USB</NuxtLink></li>
                 
               </ul>
             </div>
@@ -175,7 +176,7 @@ const items = computed<NavigationMenuItem[]>(() => [
         <UButton
           variant="ghost"
           class="font-medium"
-          :class="route.path.startsWith('/categories') ? 'text-red-600' : 'text-gray-700'"
+          :class="route.path.startsWith('/services') ? 'text-red-600' : 'text-gray-700'"
           trailing-icon="i-lucide-chevron-down"
         >
           Nos Services
@@ -317,18 +318,5 @@ const items = computed<NavigationMenuItem[]>(() => [
     </template>
 
 
-    <!-- Mobile Menu -->
-    <template #body>
-      <div class="-mx-2.5 md-6 md:hidden p-4 space-y-3">
-        <UNavigationMenu :items="items" orientation="vertical" />
-        <input
-          v-model="searchQuery"
-          @keyup.enter="handleSearch"
-          type="text"
-          placeholder="Rechercher..."
-          class="w-full border md-6 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 mt-3"
-        />
-      </div>
-    </template>
   </UHeader>
 </template>

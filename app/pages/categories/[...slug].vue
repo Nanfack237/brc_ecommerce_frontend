@@ -1,22 +1,67 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 
+
+const route = useRoute()
+
+// 1. Récupérer le paramètre [...slug] qui est un tableau
+// Exemple URL: /categories/stockages/disque-dur
+// route.params.slug sera : ['stockages', 'disque-dur']
+const slugParams = computed(() => {
+  const s = route.params.slug
+  return Array.isArray(s) ? s : [s]
+})
+
+// 2. Formatter un texte pour l'affichage (ex: "disque-dur" -> "Disque Dur")
+const formatLabel = (text: string) => {
+  if (!text) return ''
+  return text
+    .replace(/[_-]/g, ' ') // Remplace les tirets et underscores par des espaces
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+// 3. Titre de la page (Prend le dernier élément du slug)
+const categoryName = computed(() => {
+  const lastSegment = slugParams.value[slugParams.value.length - 1]
+  return formatLabel(lastSegment)
+})
+
+// 4. Breadcrumb Dynamique multi-niveaux
+const breadcrumbItems = computed(() => {
+  const items = [
+    { label: 'Accueil', to: '/', icon: 'i-heroicons-home' },
+  ]
+
+  let pathAccumulator = '/categories'
+  
+  slugParams.value.forEach((segment, index) => {
+    pathAccumulator += `/${segment}`
+    const isLast = index === slugParams.value.length - 1
+    
+    items.push({
+      label: formatLabel(segment),
+      to: pathAccumulator,
+      current: isLast
+    })
+  })
+
+  return items
+})
+
 useHead({
-  title: 'BRC Market',
+  title: categoryName.value, // Le titre de l'onglet change aussi !
   titleTemplate: (titleChunk) => {
-    return titleChunk ? `${titleChunk} - Boutique` : 'BRC Market';
+    return titleChunk ? `${titleChunk} - BRC Market` : 'BRC Market';
   },
   link: [
     { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
   ]
+
 })
 
-/* ================= BREADCRUMB DATA ================= */
-const breadcrumbItems = [
-  { label: 'Accueil', to: '/', icon: 'i-heroicons-home' },
-  { label: 'Ordinateur', to: '/boutique' },
-  { label: 'Laptops', to: '/boutique' , current: true}
-]
+
 
 /* ================= ÉTAT DE L'AFFICHAGE ================= */
 const viewMode = ref<'grid' | 'grid-small' | 'list' | 'list-compact'>('grid')
@@ -62,8 +107,8 @@ const products = ref(
     price: 450000 + (i * 500),
     oldPrice: 550000,
     discount: '-18%',
-    image: '/placeholder.webp',
-    imageHover: '/placeholder-hover.webp'
+    image: '/images/publicity0.jpg',
+    imageHover: '/images/publicity2.jpg'
   }))
 )
 
@@ -128,14 +173,17 @@ const toggleService = (key: string) => {
 <template>
   <UContainer class="py-8 bg-white">
 
-    <nav class="flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2">
+    <nav class="flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2 overflow-x-auto">
       <template v-for="(item, index) in breadcrumbItems" :key="index">
-        <NuxtLink :to="item.to" class="flex items-center gap-1 transition-colors hover:text-[#e60012]"
-          :class="item.current ? 'text-[#274a82] font-bold pointer-events-none' : ''">
+        <NuxtLink 
+          :to="item.to" 
+          class="flex items-center gap-1 transition-colors hover:text-[#e60012] whitespace-nowrap"
+          :class="item.current ? 'text-[#274a82] font-bold pointer-events-none' : ''"
+        >
           <UIcon v-if="item.icon" :name="item.icon" class="w-4 h-4" />
           {{ item.label }}
         </NuxtLink>
-        <UIcon v-if="index < breadcrumbItems.length - 1" name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-300" />
+        <UIcon v-if="index < breadcrumbItems.length - 1" name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-300 flex-shrink-0" />
       </template>
     </nav>
 
@@ -340,7 +388,10 @@ const toggleService = (key: string) => {
       </aside>
 
       <main class="col-span-12 lg:col-span-9">
-        <h1 class="text-2xl font-medium text-gray-700 pb-2">Laptops</h1>
+        <h1 class="text-2xl font-medium text-gray-700  tracking-tighter pb-2">
+          {{ categoryName }}
+        </h1>
+        
         
         <div class="flex flex-wrap items-center justify-between mb-6 bg-[#f8f8f8] p-2 rounded-xl border border-gray-200 gap-4">
           <div class="flex items-center gap-3 ml-2">
@@ -372,7 +423,7 @@ const toggleService = (key: string) => {
           <NuxtLink 
             v-for="p in paginatedProducts" 
             :key="p.id" 
-            to="product/product-details"
+            :to="`/product/${p.id}`"
             :class="viewMode.startsWith('grid') 
               ? 'group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl' 
               : 'group relative rounded-sm bg-white border border-gray-100 flex flex-row items-center gap-4 p-3 hover:shadow-xl'"
@@ -384,10 +435,10 @@ const toggleService = (key: string) => {
               'relative h-20 w-20': viewMode === 'list-compact'
             }" class="overflow-hidden flex items-center justify-center bg-[#fcfcfc] flex-shrink-0">
               
-              <div class="flex flex-col items-center justify-center opacity-10 group-hover:opacity-30 transition-opacity">
+              <!-- <div class="flex flex-col items-center justify-center opacity-10 group-hover:opacity-30 transition-opacity">
                 <UIcon name="i-heroicons-shopping-bag" :class="viewMode === 'list-compact' ? 'w-6 h-6' : 'w-12 h-12'" />
                 <span class="font-black text-[10px]">BRC MARKET</span>
-              </div>
+              </div> -->
 
               <div class="absolute bottom-2 left-2 bg-[#e60012] text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">
                 {{ p.discount }}
@@ -397,10 +448,18 @@ const toggleService = (key: string) => {
                 <button @click.prevent.stop="addToWishlist(p.id)" class="w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white"><UIcon name="i-heroicons-heart" class="w-4 h-4" /></button>
                 <button @click.prevent.stop="" class="w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#274a82] hover:text-white"><UIcon name="i-heroicons-eye" class="w-4 h-4" /></button>
               </div>
-
-              <div v-if="viewMode.startsWith('grid')" class="absolute bottom-[-100%] group-hover:bottom-0 left-0 w-full transition-all duration-300 z-20">
-                <UButton @click.prevent.stop="addToCart(p.id)" icon="i-heroicons-shopping-cart" block class="bg-[#274a82] hover:bg-[#e60012] rounded-none font-bold text-[12px] py-2.5">Ajouter au Panier</UButton>
-              </div>
+            <img 
+              :src="p.image" 
+              class="absolute inset-0 w-full p-1 h-full object-cover transition-all duration-700 group-hover:scale-110 group-hover:opacity-0" 
+            />
+            
+            <img 
+              :src="p.imageHover || p.image" 
+              class="absolute inset-0 w-full p-1 h-full object-cover transition-all duration-700 opacity-0 group-hover:opacity-100 group-hover:scale-110" 
+            />
+            <div v-if="!viewMode.startsWith('list')" class="absolute bottom-[-100%] group-hover:bottom-0 left-0 w-full p-0 transition-all duration-300 z-20">
+              <UButton icon="i-heroicons-shopping-cart" block class="bg-[#274a82] hover:bg-[#e60012] rounded-none font-bold text-[12px] py-3 ">Ajouter au panier</UButton>
+            </div>
             </div>
             
             <div class="p-3 flex flex-col flex-1" :class="viewMode === 'list-compact' ? 'p-1' : ''">

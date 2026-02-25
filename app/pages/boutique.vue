@@ -61,8 +61,8 @@ const products = ref(
     price: 450000 + (i * 500),
     oldPrice: 550000,
     discount: '-18%',
-    image: '/placeholder.webp',
-    imageHover: '/placeholder-hover.webp'
+    image: '/images/publicity0.jpg',
+    imageHover: '/images/publicity2.jpg'
   }))
 )
 
@@ -368,10 +368,11 @@ const toggleService = (key: string) => {
           'flex flex-col gap-4': viewMode === 'list',
           'flex flex-col gap-1': viewMode === 'list-compact'
         }">
+          
           <NuxtLink 
             v-for="p in paginatedProducts" 
             :key="p.id" 
-            to="product/product-details"
+            :to="`/product/${p.id}`"
             :class="viewMode.startsWith('grid') 
               ? 'group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl' 
               : 'group relative rounded-sm bg-white border border-gray-100 flex flex-row items-center gap-4 p-3 hover:shadow-xl'"
@@ -383,10 +384,10 @@ const toggleService = (key: string) => {
               'relative h-20 w-20': viewMode === 'list-compact'
             }" class="overflow-hidden flex items-center justify-center bg-[#fcfcfc] flex-shrink-0">
               
-              <div class="flex flex-col items-center justify-center opacity-10 group-hover:opacity-30 transition-opacity">
+              <!-- <div class="flex flex-col items-center justify-center opacity-10 group-hover:opacity-30 transition-opacity">
                 <UIcon name="i-heroicons-shopping-bag" :class="viewMode === 'list-compact' ? 'w-6 h-6' : 'w-12 h-12'" />
                 <span class="font-black text-[10px]">BRC MARKET</span>
-              </div>
+              </div> -->
 
               <div class="absolute bottom-2 left-2 bg-[#e60012] text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">
                 {{ p.discount }}
@@ -396,10 +397,18 @@ const toggleService = (key: string) => {
                 <button @click.prevent.stop="addToWishlist(p.id)" class="w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white"><UIcon name="i-heroicons-heart" class="w-4 h-4" /></button>
                 <button @click.prevent.stop="" class="w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#274a82] hover:text-white"><UIcon name="i-heroicons-eye" class="w-4 h-4" /></button>
               </div>
-
-              <div v-if="viewMode.startsWith('grid')" class="absolute bottom-[-100%] group-hover:bottom-0 left-0 w-full transition-all duration-300 z-20">
-                <UButton @click.prevent.stop="addToCart(p.id)" icon="i-heroicons-shopping-cart" block class="bg-[#274a82] hover:bg-[#e60012] rounded-none font-bold text-[12px] py-2.5">Ajouter au Panier</UButton>
-              </div>
+            <img 
+              :src="p.image" 
+              class="absolute inset-0 w-full p-1 h-full object-cover transition-all duration-700 group-hover:scale-110 group-hover:opacity-0" 
+            />
+            
+            <img 
+              :src="p.imageHover || p.image" 
+              class="absolute inset-0 w-full p-1 h-full object-cover transition-all duration-700 opacity-0 group-hover:opacity-100 group-hover:scale-110" 
+            />
+            <div v-if="!viewMode.startsWith('list')" class="absolute bottom-[-100%] group-hover:bottom-0 left-0 w-full p-0 transition-all duration-300 z-20">
+              <UButton icon="i-heroicons-shopping-cart" block class="bg-[#274a82] hover:bg-[#e60012] rounded-none font-bold text-[12px] py-3 ">Ajouter au panier</UButton>
+            </div>
             </div>
             
             <div class="p-3 flex flex-col flex-1" :class="viewMode === 'list-compact' ? 'p-1' : ''">
