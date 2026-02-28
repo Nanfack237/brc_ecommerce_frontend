@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 
-// 📝 Messages
 const messages = [
-  "🔥 Grande Promotion Jusqu’à -40% sur tous les ordinateurs portables !",
-  "💻 Nouveautés : Machines puissantes pour professionnels",
-  "🛒 Livraison rapide et gratuite à partir de 100000 FCFA"
+  "🔥 Grande Promotion Jusqu'à -40% sur les laptops !",
+  "💻 Nouveautés : Machines pro pour créateurs",
+  "🛒 Livraison gratuite dès 250 000 FCFA"
 ]
 
-// 🖼️ Images (6)
 const images = [
   "/images/banner/banner1.jpg",
   "/images/banner/banner2.jpg",
@@ -21,17 +19,17 @@ const images = [
 const messageIndex = ref(0)
 const imageIndex = ref(0)
 
-let messageTimer: number
-let imageTimer: number
+let messageTimer: any
+let imageTimer: any
 
 onMounted(() => {
-  messageTimer = window.setInterval(() => {
+  messageTimer = setInterval(() => {
     messageIndex.value = (messageIndex.value + 1) % messages.length
-  }, 3000)
+  }, 3500)
 
-  imageTimer = window.setInterval(() => {
+  imageTimer = setInterval(() => {
     imageIndex.value = (imageIndex.value + 1) % images.length
-  }, 2000)
+  }, 2500)
 })
 
 onBeforeUnmount(() => {
@@ -41,50 +39,91 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="relative overflow-hidden py-4 px-4">
-    <!-- 🌈 Background gradient animé -->
-    <div
-      class="absolute inset-0 animate-gradient bg-gradient-to-r from-[#274a82] via-[#b83232] to-[#ff4d4f]"
-    ></div>
+  <section class="banner-section relative overflow-hidden shadow-inner">
+    <!-- Fond animé -->
+    <div class="absolute inset-0 animate-gradient bg-gradient-to-r from-[#274a82] via-[#b83232] to-[#ff4d4f]"></div>
 
-    <div class="relative max-w-7xl mx-auto flex items-center gap-6">
-      
-      <!-- Branding -->
-      <div class="z-10 text-white whitespace-nowrap">
-        <h1 class="text-sm md:text-lg font-bold">
-          Business Revolution Company
-        </h1>
-        <p class="text-xs md:text-sm italic opacity-90">
-          Un Africain, un Ordinateur
-        </p>
+    <!-- ===== MOBILE (< md) ===== -->
+    <div class="relative md:hidden px-3 py-2">
+      <div class="flex items-center justify-between gap-2">
+
+        <!-- Logo + slogan -->
+        <div class="text-white flex-shrink-0">
+          <h1 class="text-sm font-extrabold leading-tight tracking-tight">BRC Market</h1>
+          <p class="text-[9px] italic opacity-75">Un Africain, un Ordinateur</p>
+        </div>
+
+        <!-- Image produit -->
+        <div class="relative flex-shrink-0 h-10 w-10">
+          <transition name="image-fly" mode="out-in">
+            <img
+              :key="images[imageIndex]"
+              :src="images[imageIndex]"
+              class="h-full w-full object-contain drop-shadow-xl"
+              alt="Produit BRC"
+            />
+          </transition>
+        </div>
+
+        <!-- CTA -->
+        <a
+          href="/boutique"
+          class="cta-blink flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold text-white whitespace-nowrap"
+        >
+          Acheter 🔥
+        </a>
       </div>
 
-      <!-- 📝 Texte bounce -->
-      <div class="flex-1 relative overflow-hidden h-6 md:h-8 z-10">
+      <!-- Message promotionnel — ligne dédiée en dessous -->
+      <div class="relative overflow-hidden h-5 mt-1.5 w-full">
         <transition name="text-bounce" mode="out-in">
           <span
             :key="messages[messageIndex]"
-            class="absolute inset-0 flex items-center justify-center text-white font-semibold text-sm md:text-base whitespace-nowrap"
+            class="absolute inset-0 flex items-center justify-center text-white font-semibold text-[10px] text-center px-1 drop-shadow"
+          >
+            {{ messages[messageIndex] }}
+          </span>
+        </transition>
+      </div>
+    </div>
+
+    <!-- ===== DESKTOP (≥ md) ===== -->
+    <div class="relative hidden md:flex max-w-7xl mx-auto items-center justify-between gap-6 py-4 px-4">
+
+      <!-- Logo + slogan -->
+      <div class="z-10 text-white flex-shrink-0">
+        <h1 class="text-lg font-extrabold leading-tight tracking-tight">BRC Market</h1>
+        <p class="text-sm italic opacity-80">Un Africain, un Ordinateur</p>
+      </div>
+
+      <!-- Message promotionnel -->
+      <div class="flex-1 relative overflow-hidden h-10 z-10 min-w-0">
+        <transition name="text-bounce" mode="out-in">
+          <span
+            :key="messages[messageIndex]"
+            class="absolute inset-0 flex items-center justify-center text-white font-bold text-base text-center px-2 drop-shadow-md"
           >
             {{ messages[messageIndex] }}
           </span>
         </transition>
       </div>
 
-      <!-- 🖼️ Image bounce -->
-      <transition name="image-fly" mode="out-in">
-        <img
-          :key="images[imageIndex]"
-          :src="images[imageIndex]"
-          class="h-14 md:h-20 object-contain z-10"
-          alt="Produit"
-        />
-      </transition>
+      <!-- Image produit -->
+      <div class="relative flex items-center justify-center h-20 w-32 flex-shrink-0">
+        <transition name="image-fly" mode="out-in">
+          <img
+            :key="images[imageIndex]"
+            :src="images[imageIndex]"
+            class="h-full w-full object-contain z-10 drop-shadow-xl"
+            alt="Produit BRC"
+          />
+        </transition>
+      </div>
 
-      <!-- 🔥 CTA -->
+      <!-- CTA -->
       <a
         href="/boutique"
-        class="cta-blink z-10 hidden md:inline-flex items-center px-4 py-2 rounded-full text-sm font-bold text-white"
+        class="cta-blink z-10 flex-shrink-0 inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold text-white shadow-lg border border-white/20"
       >
         Commander maintenant 🔥
       </a>
@@ -93,79 +132,55 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* 📝 Texte : bounce naturel */
-@keyframes textBounce {
-  0% {
-    opacity: 0;
-    transform: translateY(120%);
-  }
-  40% {
-    opacity: 1;
-    transform: translateY(-12%);
-  }
-  60% {
-    transform: translateY(6%);
-  }
-  80% {
-    transform: translateY(-3%);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
-
-.text-bounce-enter-active {
-  animation: textBounce 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-.text-bounce-leave-active {
-  animation: textBounce 0.6s ease-in reverse forwards;
-}
-
-/* 🖼️ Image : fly + bounce */
-@keyframes flyBounce {
-  0% {
-    opacity: 0;
-    transform: translateX(-60px) scale(0.9);
-  }
-  40% {
-    opacity: 1;
-    transform: translateX(30%) scale(1.05);
-  }
-  70% {
-    transform: translateX(60%) translateY(-6px);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(100%) scale(0.95);
-  }
-}
-
-.image-fly-enter-active {
-  animation: flyBounce 2s ease forwards;
-}
-
 /* 🌈 Gradient animé */
-@keyframes gradient {
-  0%,100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+@keyframes gradientBG {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 .animate-gradient {
   background-size: 200% 200%;
-  animation: gradient 10s ease infinite;
+  animation: gradientBG 8s ease infinite;
 }
 
-/* 🔥 CTA clignotant */
-@keyframes blink {
-  0%,100% { transform: scale(1); box-shadow: none; }
-  50% { transform: scale(1.05); box-shadow: 0 0 18px rgba(255,255,255,0.8); }
+/* 📝 Texte : entrée/sortie verticale */
+.text-bounce-enter-active { animation: textIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.text-bounce-leave-active { animation: textOut 0.4s ease-in; }
+
+@keyframes textIn {
+  0%   { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes textOut {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-16px); }
+}
+
+/* 🖼️ Image : zoom + fade */
+.image-fly-enter-active { animation: imgIn 0.8s ease-out; }
+.image-fly-leave-active { animation: imgOut 0.5s ease-in; }
+
+@keyframes imgIn {
+  0%   { opacity: 0; transform: scale(0.5) rotate(-10deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes imgOut {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.2); }
+}
+
+/* 🔥 Bouton CTA */
+@keyframes pulseBlink {
+  0%, 100% { transform: scale(1);    filter: brightness(1); }
+  50%       { transform: scale(1.05); filter: brightness(1.2); }
 }
 .cta-blink {
   background: linear-gradient(135deg, #274a82, #b83232);
-  animation: blink 1.2s infinite;
+  animation: pulseBlink 2s infinite ease-in-out;
+  transition: all 0.3s ease;
 }
 .cta-blink:hover {
-  animation-play-state: paused;
-  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 </style>

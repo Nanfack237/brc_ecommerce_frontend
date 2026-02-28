@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from '#app'
+import AdminDashboard from './pages/admin/AdminDashboard.vue';
 
 // Configuration du titre et du favicon
 useHead({
@@ -32,7 +33,7 @@ router.afterEach(() => {
     <AppLoader v-if="loading" />
     <HeroBanner />
     <AppHeader />
-    <main>
+        <main>
       <NuxtPage />
     </main>
     <Popup />
