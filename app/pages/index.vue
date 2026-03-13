@@ -250,7 +250,7 @@ onUnmounted(() => {
       </div>
       <div class="flex gap-2 overflow-x-auto no-scrollbar sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible">
         <div v-for="p in bestProducts" :key="p.id" class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl min-w-[150px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
-          <div class="relative h-40 sm:h-48 md:h-52 w-full overflow-hidden">
+          <div class="relative h-60 sm:h-48 md:h-60 w-full overflow-hidden">
             <div class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">{{ p.discount }}</div>
             <div class="absolute right-2 top-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button class="w-7 h-7 bg-white/90 shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white transition-colors"><UIcon name="i-heroicons-heart" class="w-3.5 h-3.5" /></button>
@@ -296,7 +296,7 @@ onUnmounted(() => {
       </div>
       <div class="flex gap-2 overflow-x-auto no-scrollbar sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible">
         <div v-for="p in recentProducts" :key="p.id" class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl min-w-[150px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
-          <div class="relative h-40 sm:h-48 md:h-52 w-full overflow-hidden">
+          <div class="relative h-60 sm:h-48 md:h-60 w-full overflow-hidden">
             <div class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">{{ p.discount }}</div>
             <div class="absolute right-2 top-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button class="w-7 h-7 bg-white/90 shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white transition-colors"><UIcon name="i-heroicons-heart" class="w-3.5 h-3.5" /></button>
@@ -366,7 +366,7 @@ onUnmounted(() => {
       </div>
       <div class="flex gap-2 overflow-x-auto no-scrollbar sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible">
         <div v-for="p in accessories" :key="p.id" class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl min-w-[150px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
-          <div class="relative h-40 sm:h-48 md:h-52 w-full overflow-hidden">
+          <div class="relative h-60 sm:h-48 md:h-60 w-full overflow-hidden">
             <div class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">{{ p.discount }}</div>
             <div class="absolute right-2 top-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button class="w-7 h-7 bg-white/90 shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white transition-colors"><UIcon name="i-heroicons-heart" class="w-3.5 h-3.5" /></button>
@@ -412,7 +412,7 @@ onUnmounted(() => {
       </div>
       <div class="flex gap-2 overflow-x-auto no-scrollbar sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible">
         <div v-for="p in accessories" :key="p.id" class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl min-w-[150px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
-          <div class="relative h-40 sm:h-48 md:h-52 w-full overflow-hidden">
+          <div class="relative h-60 sm:h-48 md:h-60 w-full overflow-hidden">
             <div class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">{{ p.discount }}</div>
             <div class="absolute right-2 top-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button class="w-7 h-7 bg-white/90 shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white transition-colors"><UIcon name="i-heroicons-heart" class="w-3.5 h-3.5" /></button>
@@ -494,7 +494,7 @@ onUnmounted(() => {
       </div>
       <div class="flex gap-2 overflow-x-auto no-scrollbar sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible">
         <div v-for="p in accessories" :key="p.id" class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl min-w-[150px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
-          <div class="relative h-40 sm:h-48 md:h-52 w-full overflow-hidden">
+          <div class="relative h-60 sm:h-48 md:h-60 w-full overflow-hidden">
             <div class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">{{ p.discount }}</div>
             <div class="absolute right-2 top-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button class="w-7 h-7 bg-white/90 shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white transition-colors"><UIcon name="i-heroicons-heart" class="w-3.5 h-3.5" /></button>
@@ -564,7 +564,7 @@ onUnmounted(() => {
       </div>
       <div class="flex gap-2 overflow-x-auto no-scrollbar sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible">
         <div v-for="p in accessories" :key="p.id" class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl min-w-[150px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
-          <div class="relative h-40 sm:h-48 md:h-52 w-full overflow-hidden">
+          <div class="relative h-60 sm:h-48 md:h-60 w-full overflow-hidden">
             <div class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">{{ p.discount }}</div>
             <div class="absolute right-2 top-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button class="w-7 h-7 bg-white/90 shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white transition-colors"><UIcon name="i-heroicons-heart" class="w-3.5 h-3.5" /></button>
@@ -610,7 +610,7 @@ onUnmounted(() => {
       </div>
       <div class="flex gap-2 overflow-x-auto no-scrollbar sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible">
         <div v-for="p in accessories" :key="p.id" class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl min-w-[150px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
-          <div class="relative h-40 sm:h-48 md:h-52 w-full overflow-hidden">
+          <div class="relative h-60 sm:h-48 md:h-60 w-full overflow-hidden">
             <div class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">{{ p.discount }}</div>
             <div class="absolute right-2 top-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button class="w-7 h-7 bg-white/90 shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white transition-colors"><UIcon name="i-heroicons-heart" class="w-3.5 h-3.5" /></button>
@@ -683,7 +683,7 @@ onUnmounted(() => {
       </div>
       <div class="flex gap-2 overflow-x-auto no-scrollbar sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible">
         <div v-for="p in accessories" :key="p.id" class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl min-w-[150px] sm:min-w-0 flex-shrink-0 sm:flex-shrink">
-          <div class="relative h-40 sm:h-48 md:h-52 w-full overflow-hidden">
+          <div class="relative h-60 sm:h-48 md:h-60 w-full overflow-hidden">
             <div class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">{{ p.discount }}</div>
             <div class="absolute right-2 top-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <button class="w-7 h-7 bg-white/90 shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#e60012] hover:text-white transition-colors"><UIcon name="i-heroicons-heart" class="w-3.5 h-3.5" /></button>

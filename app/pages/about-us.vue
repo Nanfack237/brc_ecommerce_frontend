@@ -13,11 +13,10 @@
 </script>
 
 <template>
-  <div class="mx-12">
-
-    <!-- ================= HERO ABOUT ================= -->
+  <div class="max-w-7xl mx-auto px-4">
+    <!-- ================= HERO BANNER ================= -->
     <section
-      class="relative h-[300px] md:h-[380px] flex items-center justify-center overflow-hidden mx-4 mt-6"
+      class="relative h-[320px] md:h-[400px] gap-5 flex items-center justify-center overflow-hidden  "
     >
       <!-- Background -->
       <img

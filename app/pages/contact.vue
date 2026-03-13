@@ -118,7 +118,7 @@ const handleSubmit = async () => {
 
         <div class="flex items-center gap-2">
           <UIcon name="i-heroicons-clock" class="w-6 h-6 text-red-600" />
-          <span>Lun – Sam : 8h00 – 18h00</span>
+          <span>Lun – Sam : 8h15 – 16h45</span>
         </div>
       </div>
 

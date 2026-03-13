@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue'
 
-interface CartItem {
+export interface CartItem {
+  id: number
+  slug: string
   image: string
   name: string
   price: number
@@ -8,26 +10,60 @@ interface CartItem {
   options?: string
 }
 
-// Reactive cart
-const cartItems = ref<CartItem[]>([
-  { image: '/images/publicity0.jpg', name: 'Laptop Dell XPS 15', price: 139000, quantity: 1 },
-  { image: '/images/publicity1.jpg', name: 'Souris Gamer Logitech', price: 25000, quantity: 2 }
-])
+// ── État global singleton (partagé dans toute l'app) ──────────────────────────
+const cartItems  = ref<CartItem[]>([])
+const isCartOpen = ref(false)
 
-// Total price
+// ── Computed ──────────────────────────────────────────────────────────────────
 const totalPrice = computed(() =>
-  cartItems.value.reduce((total, item) => total + item.price * item.quantity, 0)
+  cartItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0)
 )
 
-// Functions
+const totalItems = computed(() =>
+  cartItems.value.reduce((sum, item) => sum + item.quantity, 0)
+)
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+const addToCart = (product: Omit<CartItem, 'quantity'>) => {
+  const existing = cartItems.value.find(item => item.id === product.id)
+  if (existing) {
+    existing.quantity++
+  } else {
+    cartItems.value.push({ ...product, quantity: 1 })
+  }
+  isCartOpen.value = true  // ouvre le drawer automatiquement
+}
+
 const increaseQty = (index: number) => {
   cartItems.value[index].quantity++
 }
 
 const decreaseQty = (index: number) => {
-  if (cartItems.value[index].quantity > 1) cartItems.value[index].quantity--
+  if (cartItems.value[index].quantity > 1) {
+    cartItems.value[index].quantity--
+  } else {
+    cartItems.value.splice(index, 1)  // retire si quantité = 0
+  }
+}
+
+const removeItem = (index: number) => {
+  cartItems.value.splice(index, 1)
+}
+
+const clearCart = () => {
+  cartItems.value = []
 }
 
 export default function useCart() {
-  return { cartItems, totalPrice, increaseQty, decreaseQty }
+  return {
+    cartItems,
+    totalPrice,
+    totalItems,
+    isCartOpen,
+    addToCart,
+    increaseQty,
+    decreaseQty,
+    removeItem,
+    clearCart,
+  }
 }

@@ -7,13 +7,21 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
   ],
 
+  runtimeConfig: {
+    public: {
+      apiBase: process.env.NUXT_PUBLIC_API_BASE ?? 'http://127.0.0.1:8000/api',
+      cloudinaryCloudName:    process.env.NUXT_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '',
+      cloudinaryUploadPreset: process.env.NUXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '',
+    },
+  },
+
   ui: {
     theme: {
       extend: {
         colors: {
-          primary: '#007bff', // Blue example
-          secondary: '#ff0000', // Red alternative
-          brcBlue: '#274a82',
+          primary:   '#007bff',
+          secondary: '#ff0000',
+          brcBlue:   '#274a82',
         }
       }
     }
@@ -35,7 +43,7 @@ export default defineNuxtConfig({
     config: {
       stylistic: {
         commaDangle: 'never',
-        braceStyle: '1tbs'
+        braceStyle:  '1tbs'
       }
     }
   }

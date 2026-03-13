@@ -1,24 +1,64 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import axios from 'axios'
 
 const year = new Date().getFullYear()
-const whatsappNumber = "237683627787"
 
 // Accordéon mobile
 const openSection = ref<string | null>(null)
 const toggle = (section: string) => {
   openSection.value = openSection.value === section ? null : section
 }
+
+// Auth state
+const token  = useCookie('auth_token')
+const router = useRouter()
+const toast  = useToast()
+
+const isLoggedIn = computed(() => !!token.value)
+
+// User dropdown
+const userMenuOpen = ref(false)
+
+const handleLogout = async () => {
+  userMenuOpen.value = false
+  try {
+    await axios.post('http://127.0.0.1:8000/api/auth/logout', {}, {
+      headers: { Authorization: `Bearer ${token.value}` }
+    })
+  } catch {}
+
+  token.value = null
+
+  toast.add({
+    title: 'Déconnecté',
+    description: 'À bientôt sur BRC Market !',
+    color: 'success',
+    icon: 'i-heroicons-check-circle',
+    duration: 3000,
+  })
+
+  router.push('/login')
+}
+
+// User menu items
+const userLinks = [
+  { label: 'Mes commandes',  icon: 'i-heroicons-shopping-bag',   to: '/compte/commandes' },
+  { label: 'Mes favoris',    icon: 'i-heroicons-heart',           to: '/compte/favoris' },
+  { label: 'Mes informations', icon: 'i-heroicons-user-circle',  to: '/compte/informations' },
+  { label: 'Paramètres',     icon: 'i-heroicons-cog-6-tooth',     to: '/compte/parametres' },
+]
 </script>
 
 <template>
+
   <footer class="bg-[#274a82] text-gray-300">
 
     <!-- ===== TOP FOOTER ===== -->
     <UContainer class="py-10">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-0 md:gap-10">
 
-        <!-- BRAND (toujours visible) -->
+        <!-- BRAND -->
         <div class="mb-6 md:mb-0">
           <div class="flex items-center gap-3 mb-3">
             <img src="/brclogo.png" alt="BRC Market" class="h-12 w-auto object-contain" />
@@ -31,7 +71,6 @@ const toggle = (section: string) => {
             réseaux et services IT professionnels au Cameroun.
           </p>
 
-          <!-- SOCIAL + Qui sommes-nous -->
           <div class="flex items-center gap-3 flex-wrap">
             <NuxtLink to="https://www.facebook.com/profile.php?id=61555704845467" target="_blank">
               <UButton icon="i-lucide-facebook" color="gray" variant="ghost" size="sm" />
@@ -45,7 +84,7 @@ const toggle = (section: string) => {
           </div>
         </div>
 
-        <!-- BOUTIQUE — accordéon sur mobile, normal sur desktop -->
+        <!-- BOUTIQUE -->
         <div class="border-t border-white/10 md:border-0">
           <button
             class="w-full flex items-center justify-between py-3 md:py-0 md:cursor-default text-white font-semibold md:mb-4"
@@ -69,7 +108,7 @@ const toggle = (section: string) => {
           </ul>
         </div>
 
-        <!-- SERVICES — accordéon sur mobile -->
+        <!-- SERVICES -->
         <div class="border-t border-white/10 md:border-0">
           <button
             class="w-full flex items-center justify-between py-3 md:py-0 md:cursor-default text-white font-semibold md:mb-4"
@@ -93,10 +132,10 @@ const toggle = (section: string) => {
           </ul>
         </div>
 
-        <!-- CONTACT — toujours visible sur mobile (info importante) -->
+        <!-- CONTACT -->
         <div class="border-t border-white/10 md:border-0 pt-4 md:pt-0">
           <h4 class="text-white font-semibold mb-3">Contact</h4>
-          <ul class="space-y-3 text-sm">
+          <ul class="space-y-3 text-sm mb-5">
             <li class="flex items-start gap-2">
               <UIcon name="i-heroicons-map-pin" class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
               <span>Douala – Cameroun, Akwa Rue face MTN Dubai</span>
@@ -113,17 +152,69 @@ const toggle = (section: string) => {
             </li>
           </ul>
 
-          <!-- Bouton WhatsApp rapide sur mobile -->
-          <!-- <a
-            :href="`https://wa.me/${whatsappNumber}`"
-            target="_blank"
-            class="mt-4 flex items-center justify-center gap-2 w-full md:w-auto px-4 py-2 rounded-full bg-green-600 hover:bg-green-500 text-white text-sm font-semibold transition"
-          >
-            <UIcon name="i-simple-icons-whatsapp" class="w-4 h-4" />
-            Nous contacter sur WhatsApp
-          </a> -->
-        </div>
+          <!-- ── NOT LOGGED IN → Se connecter ── -->
+          <div v-if="!isLoggedIn">
+            <NuxtLink to="/login">
+              <UButton
+                color="error"
+                variant="solid"
+                icon="i-heroicons-arrow-right-on-rectangle"
+                size="sm"
+                block
+                class="font-semibold"
+              >
+                Se connecter
+              </UButton>
+            </NuxtLink>
+          </div>
 
+          <!-- ── LOGGED IN → Account dropdown ── -->
+          <div v-else class="relative">
+            <UButton
+              color="white"
+              variant="solid"
+              icon="i-heroicons-user-circle"
+              trailing-icon="i-heroicons-chevron-down"
+              size="sm"
+              block
+              class="font-semibold text-[#274a82] justify-between"
+              @click="userMenuOpen = !userMenuOpen"
+            >
+              Mon compte
+            </UButton>
+
+            <!-- Dropdown -->
+            <div
+              v-if="userMenuOpen"
+              class="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-2xl overflow-hidden z-50 border border-gray-100"
+            >
+              <!-- Menu links -->
+              <NuxtLink
+                v-for="link in userLinks"
+                :key="link.to"
+                :to="link.to"
+                class="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#274a82] transition"
+                @click="userMenuOpen = false"
+              >
+                <UIcon :name="link.icon" class="w-4 h-4 text-[#274a82]" />
+                {{ link.label }}
+              </NuxtLink>
+
+              <!-- Divider -->
+              <div class="border-t border-gray-100" />
+
+              <!-- Logout -->
+              <button
+                class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition"
+                @click="handleLogout"
+              >
+                <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-4 h-4" />
+                Se déconnecter
+              </button>
+            </div>
+          </div>
+
+        </div>
       </div>
     </UContainer>
 
