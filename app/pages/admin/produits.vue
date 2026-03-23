@@ -4,8 +4,8 @@ import axios from 'axios'
 import type { TableColumn } from '@nuxt/ui'
 import type { ToastProps } from '@nuxt/ui'
 
-const { requireAdmin, token } = useAuth()
-requireAdmin()
+const { requireUserOrAdmin, token } = useAuth()
+requireUserOrAdmin()
 
 useHead({ title: 'BRC Market — Admin Produits' })
 
@@ -572,25 +572,25 @@ const columns: TableColumn<Product>[] = [
             </div>
             <div class="p-5 flex flex-col gap-4">
               <div>
-                <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Nom du produit <span class="text-[#e60012]">*</span></label>
+                <label class="block text-xs font-black text-gray-500  tracking-wider mb-1.5">Nom du produit <span class="text-[#e60012]">*</span></label>
                 <input v-model="form.name" type="text" placeholder="Ex: Samsung Galaxy S24 Ultra 256Go" :class="inputCls" />
               </div>
               <div>
-                <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Slug</label>
+                <label class="block text-xs font-black text-gray-500  tracking-wider mb-1.5">Slug</label>
                 <input v-model="form.slug" type="text" placeholder="samsung-galaxy-s24" :class="inputCls" />
               </div>
               <div>
-                <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Description</label>
+                <label class="block text-xs font-black text-gray-500  tracking-wider mb-1.5">Description</label>
                 <textarea v-model="form.description" rows="4" placeholder="Décrivez le produit..."
                   class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 bg-white focus:outline-none focus:border-[#274a82] focus:ring-2 focus:ring-[#274a82]/10 transition-all resize-none"></textarea>
               </div>
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Marque</label>
+                  <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">Marque</label>
                   <input v-model="form.brand" type="text" placeholder="Ex: Samsung, Apple..." :class="inputCls" />
                 </div>
                 <div>
-                  <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">SKU / Référence</label>
+                  <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">SKU / Référence</label>
                   <input v-model="form.sku" type="text" placeholder="Ex: SAM-S24U-256" :class="inputCls" />
                 </div>
               </div>
@@ -608,15 +608,15 @@ const columns: TableColumn<Product>[] = [
             <div class="p-5 flex flex-col gap-4">
               <div class="grid grid-cols-3 gap-4">
                 <div>
-                  <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Prix (FCFA) <span class="text-[#e60012]">*</span></label>
+                  <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">Prix (FCFA) <span class="text-[#e60012]">*</span></label>
                   <input v-model="form.price" type="number" placeholder="185000" :class="inputCls" />
                 </div>
                 <div>
-                  <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Ancien prix</label>
+                  <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">Ancien prix</label>
                   <input v-model="form.old_price" type="number" placeholder="220000" :class="inputCls" />
                 </div>
                 <div>
-                  <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">Stock <span class="text-[#e60012]">*</span></label>
+                  <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">Stock <span class="text-[#e60012]">*</span></label>
                   <input v-model="form.stock" type="number" placeholder="0" :class="inputCls" />
                 </div>
               </div>

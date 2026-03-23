@@ -99,7 +99,7 @@ const { cartItems, totalPrice, totalItems, isCartOpen, increaseQty, decreaseQty,
                 Passer à la caisse
               </UButton>
             </NuxtLink>
-            <NuxtLink to="/panier" @click="isCartOpen = false">
+            <NuxtLink to="/cart" @click="isCartOpen = false">
               <UButton block variant="outline" color="neutral" class="font-bold my-2" trailing-icon="i-heroicons-shopping-bag-solid">
                 Voir le panier
               </UButton>

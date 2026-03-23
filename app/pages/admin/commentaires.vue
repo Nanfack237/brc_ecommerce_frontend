@@ -2,6 +2,9 @@
 import { ref, computed } from 'vue'
 import type { ToastProps } from '@nuxt/ui'
 
+const { requireUserOrAdmin, token } = useAuth()
+requireUserOrAdmin()
+
 useHead({ title: 'BRC Market - Admin Avis' })
 
 const toast = useToast()

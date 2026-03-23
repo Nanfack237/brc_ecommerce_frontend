@@ -222,16 +222,16 @@ const formatPrice = (p: number) =>
     <template v-else-if="product">
 
       <!-- BREADCRUMB -->
-      <nav class="flex items-center gap-2 text-[11px] sm:text-[12px] font-bold tracking-wider text-gray-400 mb-4 sm:mb-6 border-b border-gray-50 pb-3 overflow-x-auto whitespace-nowrap">
+      <nav class="flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2">
         <NuxtLink to="/" class="hover:text-[#274a82] transition-colors flex-shrink-0">Boutique</NuxtLink>
         <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 flex-shrink-0" />
-        <NuxtLink v-if="product.category" :to="`/categorie/${product.category.slug}`"
+        <NuxtLink v-if="product.category" :to="`/categories/${product.category.slug}`"
           class="text-[#274a82] hover:text-[#e60012] transition-colors flex-shrink-0">
           {{ product.category.name }}
         </NuxtLink>
         <span v-else class="text-[#274a82] flex-shrink-0">Produit</span>
         <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 flex-shrink-0" />
-        <span class="text-gray-900 truncate max-w-[140px] sm:max-w-[200px]">{{ product.name }}</span>
+        <span class="truncate max-w-[150px] sm:max-w-[200px] text-[#274a82] font-bold pointer-events-none">{{ product.name }}</span>
       </nav>
 
       <!-- TITRE + BADGES -->
@@ -371,7 +371,7 @@ const formatPrice = (p: number) =>
           <div class="flex flex-col gap-2 p-3 bg-gray-50 rounded-sm border border-gray-100">
             <div class="flex items-center gap-2.5">
               <UIcon name="i-heroicons-truck" class="w-4 h-4 text-[#274a82] flex-shrink-0" />
-              <span class="text-[12px] font-semibold text-gray-700">Livraison disponible à Yaoundé & Douala</span>
+              <span class="text-[12px] font-semibold text-gray-700">Livraison disponible Partout en Afrique</span>
             </div>
             <div class="flex items-center gap-2.5">
               <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -475,7 +475,7 @@ const formatPrice = (p: number) =>
               <div class="flex gap-5 marquee-container">
                 <div class="flex gap-5 animate-marquee-scroll">
                   <div
-                    v-for="(review, i) in [...marqueeReviews, ...marqueeReviews]"
+                    v-for="(review, i) in [...marqueeReviews]"
                     :key="`m-${i}`"
                     class="min-w-[300px] max-w-[300px] p-4 bg-slate-50 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-3 flex-shrink-0"
                   >
@@ -544,7 +544,7 @@ const formatPrice = (p: number) =>
           <UCarousel v-slot="{ item }" :items="relatedProducts" :autoplay="{ delay: 2500 }"
             :ui="{ item: 'basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/5 px-2', container: 'py-4' }"
             indicators arrows class="rounded-sm">
-            <NuxtLink :to="`/produit/${item.slug}`"
+            <NuxtLink :to="`/products/${item.slug}`"
               class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl w-full">
               <div class="relative h-48 w-full overflow-hidden flex items-center justify-center bg-[#fcfcfc]">
                 <div class="absolute right-[-50px] group-hover:right-3 top-3 flex flex-col gap-2 z-30 transition-all duration-300">
@@ -581,7 +581,7 @@ const formatPrice = (p: number) =>
         </div>
 
         <div class="sm:hidden grid grid-cols-2 gap-3">
-          <NuxtLink v-for="item in relatedProducts" :key="item.id" :to="`/produit/${item.slug}`"
+          <NuxtLink v-for="item in relatedProducts" :key="item.id" :to="`/products/${item.slug}`"
             class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl">
             <div class="relative h-36 w-full overflow-hidden bg-[#fcfcfc]">
               <div v-if="item.discount_percent && item.discount_percent > 0"
@@ -619,7 +619,7 @@ const formatPrice = (p: number) =>
         <!-- Header -->
         <div class="px-6 py-5 bg-[#274a82] flex items-center justify-between">
           <div>
-            <p class="text-xs text-white/50 font-bold uppercase tracking-widest">Votre avis</p>
+            <p class="text-xs text-white/50 font-bold tracking-widest">Votre avis</p>
             <h2 class="text-base font-black text-white mt-0.5 line-clamp-1 max-w-[220px]">{{ product?.name }}</h2>
           </div>
           <button @click="showReviewModal = false"
@@ -632,7 +632,7 @@ const formatPrice = (p: number) =>
 
           <!-- Étoiles -->
           <div>
-            <p class="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Votre note</p>
+            <p class="text-xs font-black text-gray-400 tracking-widest mb-3">Votre note</p>
             <div class="flex items-center gap-1">
               <button v-for="star in 5" :key="star"
                 @click="reviewForm.rating = star"
@@ -652,7 +652,7 @@ const formatPrice = (p: number) =>
 
           <!-- Commentaire -->
           <div>
-            <p class="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2">Commentaire</p>
+            <p class="text-xs font-black text-gray-400 tracking-widest mb-2">Commentaire</p>
             <textarea v-model="reviewForm.comment" :maxlength="500" rows="4"
               placeholder="Partagez votre expérience avec ce produit..."
               class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#274a82] focus:ring-2 focus:ring-[#274a82]/10 transition-all resize-none">

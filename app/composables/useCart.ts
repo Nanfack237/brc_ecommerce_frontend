@@ -24,12 +24,12 @@ const totalItems = computed(() =>
 )
 
 // ── Actions ───────────────────────────────────────────────────────────────────
-const addToCart = (product: Omit<CartItem, 'quantity'>) => {
+const addToCart = (product: Omit<CartItem, 'quantity'>, qty = 1) => {
   const existing = cartItems.value.find(item => item.id === product.id)
   if (existing) {
-    existing.quantity++
+    existing.quantity += qty
   } else {
-    cartItems.value.push({ ...product, quantity: 1 })
+    cartItems.value.push({ ...product, quantity: qty })
   }
   isCartOpen.value = true  // ouvre le drawer automatiquement
 }

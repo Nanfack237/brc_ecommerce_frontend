@@ -158,8 +158,8 @@ const canGoNext = computed(() => {
 })
 
 // ── Codes marchands Mobile Money ─────────────────────────────────────────────
-const MARCHAND_OM   = '075 XX XX XX' // ← remplacer
-const MARCHAND_MOMO = '650 XX XX XX' // ← remplacer
+const MARCHAND_OM   = '#150*14*278956*696923379*Montant#' // ← remplacer
+const MARCHAND_MOMO = '*126*14*271452*678451236*Montant#' // ← remplacer
 
 // ── Soumission ───────────────────────────────────────────────────────────────
 const isSubmitting = ref(false)
@@ -479,7 +479,7 @@ const formatPrice = (n: number) =>
                   <!-- Grille tarifaire -->
                   <div class="rounded-xl border border-gray-100 overflow-hidden mt-4">
                     <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                      <p class="text-[11px] font-black text-gray-500 uppercase tracking-wider">Grille tarifaire</p>
+                      <p class="text-xs font-black text-gray-500 tracking-wider">Grille tarifaire</p>
                     </div>
                     <div class="divide-y divide-gray-50">
                       <div v-for="z in shippingZones" :key="z.label"
@@ -560,7 +560,7 @@ const formatPrice = (n: number) =>
 
                   <!-- Récap -->
                   <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                    <p class="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-3">Récapitulatif</p>
+                    <p class="text-xs font-black text-gray-400 tracking-wider mb-3">Récapitulatif</p>
                     <div class="space-y-1.5 text-sm">
                       <div class="flex justify-between">
                         <span class="text-gray-500">Destinataire</span>
@@ -607,7 +607,7 @@ const formatPrice = (n: number) =>
               </NuxtLink>
 
               <button @click="submitOrder" :disabled="!canGoNext || isSubmitting"
-                class="flex items-center gap-2 px-6 sm:px-8 py-3 rounded-xl font-black text-sm tracking-widest uppercase transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                class="flex items-center gap-2 px-6 sm:px-8 py-3 rounded-xl font-black text-sm tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 :class="currentStep === 3
                   ? 'bg-[#e60012] hover:bg-red-700 text-white shadow-lg shadow-red-200'
                   : 'bg-[#274a82] hover:bg-[#1a3460] text-white'">
@@ -625,7 +625,7 @@ const formatPrice = (n: number) =>
           <div class="sticky top-6 space-y-4">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-                <h3 class="font-black text-gray-800 text-sm tracking-wider uppercase">Votre commande</h3>
+                <h3 class="font-black text-gray-800 text-xs tracking-wider ">Votre commande</h3>
                 <span class="text-xs text-gray-400 font-bold">{{ cartItems.length }} article{{ cartItems.length > 1 ? 's' : '' }}</span>
               </div>
               <div class="divide-y divide-gray-50 max-h-52 overflow-y-auto">
@@ -681,7 +681,7 @@ const formatPrice = (n: number) =>
               <div v-for="g in [
                 { icon: 'i-heroicons-shield-check',  text: 'Paiement 100% sécurisé',     color: 'text-green-500'  },
                 { icon: 'i-heroicons-truck',          text: 'Livraison garantie BRC',     color: 'text-[#274a82]' },
-                { icon: 'i-heroicons-envelope',       text: 'Confirmation par email/SMS', color: 'text-[#e60012]' },
+                { icon: 'i-heroicons-envelope',       text: 'Confirmation par email', color: 'text-[#e60012]' },
                 { icon: 'i-heroicons-arrow-path',     text: 'Retour sous 7 jours',        color: 'text-orange-400'},
               ]" :key="g.text" class="flex items-center gap-3">
                 <UIcon :name="g.icon" class="w-4 h-4 flex-shrink-0" :class="g.color" />

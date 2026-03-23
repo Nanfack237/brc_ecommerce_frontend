@@ -232,7 +232,7 @@ await fetchUsers()
         </p>
       </div>
       <button @click="showCreate = true"
-        class="flex items-center gap-2 px-4 py-2.5 bg-[#274a82] hover:bg-[#1a3460] text-white text-sm font-black rounded-xl transition-all shadow-sm">
+        class="flex items-center gap-2 px-4 py-1.5 bg-[#e60012] hover:bg-[#e60012] text-white text-sm  rounded-sm transition-all shadow-sm">
         <UIcon name="i-heroicons-user-plus" class="w-4 h-4" />
         Créer un compte
       </button>
@@ -241,7 +241,7 @@ await fetchUsers()
     <!-- ── Stats cards ────────────────────────────────────────────────────── -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
-        <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Total</p>
+        <p class="text-xs font-bold text-gray-400 tracking-wider">Total</p>
         <p class="text-2xl font-black text-gray-900 mt-1">{{ stats.total }}</p>
       </div>
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
@@ -249,7 +249,7 @@ await fetchUsers()
           <div class="w-5 h-5 rounded-md bg-[#f1f5f9] flex items-center justify-center">
             <UIcon name="i-heroicons-user" class="w-3 h-3 text-slate-500" />
           </div>
-          <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Clients</p>
+          <p class="text-xs font-bold text-gray-400  tracking-wider">Clients</p>
         </div>
         <p class="text-2xl font-black text-slate-600">{{ stats.clients }}</p>
       </div>
@@ -258,7 +258,7 @@ await fetchUsers()
           <div class="w-5 h-5 rounded-md bg-[#eff6ff] flex items-center justify-center">
             <UIcon name="i-heroicons-truck" class="w-3 h-3 text-blue-600" />
           </div>
-          <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Livreurs</p>
+          <p class="text-xs font-bold text-gray-400 tracking-wider">Livreurs</p>
         </div>
         <p class="text-2xl font-black text-blue-600">{{ stats.livreurs }}</p>
       </div>
@@ -267,7 +267,7 @@ await fetchUsers()
           <div class="w-5 h-5 rounded-md bg-[#f0fdf4] flex items-center justify-center">
             <UIcon name="i-heroicons-computer-desktop" class="w-3 h-3 text-green-700" />
           </div>
-          <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Système</p>
+          <p class="text-xs font-bold text-gray-400 tracking-wider">Système</p>
         </div>
         <p class="text-2xl font-black text-green-700">{{ stats.systeme }}</p>
       </div>
@@ -544,7 +544,7 @@ await fetchUsers()
           <!-- Prénom + Nom -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-[11px] font-black text-gray-400 uppercase tracking-wider block mb-1.5">
+              <label class="text-xs font-black text-gray-400 tracking-wider block mb-1.5">
                 Prénom <span class="text-[#e60012]">*</span>
               </label>
               <input v-model="createForm.first_name" type="text" placeholder="Jean"
@@ -553,7 +553,7 @@ await fetchUsers()
               <p v-if="createErrors.first_name" class="text-xs text-red-500 mt-1">{{ createErrors.first_name[0] }}</p>
             </div>
             <div>
-              <label class="text-[11px] font-black text-gray-400 uppercase tracking-wider block mb-1.5">
+              <label class="text-xs font-black text-gray-400 tracking-wider block mb-1.5">
                 Nom <span class="text-[#e60012]">*</span>
               </label>
               <input v-model="createForm.last_name" type="text" placeholder="Mbala"
@@ -565,7 +565,7 @@ await fetchUsers()
 
           <!-- Email -->
           <div>
-            <label class="text-[11px] font-black text-gray-400 uppercase tracking-wider block mb-1.5">
+            <label class="text-xs font-black text-gray-400 tracking-wider block mb-1.5">
               Email <span class="text-[#e60012]">*</span>
             </label>
             <input v-model="createForm.email" type="email" placeholder="jean@brcmarket.cm"
@@ -576,14 +576,14 @@ await fetchUsers()
 
           <!-- Téléphone -->
           <div>
-            <label class="text-[11px] font-black text-gray-400 uppercase tracking-wider block mb-1.5">Téléphone</label>
+            <label class="text-xs font-black text-gray-400 tracking-wider block mb-1.5">Téléphone</label>
             <input v-model="createForm.phone" type="tel" placeholder="+237 6XX XXX XXX"
               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#274a82] focus:ring-2 focus:ring-[#274a82]/10 transition-all" />
           </div>
 
           <!-- Mot de passe -->
           <div>
-            <label class="text-[11px] font-black text-gray-400 uppercase tracking-wider block mb-1.5">
+            <label class="text-xs font-black text-gray-400 tracking-wider block mb-1.5">
               Mot de passe <span class="text-[#e60012]">*</span>
             </label>
             <div class="relative">
@@ -603,7 +603,7 @@ await fetchUsers()
         </div>
 
         <!-- Footer -->
-        <div class="px-6 pb-6 flex gap-3 border-t border-gray-100 pt-4">
+        <div class="px-6 pb-6 flex gap-3  border-gray-100 py-2">
           <button @click="showCreate = false; resetCreateForm()"
             class="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all">
             Annuler

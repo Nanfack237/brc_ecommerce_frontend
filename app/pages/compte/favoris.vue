@@ -111,8 +111,6 @@ await fetchFavorites()
       <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
         <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
         <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
-        <NuxtLink to="/compte/informations" class="hover:text-[#274a82] transition-colors">Mon compte</NuxtLink>
-        <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
         <span class="text-gray-600 font-medium">Mes favoris</span>
       </div>
       <h1 class="text-2xl font-black text-gray-900">Mes favoris</h1>
@@ -203,11 +201,7 @@ await fetchFavorites()
                 :class="removing === product.id ? 'animate-spin' : ''"
               />
             </button>
-            <NuxtLink :to="`/products/${product.slug}`" @click.stop
-              class="w-9 h-9 bg-white shadow-md rounded-full flex items-center justify-center text-gray-400 hover:bg-[#274a82] hover:text-white transition-colors"
-            >
-              <UIcon name="i-heroicons-eye" class="w-5 h-5" />
-            </NuxtLink>
+           
           </div>
 
           <!-- Mobile : bouton favoris toujours visible -->

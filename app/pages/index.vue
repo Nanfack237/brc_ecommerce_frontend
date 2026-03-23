@@ -24,41 +24,47 @@ const brands = [
   { name: 'SAMSUNG', img: '/images/logos/logo-samsung.jpg' },
   { name: 'CANON', img: '/images/logos/logo-canon.jpg' }
 ]
-
-const categories = [
-  {
-    label: 'Ordinateurs Et Accessoires', sublabel: 'Ordinateurs', icon: 'i-heroicons-computer-desktop',
-    sub: ['Laptops', 'Desktops', 'All-in-One', 'Ecran Ordinateurs', 'Accessoires Ordinateurs']
-  },
-  {
-    label: 'Imprimantes / Scanners', sublabel: 'Imprimantes', icon: 'i-heroicons-cpu-chip',
-    sub: ["Imprimantes", "Scanner", 'Consommables', 'Etiqueteuse']
-  },
-  {
-    label: 'Smartphones et Tablettes', sublabel: 'Smartphones', icon: 'i-heroicons-device-phone-mobile',
-    sub: ['iPhones', 'Android', 'Téléphones Mobiles', 'Tablettes']
-  },
-  {
-    label: 'Matériel Réseau', sublabel: 'Réseau', icon: 'i-heroicons-signal',
-    sub: ['Serveurs', 'Routeurs', "Switchs", 'Câbles Réseau', 'Fibre Optique']
-  },
-  {
-    label: 'Sécurité & Biométrie', sublabel: 'Sécurité', icon: 'i-heroicons-shield-check',
-    sub: ['Caméras/NVR/DVR', "Videophone", "Biometrie", 'Alarmes']
-  },
-  {
-    label: 'Stockage Haute Densité', sublabel: 'Stockage', icon: 'i-heroicons-circle-stack',
-    sub: ['SSD Interne', 'Disques Durs Externes', 'Clés USB']
-  },
-  {
-    label: 'Maintenance Expert', sublabel: 'Maintenance', icon: 'i-heroicons-wrench-screwdriver',
-    sub: ['Diagnostic', 'Réparation Écran', 'Remplacement Batterie', 'Nettoyage']
-  },
-  {
-    label: 'SAV', sublabel: 'Maintenance', icon: 'i-heroicons-chat-bubble-left-right',
-    sub: ['Diagnostic', 'Assistance Technique']
-  },
-]
+const CATEGORY_ICONS: Record<string, string> = {
+  'ordinateurs':                  'i-heroicons-computer-desktop',
+  'ordinateurs-et-accessoires':   'i-heroicons-computer-desktop',
+  'laptops':                      'i-heroicons-computer-desktop',
+  'desktops':                     'i-heroicons-computer-desktop',
+  'imprimantes':                  'i-heroicons-printer',
+  'imprimantes-scanners':         'i-heroicons-printer',
+  'smartphones':                  'i-heroicons-device-phone-mobile',
+  'smartphones-et-tablettes':     'i-heroicons-device-phone-mobile',
+  'materiels-reseau':              'i-heroicons-signal',
+  'reseau':                       'i-heroicons-signal',
+  'securite':                     'i-heroicons-shield-check',
+  'securite-biometrie':           'i-heroicons-shield-check',
+  'stockage':                     'i-heroicons-circle-stack',
+  'stockage-haute-densite':       'i-heroicons-circle-stack',
+  'maintenance':                  'i-heroicons-wrench-screwdriver',
+  'maintenance-expert':           'i-heroicons-wrench-screwdriver',
+  'sav':                          'i-heroicons-chat-bubble-left-right',
+  'accessoires':                  'i-heroicons-puzzle-piece',
+  'ecrans':                       'i-heroicons-tv',
+  'gadgets':                      'i-heroicons-bolt',
+  'serveurs':                     'i-heroicons-server-stack',
+}
+ 
+const DEFAULT_ICON = 'i-heroicons-tag'
+ 
+const getIcon = (slug: string) => CATEGORY_ICONS[slug] ?? DEFAULT_ICON
+ 
+// Composable partagé
+const {
+  navGroups: categoriesData,
+  loadingCats,
+  errorCats,
+  fetchCategories,
+} = useCategories()
+ 
+const hoveredCategory = ref<number | null>(null)
+ 
+onMounted(() => {
+  fetchCategories()
+})
 
 const bestProducts = [
   { id: 1, name: 'MacBook Pro M2 - 16GB RAM', price: '850.000', oldPrice: '950.000', image: '/images/publicity0.jpg', imageHover: '/images/publicity1.jpg', discount: '-12%' },
@@ -98,7 +104,7 @@ const benefits = [
 
 const isExpanded = ref(false)
 const isFlyerOpen = ref(false)
-const hoveredCategory = ref<number | null>(null)
+
 let inactivityTimer: any = null
 
 const resetInactivityTimer = () => {
@@ -135,30 +141,62 @@ onUnmounted(() => {
       <div class="flex flex-col md:flex-row gap-3 md:gap-4 md:h-[380px]">
 
         <!-- Sidebar — desktop only, overflow-visible for flyout -->
-        <aside class="hidden md:flex flex-col w-full md:w-1/4 bg-white rounded-sm shadow-sm border border-gray-100 overflow-visible relative z-40">
+          <aside class="hidden md:flex flex-col w-full md:w-1/4 bg-white rounded-sm shadow-sm border border-gray-100 overflow-visible relative z-40">
           <div class="bg-[#274a82] p-4 text-white uppercase tracking-wider font-bold text-sm rounded-t-sm">
             <UIcon name="i-heroicons-bars-3" class="inline-block mr-2" /> Catégories
           </div>
-          <nav class="flex-1 flex flex-col py-1 bg-white rounded-b-sm">
+      
+          <!-- Skeleton chargement -->
+          <div v-if="loadingCats" class="flex-1 py-1">
+            <div v-for="n in 7" :key="n" class="flex items-center gap-3 px-5 py-2.5 border-b border-gray-50">
+              <div class="w-4 h-4 bg-gray-100 rounded animate-pulse flex-shrink-0"></div>
+              <div class="h-3 bg-gray-100 rounded animate-pulse flex-1"></div>
+            </div>
+          </div>
+      
+          <!-- Erreur -->
+          <div v-else-if="errorCats" class="flex-1 flex flex-col items-center justify-center gap-2 py-6 text-center px-4">
+            <UIcon name="i-heroicons-exclamation-circle" class="w-7 h-7 text-red-300" />
+            <p class="text-xs text-red-400 font-medium">Impossible de charger les catégories</p>
+            <button @click="fetchCategories" class="text-xs text-[#274a82] font-bold hover:underline">Réessayer</button>
+          </div>
+      
+          <!-- Catégories depuis l'API -->
+          <nav v-else class="flex-1 flex flex-col py-1 bg-white rounded-b-sm">
             <div
-              v-for="(cat, index) in categories"
-              :key="cat.label"
+              v-for="(cat, index) in categoriesData"
+              :key="cat.slug"
               class="relative"
               @mouseenter="hoveredCategory = index"
               @mouseleave="hoveredCategory = null"
             >
-              <div
+              <!-- Ligne catégorie -->
+              <NuxtLink
+                :to="`/categories/${cat.slug}`"
                 class="flex items-center justify-between px-5 py-2.5 text-[13px] border-b border-gray-50 last:border-0 cursor-pointer select-none transition-colors"
                 :class="hoveredCategory === index ? 'bg-[#f0f4ff]' : 'hover:bg-gray-50'"
               >
                 <div class="flex items-center gap-3">
-                  <UIcon :name="cat.icon" class="w-4 h-4 transition-colors" :class="hoveredCategory === index ? 'text-[#274a82]' : 'text-gray-400'" />
-                  <span class="font-medium transition-colors" :class="hoveredCategory === index ? 'text-[#274a82]' : 'text-gray-700'">{{ cat.label }}</span>
+                  <!-- <UIcon
+                    :name="getIcon(cat.slug)"
+                    class="w-4 h-4 transition-colors flex-shrink-0"
+                    :class="hoveredCategory === index ? 'text-[#274a82]' : 'text-gray-400'"
+                  /> -->
+                  <span
+                    class="font-medium transition-colors truncate"
+                    :class="hoveredCategory === index ? 'text-[#274a82]' : 'text-gray-700'"
+                  >
+                    {{ cat.label }}
+                  </span>
                 </div>
-                <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 transition-colors" :class="hoveredCategory === index ? 'text-[#274a82]' : 'text-gray-300'" />
-              </div>
-
-              <!-- Flyout -->
+                <UIcon
+                  name="i-heroicons-chevron-right"
+                  class="w-3 h-3 transition-colors flex-shrink-0"
+                  :class="hoveredCategory === index ? 'text-[#274a82]' : 'text-gray-300'"
+                />
+              </NuxtLink>
+      
+              <!-- Flyout sous-catégories -->
               <Transition
                 enter-active-class="transition-all duration-180 ease-out"
                 enter-from-class="opacity-0 translate-x-2"
@@ -168,29 +206,47 @@ onUnmounted(() => {
                 leave-to-class="opacity-0 translate-x-1"
               >
                 <div
-                  v-if="hoveredCategory === index"
-                  class="absolute left-full top-0 z-50 bg-white border border-gray-200 shadow-2xl rounded-sm min-w-[250px] py-2"
+                  v-if="hoveredCategory === index && cat.links.length > 1"
+                  class="absolute left-full top-0 z-50 bg-white border border-gray-200 shadow-2xl rounded-sm min-w-[220px] py-2"
                   style="margin-left: 2px;"
                 >
-                  <!-- Arrow -->
+                  <!-- Flèche -->
                   <div class="absolute -left-[5px] top-4 w-2.5 h-2.5 bg-white border-l border-b border-gray-200 rotate-45"></div>
-                  <!-- Header -->
+      
+                  <!-- Header flyout -->
                   <div class="px-4 py-2 mb-1 bg-[#274a82] flex items-center gap-2">
-                    <UIcon :name="cat.icon" class="w-4 h-4 text-white" />
-                    <span class="text-[11px] font-black text-white  tracking-widest">{{ cat.label }}</span>
+                    <UIcon :name="getIcon(cat.slug)" class="w-4 h-4 text-white flex-shrink-0" />
+                    <span class="text-[11px] font-black text-white tracking-widest truncate">{{ cat.label }}</span>
                   </div>
-                  <!-- Sub items -->
+      
+                  <!-- Liens sous-catégories — on saute le premier lien "Voir tout" -->
                   <NuxtLink
-                    v-for="sub in cat.sub"
-                    :key="sub"
-                    to="#"
+                    v-for="link in cat.links.slice(1)"
+                    :key="link.to"
+                    :to="link.to"
                     class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-gray-600 hover:text-[#e60012] hover:bg-red-50 transition-colors"
                   >
-                    
-                    {{ sub }}
+                    {{ link.label }}
                   </NuxtLink>
+      
+                  <!-- Voir tout en bas -->
+                  <div class="border-t border-gray-100 mt-1 pt-1">
+                    <NuxtLink
+                      :to="`/categories/${cat.slug}`"
+                      class="flex items-center gap-2 px-4 py-2 text-[12px] font-bold text-[#274a82] hover:text-[#e60012] hover:bg-red-50 transition-colors"
+                    >
+                      <UIcon name="i-heroicons-arrow-right" class="w-3 h-3" />
+                      Voir tout {{ cat.label }}
+                    </NuxtLink>
+                  </div>
                 </div>
               </Transition>
+            </div>
+      
+            <!-- Vide -->
+            <div v-if="!loadingCats && categoriesData.length === 0" class="flex flex-col items-center justify-center py-8 gap-2 text-center">
+              <UIcon name="i-heroicons-folder" class="w-8 h-8 text-gray-200" />
+              <p class="text-xs text-gray-400">Aucune catégorie</p>
             </div>
           </nav>
         </aside>

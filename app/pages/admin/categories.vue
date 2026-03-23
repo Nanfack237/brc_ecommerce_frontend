@@ -4,8 +4,8 @@ import axios from 'axios'
 import type { TableColumn } from '@nuxt/ui'
 import type { ToastProps } from '@nuxt/ui'
 
-const { requireAdmin, token } = useAuth()
-requireAdmin()
+const { requireUserOrAdmin, token } = useAuth()
+requireUserOrAdmin()
 
 useHead({ title: 'BRC Market — Admin Catégories' })
 
@@ -592,7 +592,7 @@ const columns: TableColumn<TableRow>[] = [
 
           <!-- Nom -->
           <div>
-            <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">
+            <label class="block text-xs font-black text-gray-500  tracking-wider mb-1.5">
               Nom <span class="text-[#e60012]">*</span>
             </label>
             <input
@@ -606,7 +606,7 @@ const columns: TableColumn<TableRow>[] = [
 
           <!-- Slug -->
           <div>
-            <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">
+            <label class="block text-xs font-black text-gray-500  tracking-wider mb-1.5">
               Slug
             </label>
             <div class="relative">
@@ -623,7 +623,7 @@ const columns: TableColumn<TableRow>[] = [
 
           <!-- Description -->
           <div>
-            <label class="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5">
+            <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">
               Description
             </label>
             <textarea

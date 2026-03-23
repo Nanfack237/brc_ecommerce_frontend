@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from '#app'
+import axios from 'axios'
 import AdminSideBar from './components/admin/AdminSideBar.vue'
 
 useHead({
@@ -23,6 +24,71 @@ router.afterEach(() => { setTimeout(() => { loading.value = false }, 400) })
 // ── Layout conditions ────────────────────────────────────────────────────
 const isAdminPage  = computed(() => route.path.startsWith('/admin'))
 const isComptePage = computed(() => route.path.startsWith('/compte'))
+
+// ── Auth ─────────────────────────────────────────────────────────────────
+const { token, isAdmin } = useAuth()
+
+// ── Son nouvelle commande ────────────────────────────────────────────────
+const config        = useRuntimeConfig()
+const API           = config.public.apiBase
+const lastOrderId   = ref<number | null>(null)
+let   pollingTimer: ReturnType<typeof setInterval> | null = null
+
+const playOrderSound = () => {
+  try {
+    const audio = new Audio('/sounds/order.mp3')
+    audio.volume = 0.8
+    audio.play().catch(() => {})   // catch si autoplay bloqué
+  } catch {}
+}
+
+const checkNewOrders = async () => {
+  if (!token.value || !isAdmin.value) return
+  try {
+    const { data } = await axios.get(`${API}/admin/orders`, {
+      headers: { Authorization: `Bearer ${token.value}`, Accept: 'application/json' },
+      params:  { per_page: 1, page: 1 },   // on veut juste la commande la plus récente
+    })
+
+    const orders    = data.data ?? data
+    const latestId  = orders?.[0]?.id ?? null
+
+    if (latestId === null) return
+
+    if (lastOrderId.value === null) {
+      // Première init — on mémorise sans sonner
+      lastOrderId.value = latestId
+    } else if (latestId > lastOrderId.value) {
+      // Nouvelle commande détectée !
+      lastOrderId.value = latestId
+      playOrderSound()
+    }
+  } catch {}
+}
+
+const startPolling = () => {
+  if (pollingTimer) return
+  checkNewOrders()                                         // vérif immédiate
+  pollingTimer = setInterval(checkNewOrders, 30_000)       // puis toutes les 30s
+}
+
+const stopPolling = () => {
+  if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null }
+}
+
+// Démarrer uniquement côté client dans onMounted
+onMounted(() => {
+  if (isAdmin.value && token.value) startPolling()
+  watch(
+    [isAdmin, () => token.value],
+    ([adminVal, tok]) => {
+      if (adminVal && tok) startPolling()
+      else                 stopPolling()
+    }
+  )
+})
+
+onUnmounted(() => stopPolling())
 </script>
 
 <template>
@@ -59,7 +125,7 @@ const isComptePage = computed(() => route.path.startsWith('/compte'))
       <AppFooter />
     </template>
 
-    <!-- ── ALL OTHER pages (login, register, forgot-password, public) ── -->
+    <!-- ── ALL OTHER pages ── -->
     <template v-else>
       <HeroBanner />
       <AppHeader />

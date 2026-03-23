@@ -120,13 +120,13 @@ const handleLogout = async () => {
       <div class="flex items-center gap-2">
 
         <!-- View site -->
-        <!-- <NuxtLink
+        <NuxtLink
           to="/"
           class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-[#274a82] transition"
         >
           <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3.5 h-3.5" />
           Voir le site
-        </NuxtLink> -->
+        </NuxtLink>
 
         <!-- Notifications -->
         <div class="relative">
@@ -204,7 +204,7 @@ const handleLogout = async () => {
                 <p class="text-xs text-gray-400 truncate">{{ user?.email }}</p>
                 <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#274a82]/10 text-[#274a82]">
                   <UIcon name="i-heroicons-shield-check" class="w-3 h-3" />
-                  {{ user?.role === 'admin' ? 'Admin' : 'User' }}
+                  {{ user?.role === 'super_admin' ? 'Super Admin' : 'Admin' }}
                 </span>
               </div>
 

@@ -3,6 +3,9 @@ import { ref } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
 
+const { requireUserOrAdmin} = useAuth()
+requireUserOrAdmin()
+
 useHead({
   title: 'BRC Market',
   titleTemplate: (titleChunk) => `${titleChunk} - Paramètres`,

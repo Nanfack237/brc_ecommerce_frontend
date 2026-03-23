@@ -15,6 +15,14 @@ export default defineNuxtConfig({
     },
   },
 
+  vite: {
+    server: {
+      allowedHosts: [
+        'unadoringly-registrable-marcus.ngrok-free.dev'
+      ]
+    }
+  },
+
   ui: {
     theme: {
       extend: {
@@ -25,6 +33,12 @@ export default defineNuxtConfig({
         }
       }
     }
+  },
+
+  colorMode: {
+    preference: 'light', // Force le mode clair par défaut
+    fallback: 'light',   // Si le système ne répond pas, reste en clair
+    storageKey: 'nuxt-color-mode'
   },
 
   devtools: {

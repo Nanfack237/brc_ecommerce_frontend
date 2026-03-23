@@ -308,8 +308,6 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
         <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
           <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
           <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
-          <NuxtLink to="/compte/informations" class="hover:text-[#274a82] transition-colors">Mon compte</NuxtLink>
-          <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
           <span class="text-gray-600 font-medium">Mes commandes</span>
         </div>
         <h1 class="text-2xl font-black text-gray-900">Mes commandes</h1>
@@ -328,19 +326,19 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
     <!-- ══ STATS ═══════════════════════════════════════════════════════════ -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-        <p class="text-xs font-bold text-gray-400 tracking-wider uppercase">Total</p>
+        <p class="text-xs font-bold text-gray-400 tracking-wider">Total</p>
         <p class="text-2xl font-black text-gray-900 mt-1">{{ stats.total }}</p>
       </div>
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-        <p class="text-xs font-bold text-gray-400 tracking-wider uppercase">En attente</p>
+        <p class="text-xs font-bold text-gray-400 tracking-wider">En attente</p>
         <p class="text-2xl font-black text-yellow-500 mt-1">{{ stats.pending }}</p>
       </div>
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-        <p class="text-xs font-bold text-gray-400 tracking-wider uppercase">Livrées</p>
+        <p class="text-xs font-bold text-gray-400 tracking-wider">Livrées</p>
         <p class="text-2xl font-black text-green-600 mt-1">{{ stats.delivered }}</p>
       </div>
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-        <p class="text-xs font-bold text-gray-400 tracking-wider uppercase">Annulées</p>
+        <p class="text-xs font-bold text-gray-400 tracking-wider">Annulées</p>
         <p class="text-2xl font-black text-[#e60012] mt-1">{{ stats.cancelled }}</p>
       </div>
     </div>

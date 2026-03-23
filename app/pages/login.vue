@@ -24,8 +24,9 @@ const authUser = useState<any>('auth_user', () => null)
 // ── Form state ────────────────────────────────────────────────────────────
 const email    = ref('')
 const password = ref('')
-const loading  = ref(false)
-const errors   = ref<Record<string, string[]>>({})
+const loading      = ref(false)
+const errors       = ref<Record<string, string[]>>({})
+const showPassword = ref(false)
 
 const handleLogin = async () => {
   loading.value = true
@@ -66,7 +67,7 @@ const handleLogin = async () => {
       const redirect = route.query.redirect as string | undefined
       if (redirect) {
         router.push(redirect)
-      } else if (user.role === 'super_admin' || user.role === 'admin') {
+      } else if (user.role === 'admin' || user.role === 'user') {
         router.push('/admin')
       } else {
         router.push('/boutique')
@@ -155,15 +156,28 @@ const handleLogin = async () => {
         <!-- PASSWORD -->
         <div class="flex flex-col gap-1">
           <UInput
-            v-model="password"
-            type="password"
-            icon="i-heroicons-lock-closed"
-            placeholder="Mot de passe"
-            size="lg"
-            block
-            required
-            :color="errors.password ? 'error' : 'primary'"
-          />
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              icon="i-heroicons-lock-closed"
+              placeholder="Mot de passe"
+              size="lg"
+              block
+              required
+              :color="errors.password ? 'error' : 'primary'"
+            >
+              <template #trailing>
+                <button
+                  type="button"
+                  @click="showPassword = !showPassword"
+                  class="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                >
+                  <UIcon
+                    :name="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
+                    class="w-4 h-4"
+                  />
+                </button>
+              </template>
+            </UInput>
           <p v-if="errors.password" class="text-xs text-red-500 ml-1">
             {{ errors.password[0] }}
           </p>

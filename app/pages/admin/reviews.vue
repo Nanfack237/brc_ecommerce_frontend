@@ -2,8 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 
-const { requireAdmin, token } = useAuth()
-requireAdmin()
+const { requireUserOrAdmin, token } = useAuth()
+requireUserOrAdmin()
 
 useHead({ title: 'Avis clients — Admin BRC Market' })
 
@@ -183,15 +183,15 @@ onMounted(() => fetchReviews())
     <!-- Stats -->
     <div class="grid grid-cols-3 gap-3">
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
-        <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Total</p>
+        <p class="text-xs font-bold text-gray-400 tracking-wider">Total</p>
         <p class="text-2xl font-black text-gray-900 mt-1">{{ meta.total }}</p>
       </div>
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
-        <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Approuvés</p>
+        <p class="text-xs font-bold text-gray-400 tracking-wider">Approuvés</p>
         <p class="text-2xl font-black text-green-600 mt-1">{{ stats.approved }}</p>
       </div>
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5">
-        <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">En attente</p>
+        <p class="text-xs font-bold text-gray-400 tracking-wider">En attente</p>
         <p class="text-2xl font-black text-yellow-500 mt-1">{{ stats.pending }}</p>
       </div>
     </div>

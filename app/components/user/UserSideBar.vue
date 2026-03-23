@@ -38,44 +38,30 @@ const initials = computed(() => {
   return `${user.value.first_name?.[0] ?? ''}${user.value.last_name?.[0] ?? ''}`.toUpperCase()
 })
 
-// Replace your current sections definition with a computed one
-const sections = computed(() => {
-  if (!user.value) return []
-
-  const isAdmin = user.value.role !== 'user' // super_admin / admin can see everything
-
-  return [
-    {
-      label: 'Général',
-      links: [
-        { label: 'Dashboard', icon: 'i-heroicons-squares-2x2', to: '/admin' },
-      ]
-    },
-    {
-      label: 'Boutique',
-      links: [
-        { label: 'Commandes', icon: 'i-heroicons-shopping-bag', to: '/admin/commandes' },
-        { label: 'Produits', icon: 'i-heroicons-cube', to: '/admin/produits' },
-        { label: 'Catégories', icon: 'i-heroicons-tag', to: '/admin/categories' },
-        { label: 'Avis', icon: 'i-heroicons-star', to: '/admin/reviews' },
-      ]
-    },
-    {
-      label: 'Gestion',
-      links: [
-        // Only show Users & Analytics if admin
-        ...(isAdmin
-          ? [
-              { label: 'Utilisateurs', icon: 'i-heroicons-users', to: '/admin/users' },
-              { label: 'Analytics', icon: 'i-heroicons-presentation-chart-bar', to: '/admin/analytics' },
-            ]
-          : []),
-        { label: 'Informations', icon: 'i-heroicons-building-office', to: '/admin/informations' },
-        { label: 'Paramètres', icon: 'i-heroicons-cog-6-tooth', to: '/admin/parametres' },
-      ]
-    },
-  ]
-})
+const sections = [
+  {
+    label: 'Général',
+    links: [
+      { label: 'Dashboard',    icon: 'i-heroicons-squares-2x2',            to: '/admin' },
+    ]
+  },
+  {
+    label: 'Boutique',
+    links: [
+      { label: 'Commandes',    icon: 'i-heroicons-shopping-bag',           to: '/admin/commandes' },
+      { label: 'Produits',     icon: 'i-heroicons-cube',                   to: '/admin/produits' },
+      { label: 'Catégories',   icon: 'i-heroicons-tag',                    to: '/admin/categories' },
+      { label: 'Avis',         icon: 'i-heroicons-star',                   to: '/admin/reviews' },
+    ]
+  },
+  {
+    label: 'Gestion',
+    links: [
+      { label: 'Informations', icon: 'i-heroicons-building-office',        to: '/admin/informations' },
+      { label: 'Paramètres',   icon: 'i-heroicons-cog-6-tooth',            to: '/admin/parametres' },
+    ]
+  },
+]
 
 const isActive = (to: string) => {
   if (to === '/admin') return route.path === '/admin'
@@ -113,7 +99,7 @@ const handleLogout = async () => {
     <!-- Nav -->
     <nav class="flex-1 p-2 space-y-4 py-3 overflow-y-auto">
       <div v-for="section in sections" :key="section.label">
-        <p class="text-xs font-bold text-gray-400 tracking-widest px-3 mb-1">
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 mb-1">
           {{ section.label }}
         </p>
         <div class="flex flex-col gap-0.5">
@@ -202,7 +188,7 @@ const handleLogout = async () => {
               <p class="text-sm font-black text-gray-900 truncate">{{ fullName }}</p>
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e60012]/10 text-[#e60012]">
                 <UIcon name="i-heroicons-shield-check" class="w-3 h-3" />
-                {{ user?.role === 'admin' ? 'Admin' : 'User' }}
+                {{ user?.role === 'super_admin' ? 'Super Admin' : 'Admin' }}
               </span>
             </div>
           </div>

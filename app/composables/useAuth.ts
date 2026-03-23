@@ -9,7 +9,7 @@ export const useAuth = () => {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   const isLoggedIn = computed(() => !!token.value)
-  const isAdmin    = computed(() => ['admin', 'super_admin'].includes(authRole.value ?? ''))
+  const isAdmin    = computed(() => ['admin', 'user'].includes(authRole.value ?? ''))
   const isClient   = computed(() => authRole.value === 'client')
   const role       = computed(() => authRole.value ?? null)
 
@@ -35,6 +35,21 @@ export const useAuth = () => {
     }
     return true
   }
+  
+  const requireUserOrAdmin = (redirectTo = '/') => {
+  if (!token.value) {
+    router.push(`/login?redirect=${useRoute().fullPath}`)
+    return false
+  }
+  
+  // Vérifie si c'est un admin ou un user
+  if (!['admin', 'user'].includes(authRole.value ?? '')) {
+    router.push(redirectTo) // client → redirection accueil
+    return false
+  }
+  
+  return true
+}
 
   // ── Logout (axios) ───────────────────────────────────────────────────────
   const logout = async () => {
@@ -66,6 +81,7 @@ export const useAuth = () => {
     isClient,
     requireAuth,
     requireAdmin,
+    requireUserOrAdmin,
     logout,
   }
 }

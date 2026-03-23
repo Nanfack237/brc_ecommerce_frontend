@@ -1,7 +1,6 @@
 <!-- components/AccountSidebar.vue -->
 <script setup lang="ts">
 import axios from 'axios'
-import type { ToastProps } from '@nuxt/ui'
 
 const route  = useRoute()
 const router = useRouter()
@@ -19,12 +18,13 @@ onMounted(async () => {
       user.value = res.data
     } catch {
       token.value = null
+      user.value = null
     }
   }
 })
 
 const fullName = computed(() =>
-  user.value ? `${user.value.first_name} ${user.value.last_name}` : '...'
+  user.value ? `${user.value.first_name} ${user.value.last_name}` : 'Chargement...'
 )
 
 const initials = computed(() => {
@@ -32,12 +32,25 @@ const initials = computed(() => {
   return `${user.value.first_name?.[0] ?? ''}${user.value.last_name?.[0] ?? ''}`.toUpperCase()
 })
 
-const links = [
+// 1. Utilisation de computed + Optional Chaining (?.) pour éviter le crash
+const isAdmin = computed(() => {
+  if (!user.value) return false
+  // Vérifie si le rôle est admin ou superadmin (ajuste selon tes besoins)
+  return ['admin', 'user'].includes(user.value.role)
+})
+
+// 2. Transformer links en computed pour qu'il se mette à jour quand isAdmin change
+const links = computed(() => [
   { label: 'Mes commandes',    icon: 'i-heroicons-shopping-bag', to: '/compte/commandes' },
   { label: 'Mes favoris',      icon: 'i-heroicons-heart',         to: '/compte/favoris' },
   { label: 'Mes informations', icon: 'i-heroicons-user-circle',   to: '/compte/informations' },
   { label: 'Paramètres',       icon: 'i-heroicons-cog-6-tooth',   to: '/compte/parametres' },
-]
+  ...(isAdmin.value
+          ? [
+              { label: 'Back Office', icon: 'i-heroicons-clipboard', to: '/admin' },
+            ]
+          : []),
+])
 
 const handleLogout = async () => {
   try {

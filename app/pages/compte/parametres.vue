@@ -84,8 +84,6 @@ const settingSections = [
         <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
           <NuxtLink to="/" class="hover:text-[#274a82]">Accueil</NuxtLink>
           <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
-          <NuxtLink to="/compte" class="hover:text-[#274a82]">Mon compte</NuxtLink>
-          <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
           <span class="text-gray-600">Paramètres</span>
         </div>
         <h1 class="text-2xl font-black text-gray-900">Paramètres</h1>

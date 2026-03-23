@@ -1,6 +1,7 @@
 <script setup lang="ts">
-const { requireAdmin } = useAuth()
-requireAdmin()
+const { requireUserOrAdmin } = useAuth()
+requireUserOrAdmin()
+
 useHead({ title: 'BRC Market - Admin Dashboard' })
 
 const stats = [

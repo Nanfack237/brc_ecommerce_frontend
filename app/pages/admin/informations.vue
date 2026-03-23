@@ -1,6 +1,7 @@
 <script setup lang="ts">
-const { requireAdmin } = useAuth()
-requireAdmin()
+const { requireUserOrAdmin } = useAuth()
+requireUserOrAdmin()
+
 import { ref } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
