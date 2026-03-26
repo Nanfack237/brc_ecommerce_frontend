@@ -22,23 +22,26 @@ router.beforeEach(() => { loading.value = true })
 router.afterEach(() => { setTimeout(() => { loading.value = false }, 400) })
 
 // ── Layout conditions ────────────────────────────────────────────────────
-const isAdminPage  = computed(() => route.path.startsWith('/admin'))
-const isComptePage = computed(() => route.path.startsWith('/compte'))
+const isAdminPage   = computed(() => route.path.startsWith('/admin'))
+const isComptePage  = computed(() => route.path.startsWith('/compte'))
+const isLivreurPage = computed(() => route.path.startsWith('/livreur'))
 
 // ── Auth ─────────────────────────────────────────────────────────────────
-const { token, isAdmin } = useAuth()
+// Ensure your useAuth returns 'user' or 'role'
+const { token, isAdmin, user } = useAuth()
+const isLivreur = computed(() => user.value?.role === 'livreur')
 
 // ── Son nouvelle commande ────────────────────────────────────────────────
-const config        = useRuntimeConfig()
-const API           = config.public.apiBase
-const lastOrderId   = ref<number | null>(null)
+const config          = useRuntimeConfig()
+const API             = config.public.apiBase
+const lastOrderId     = ref<number | null>(null)
 let   pollingTimer: ReturnType<typeof setInterval> | null = null
 
 const playOrderSound = () => {
   try {
     const audio = new Audio('/sounds/order.mp3')
     audio.volume = 0.8
-    audio.play().catch(() => {})   // catch si autoplay bloqué
+    audio.play().catch(() => {}) 
   } catch {}
 }
 
@@ -47,7 +50,7 @@ const checkNewOrders = async () => {
   try {
     const { data } = await axios.get(`${API}/admin/orders`, {
       headers: { Authorization: `Bearer ${token.value}`, Accept: 'application/json' },
-      params:  { per_page: 1, page: 1 },   // on veut juste la commande la plus récente
+      params:  { per_page: 1, page: 1 },
     })
 
     const orders    = data.data ?? data
@@ -56,10 +59,8 @@ const checkNewOrders = async () => {
     if (latestId === null) return
 
     if (lastOrderId.value === null) {
-      // Première init — on mémorise sans sonner
       lastOrderId.value = latestId
     } else if (latestId > lastOrderId.value) {
-      // Nouvelle commande détectée !
       lastOrderId.value = latestId
       playOrderSound()
     }
@@ -68,15 +69,14 @@ const checkNewOrders = async () => {
 
 const startPolling = () => {
   if (pollingTimer) return
-  checkNewOrders()                                         // vérif immédiate
-  pollingTimer = setInterval(checkNewOrders, 30_000)       // puis toutes les 30s
+  checkNewOrders()
+  pollingTimer = setInterval(checkNewOrders, 30_000)
 }
 
 const stopPolling = () => {
   if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null }
 }
 
-// Démarrer uniquement côté client dans onMounted
 onMounted(() => {
   if (isAdmin.value && token.value) startPolling()
   watch(
@@ -96,8 +96,19 @@ onUnmounted(() => stopPolling())
     <UToaster position="top-right" />
     <AppLoader v-if="loading" />
 
-    <!-- ── ADMIN pages — admin header + admin sidebar ── -->
-    <template v-if="isAdminPage">
+    <template v-if="isLivreurPage">
+      <div class="min-h-screen bg-gray-50">
+        <LivreurHeader />
+        <div class="flex">
+          <LivreurSideBar />
+          <main class="flex-1 min-w-0 p-6 min-h-[calc(100vh-4rem)]">
+            <NuxtPage />
+          </main>
+        </div>
+      </div>
+    </template>
+
+    <template v-else-if="isAdminPage">
       <div class="min-h-screen bg-gray-50">
         <AdminHeader />
         <div class="flex">
@@ -109,7 +120,6 @@ onUnmounted(() => stopPolling())
       </div>
     </template>
 
-    <!-- ── COMPTE pages — public header + account sidebar ── -->
     <template v-else-if="isComptePage">
       <AppHeader />
       <div class="min-h-screen bg-gray-50">
@@ -125,7 +135,6 @@ onUnmounted(() => stopPolling())
       <AppFooter />
     </template>
 
-    <!-- ── ALL OTHER pages ── -->
     <template v-else>
       <HeroBanner />
       <AppHeader />

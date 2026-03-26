@@ -36,13 +36,14 @@ const initials = computed(() => {
 const isAdmin = computed(() => {
   if (!user.value) return false
   // Vérifie si le rôle est admin ou superadmin (ajuste selon tes besoins)
-  return ['admin', 'user'].includes(user.value.role)
+  return ['admin'].includes(user.value.role)
 })
 
 // 2. Transformer links en computed pour qu'il se mette à jour quand isAdmin change
 const links = computed(() => [
   { label: 'Mes commandes',    icon: 'i-heroicons-shopping-bag', to: '/compte/commandes' },
   { label: 'Mes favoris',      icon: 'i-heroicons-heart',         to: '/compte/favoris' },
+  { label: 'Mes Avis',      icon: 'i-heroicons-star',   to: '/compte/avis' },
   { label: 'Mes informations', icon: 'i-heroicons-user-circle',   to: '/compte/informations' },
   { label: 'Paramètres',       icon: 'i-heroicons-cog-6-tooth',   to: '/compte/parametres' },
   ...(isAdmin.value
@@ -91,9 +92,8 @@ const handleLogout = async () => {
       </div>
 
       <!-- Divider -->
-      <div class="mx-4 border-t border-gray-100" />
+       <div class="mx-4 border-t border-gray-100" />
 
-      <!-- ── Nav links ── -->
       <nav class="flex flex-col gap-0.5 p-2">
         <NuxtLink
           v-for="link in links"
@@ -109,10 +109,8 @@ const handleLogout = async () => {
         </NuxtLink>
       </nav>
 
-      <!-- Divider -->
       <div class="mx-4 border-t border-gray-100" />
 
-      <!-- ── Logout ── -->
       <div class="p-2">
         <button
           class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all"
@@ -122,7 +120,6 @@ const handleLogout = async () => {
           Se déconnecter
         </button>
       </div>
-
     </div>
   </aside>
 </template>

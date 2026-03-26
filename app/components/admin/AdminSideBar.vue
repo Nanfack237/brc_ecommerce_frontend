@@ -16,7 +16,35 @@ const mobileOpen = useState<boolean>('admin_sidebar_open', () => false)
 // Auto-close on route change
 watch(() => route.path, () => { mobileOpen.value = false })
 
+// ── Nouvelles commandes ───────────────────────────────────────────────────
+const newOrdersCount = useState<number>('admin_new_orders', () => 0)
+const lastSeenCount  = ref<number>(0)
+
+const fetchNewOrders = async () => {
+  if (!token.value) return
+  try {
+    const { data } = await axios.get('http://127.0.0.1:8000/api/admin/orders/stats', {
+      headers: { Authorization: `Bearer ${token.value}` }
+    })
+    // "pending" = nouvelles commandes non traitées
+    const pending = data.pending ?? 0
+    newOrdersCount.value = Math.max(0, pending - lastSeenCount.value)
+  } catch {}
+}
+
+const clearBadge = () => {
+  const current = lastSeenCount.value + newOrdersCount.value
+  if (process.client) localStorage.setItem('admin_last_seen', String(current))
+  lastSeenCount.value  = current
+  newOrdersCount.value = 0
+}
+
+let pollingTimer: ReturnType<typeof setInterval>
+
 onMounted(async () => {
+  // localStorage uniquement côté client
+  lastSeenCount.value = parseInt(localStorage.getItem('admin_last_seen') ?? '0')
+
   if (!user.value && token.value) {
     try {
       const res = await axios.get('http://127.0.0.1:8000/api/auth/me', {
@@ -27,7 +55,12 @@ onMounted(async () => {
       token.value = null
     }
   }
+
+  await fetchNewOrders()
+  pollingTimer = setInterval(fetchNewOrders, 30_000)
 })
+
+onUnmounted(() => clearInterval(pollingTimer))
 
 const fullName = computed(() =>
   user.value ? `${user.value.first_name} ${user.value.last_name}` : '...'
@@ -38,40 +71,38 @@ const initials = computed(() => {
   return `${user.value.first_name?.[0] ?? ''}${user.value.last_name?.[0] ?? ''}`.toUpperCase()
 })
 
-// Replace your current sections definition with a computed one
 const sections = computed(() => {
   if (!user.value) return []
 
-  const isAdmin = user.value.role !== 'user' // super_admin / admin can see everything
+  const isAdmin = user.value.role !== 'user'
 
   return [
     {
       label: 'Général',
       links: [
-        { label: 'Dashboard', icon: 'i-heroicons-squares-2x2', to: '/admin' },
+        { label: 'Dashboard', icon: 'i-heroicons-squares-2x2', to: '/admin', badge: false },
       ]
     },
     {
       label: 'Boutique',
       links: [
-        { label: 'Commandes', icon: 'i-heroicons-shopping-bag', to: '/admin/commandes' },
-        { label: 'Produits', icon: 'i-heroicons-cube', to: '/admin/produits' },
-        { label: 'Catégories', icon: 'i-heroicons-tag', to: '/admin/categories' },
-        { label: 'Avis', icon: 'i-heroicons-star', to: '/admin/reviews' },
+        { label: 'Commandes', icon: 'i-heroicons-shopping-bag', to: '/admin/commandes', badge: true },
+        { label: 'Produits',  icon: 'i-heroicons-cube',         to: '/admin/produits',  badge: false },
+        { label: 'Catégories',icon: 'i-heroicons-tag',          to: '/admin/categories',badge: false },
+        { label: 'Avis',      icon: 'i-heroicons-star',         to: '/admin/reviews',   badge: false },
       ]
     },
     {
       label: 'Gestion',
       links: [
-        // Only show Users & Analytics if admin
         ...(isAdmin
           ? [
-              { label: 'Utilisateurs', icon: 'i-heroicons-users', to: '/admin/users' },
-              { label: 'Analytics', icon: 'i-heroicons-presentation-chart-bar', to: '/admin/analytics' },
+              { label: 'Utilisateurs', icon: 'i-heroicons-users',                       to: '/admin/users',      badge: false },
+              { label: 'Analytics',    icon: 'i-heroicons-presentation-chart-bar',      to: '/admin/analytics',  badge: false },
             ]
           : []),
-        { label: 'Informations', icon: 'i-heroicons-building-office', to: '/admin/informations' },
-        { label: 'Paramètres', icon: 'i-heroicons-cog-6-tooth', to: '/admin/parametres' },
+        { label: 'Informations', icon: 'i-heroicons-building-office', to: '/admin/informations', badge: false },
+        { label: 'Paramètres',   icon: 'i-heroicons-cog-6-tooth',     to: '/admin/parametres',   badge: false },
       ]
     },
   ]
@@ -80,6 +111,10 @@ const sections = computed(() => {
 const isActive = (to: string) => {
   if (to === '/admin') return route.path === '/admin'
   return route.path.startsWith(to)
+}
+
+const handleLinkClick = (link: { badge: boolean }) => {
+  if (link.badge) clearBadge()
 }
 
 const handleLogout = async () => {
@@ -91,6 +126,7 @@ const handleLogout = async () => {
   token.value      = null
   user.value       = null
   mobileOpen.value = false
+  if (process.client) localStorage.removeItem('admin_last_seen')
   toast.add({
     title: 'Déconnecté', description: 'À bientôt !',
     color: 'success', icon: 'i-heroicons-check-circle',
@@ -106,8 +142,6 @@ const handleLogout = async () => {
   ══════════════════════════════════════════ -->
   <aside class="hidden lg:flex flex-col w-60 flex-shrink-0 sticky top-16 self-start h-[calc(100vh-4rem)] bg-white border-r border-gray-100 overflow-y-auto">
 
-    
-   
     <div class="mx-4 border-t border-gray-100" />
 
     <!-- Nav -->
@@ -121,6 +155,7 @@ const handleLogout = async () => {
             v-for="link in section.links"
             :key="link.to"
             :to="link.to"
+            @click="handleLinkClick(link)"
             class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
             :class="isActive(link.to)
               ? 'bg-[#274a82] text-white shadow-sm'
@@ -128,7 +163,15 @@ const handleLogout = async () => {
           >
             <UIcon :name="link.icon" class="w-4 h-4 flex-shrink-0" />
             {{ link.label }}
-            <span v-if="isActive(link.to)" class="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
+            <!-- Badge nouvelles commandes -->
+            <span
+              v-if="link.badge && newOrdersCount > 0"
+              class="ml-auto min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center transition-all"
+              :class="isActive(link.to) ? 'bg-white text-[#274a82]' : 'bg-[#e60012] text-white'"
+            >
+              {{ newOrdersCount > 99 ? '99+' : newOrdersCount }}
+            </span>
+            <span v-else-if="isActive(link.to)" class="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
           </NuxtLink>
         </div>
       </div>
@@ -193,8 +236,7 @@ const handleLogout = async () => {
 
         <!-- Drawer header -->
         <div class="flex items-center justify-between px-4 h-16 border-b border-gray-100 flex-shrink-0">
-          
-            <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-[#274a82] flex items-center justify-center flex-shrink-0">
               <span class="text-white text-sm font-black">{{ initials }}</span>
             </div>
@@ -214,11 +256,6 @@ const handleLogout = async () => {
           </button>
         </div>
 
-        <!-- User block -->
-        <!-- <div class="p-4 pb-3 flex-shrink-0">
-         
-        </div> -->
-
         <div class="mx-4 border-t border-gray-100 flex-shrink-0" />
 
         <!-- Nav -->
@@ -232,6 +269,7 @@ const handleLogout = async () => {
                 v-for="link in section.links"
                 :key="link.to"
                 :to="link.to"
+                @click="handleLinkClick(link)"
                 class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all"
                 :class="isActive(link.to)
                   ? 'bg-[#274a82] text-white shadow-sm'
@@ -239,7 +277,15 @@ const handleLogout = async () => {
               >
                 <UIcon :name="link.icon" class="w-4 h-4 flex-shrink-0" />
                 {{ link.label }}
-                <span v-if="isActive(link.to)" class="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
+                <!-- Badge nouvelles commandes -->
+                <span
+                  v-if="link.badge && newOrdersCount > 0"
+                  class="ml-auto min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center"
+                  :class="isActive(link.to) ? 'bg-white text-[#274a82]' : 'bg-[#e60012] text-white'"
+                >
+                  {{ newOrdersCount > 99 ? '99+' : newOrdersCount }}
+                </span>
+                <span v-else-if="isActive(link.to)" class="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
               </NuxtLink>
             </div>
           </div>

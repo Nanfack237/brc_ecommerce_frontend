@@ -69,7 +69,10 @@ const handleLogin = async () => {
         router.push(redirect)
       } else if (user.role === 'admin' || user.role === 'user') {
         router.push('/admin')
-      } else {
+      } else if (user.role === 'livreur') {
+        router.push('/livreur/livraisons') 
+      }
+        else {
         router.push('/boutique')
       }
     }, 800)

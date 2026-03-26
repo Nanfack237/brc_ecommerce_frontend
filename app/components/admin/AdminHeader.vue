@@ -129,7 +129,7 @@ const handleLogout = async () => {
         </NuxtLink> -->
 
         <!-- Notifications -->
-        <div class="relative">
+        <!-- <div class="relative">
           <button
             @click="showNotifs = !showNotifs; showUserMenu = false"
             class="relative w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-[#274a82] transition"
@@ -141,10 +141,10 @@ const handleLogout = async () => {
             >
               {{ unreadCount }}
             </span>
-          </button>
+          </button> -->
 
           <!-- Notif dropdown -->
-          <Transition enter-active-class="transition ease-out duration-150" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+          <!-- <Transition enter-active-class="transition ease-out duration-150" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
             <div
               v-if="showNotifs"
               v-click-outside="() => showNotifs = false"
@@ -175,8 +175,8 @@ const handleLogout = async () => {
               </div>
 
             </div>
-          </Transition>
-        </div>
+          </Transition> -->
+        <!-- </div> -->
 
         <!-- User menu -->
         <div class="relative">

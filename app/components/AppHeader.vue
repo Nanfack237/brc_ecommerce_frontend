@@ -44,10 +44,20 @@ const fetchMe = async () => {
   } catch {}
 }
 
+/* ── Rôle helpers ─────────────────────────────────────────────────────────── */
+const isAdmin    = computed(() => ['admin', 'user'].includes(authUser.value?.role))
+const isLivreur  = computed(() => authUser.value?.role === 'livreur')
+const hasBackOffice = computed(() => isAdmin.value || isLivreur.value)
+
+const backOfficeLink = computed(() => {
+  if (isAdmin.value)   return { label: 'Back Office',       icon: 'i-heroicons-clipboard-document-list', to: '/admin' }
+  if (isLivreur.value) return { label: 'Espace Livreur',    icon: 'i-heroicons-truck',                   to: '/livreur/livraisons' }
+  return null
+})
+
 /* ── Catégories ───────────────────────────────────────────────────────────── */
 const { navGroups: categoriesData, loadingCats, errorCats, fetchCategories } = useCategories()
 
-// Sous-catégories uniquement (sans le lien "Voir tout" qui est le premier élément)
 const subLinks = (cat: { links: { label: string; to: string }[] }) =>
   cat.links.filter(l => l.label !== 'Voir tout')
 
@@ -182,6 +192,7 @@ const toggleSection = (section: string) => {
 const accountLinks = [
   { label: 'Mes commandes',    icon: 'i-heroicons-shopping-bag',  to: '/compte/commandes'    },
   { label: 'Mes favoris',      icon: 'i-heroicons-heart',          to: '/compte/favoris'      },
+  { label: 'Mes Avis',         icon: 'i-heroicons-star',           to: '/compte/avis'         },
   { label: 'Mes informations', icon: 'i-heroicons-user-circle',    to: '/compte/informations' },
   { label: 'Paramètres',       icon: 'i-heroicons-cog-6-tooth',    to: '/compte/parametres'   },
 ]
@@ -193,7 +204,7 @@ const servicesData = [
   ]},
   { label: 'Sécurité & Réseau', links: [
     { label: 'Vidéo Surveillance', to: '/services/videosurveillance' },
-    { label: 'Audit & Câblage',    to: '/services/audit-cablage'             },
+    { label: 'Audit & Câblage',    to: '/services/audit-cablage'     },
     { label: 'Sécurité IT',        to: '/services/securite-it'       },
   ]},
 ]
@@ -244,12 +255,10 @@ onUnmounted(() => {
             </div>
             <div v-else class="grid grid-cols-3 gap-6">
               <div v-for="cat in categoriesData" :key="cat.slug">
-                <!-- Titre = lien vers la catégorie parente -->
                 <NuxtLink :to="`/categories/${cat.slug}`"
                   class="block font-bold mb-2 border-b-2 border-red-500 text-[14px] text-gray-900 hover:text-red-600 transition-colors pb-1">
                   {{ cat.label }}
                 </NuxtLink>
-                <!-- Sous-catégories uniquement (sans "Voir tout") -->
                 <ul class="space-y-1">
                   <li v-for="link in subLinks(cat)" :key="link.to">
                     <NuxtLink :to="link.to" class="text-sm text-gray-600 hover:text-red-600 transition-colors">
@@ -421,6 +430,7 @@ onUnmounted(() => {
         </Transition>
       </div>
 
+      <!-- ── User menu DESKTOP ── -->
       <div class="hidden md:flex items-center ml-1 gap-3">
         <UPopover v-if="!isLoggedIn" mode="hover" placement="bottom-end">
           <button class="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
@@ -445,17 +455,41 @@ onUnmounted(() => {
           </button>
           <template #content>
             <div class="bg-white shadow-xl rounded-xl w-60 py-2 border border-gray-100">
+              <!-- User info -->
               <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 mb-1">
                 <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-black flex-shrink-0" :style="{ backgroundColor: avatarColor }">{{ userInitials }}</div>
                 <div class="min-w-0">
                   <p class="text-sm font-black text-gray-900 truncate">{{ authUser?.first_name }} {{ authUser?.last_name }}</p>
                   <p class="text-[11px] text-gray-400 truncate">{{ authUser?.email }}</p>
+                  <!-- Badge rôle -->
+                  <span class="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                    :class="isAdmin ? 'bg-[#274a82]/10 text-[#274a82]' : isLivreur ? 'bg-[#e07b39]/10 text-[#e07b39]' : 'bg-gray-100 text-gray-500'">
+                    <UIcon :name="isAdmin ? 'i-heroicons-shield-check' : isLivreur ? 'i-heroicons-truck' : 'i-heroicons-user'" class="w-3 h-3" />
+                    {{ isAdmin ? (authUser?.role === 'super_admin' ? 'Super Admin' : 'Admin') : isLivreur ? 'Livreur' : 'Client' }}
+                  </span>
                 </div>
               </div>
-              <NuxtLink v-for="link in accountLinks" :key="link.to" :to="link.to"
-                class="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 hover:text-[#274a82] text-sm font-medium text-gray-700 transition-colors">
-                <UIcon :name="link.icon" class="w-4 h-4 text-[#274a82]" /> {{ link.label }}
-              </NuxtLink>
+
+              <!-- Liens compte (uniquement si pas livreur) -->
+              <template v-if="!isLivreur">
+                <NuxtLink v-for="link in accountLinks" :key="link.to" :to="link.to"
+                  class="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 hover:text-[#274a82] text-sm font-medium text-gray-700 transition-colors">
+                  <UIcon :name="link.icon" class="w-4 h-4 text-[#274a82]" /> {{ link.label }}
+                </NuxtLink>
+              </template>
+
+              <!-- ── Back Office / Espace Livreur ── -->
+              <template v-if="hasBackOffice && backOfficeLink">
+                <div class="border-t border-gray-100 my-1" />
+                <NuxtLink :to="backOfficeLink.to"
+                  class="flex items-center gap-3 px-4 py-2.5 hover:bg-[#274a82]/5 text-sm font-black transition-colors"
+                  :class="isAdmin ? 'text-[#274a82]' : 'text-[#274a82]'">
+                  <UIcon :name="backOfficeLink.icon" class="w-4 h-4" />
+                  {{ backOfficeLink.label }}
+                  <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3 ml-auto opacity-50" />
+                </NuxtLink>
+              </template>
+
               <div class="border-t border-gray-100 my-1" />
               <button class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 text-sm font-medium text-red-600 transition-colors" @click="handleLogout">
                 <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-4 h-4" /> Se déconnecter
@@ -564,7 +598,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Nav bar — masquée pendant la recherche -->
+        <!-- Nav bar -->
         <div v-if="!showMobileDropdown" class="flex-shrink-0 border-b border-gray-100 bg-gray-50 w-full">
           <div class="flex items-stretch w-full">
             <NuxtLink to="/" @click="isMenuOpen = false; activeSection = null"
@@ -595,7 +629,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Catégories mobile — sous-cats uniquement (sans "Voir tout") -->
+        <!-- Catégories mobile -->
         <div v-if="!showMobileDropdown && activeSection === 'categories'" class="flex-1 overflow-y-auto px-4 py-4">
           <div v-if="loadingCats" class="space-y-5">
             <div v-for="n in 4" :key="n">
@@ -612,12 +646,10 @@ onUnmounted(() => {
           </div>
           <div v-else>
             <div v-for="cat in categoriesData" :key="cat.slug" class="mb-5">
-              <!-- Titre cliquable → page catégorie -->
               <NuxtLink :to="`/categories/${cat.slug}`" @click="isMenuOpen = false"
                 class="text-[12px] font-bold text-gray-400 tracking-widest mb-2 flex items-center gap-2 hover:text-red-600 transition-colors">
                 <span class="flex-1 h-px bg-gray-100"></span>{{ cat.label }}<span class="flex-1 h-px bg-gray-100"></span>
               </NuxtLink>
-              <!-- Sous-catégories uniquement (sans "Voir tout") -->
               <div class="grid grid-cols-2 gap-1.5">
                 <NuxtLink v-for="link in subLinks(cat)" :key="link.to" :to="link.to" @click="isMenuOpen = false"
                   class="px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-xs text-gray-700 font-medium transition-all text-center">
@@ -666,16 +698,39 @@ onUnmounted(() => {
               </div>
               <UIcon name="i-heroicons-chevron-down" class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200" :class="showMobileUserMenu ? 'rotate-180' : ''" />
             </button>
+
             <Transition name="dropdown">
               <div v-if="showMobileUserMenu" class="mt-2 rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                <NuxtLink v-for="link in accountLinks" :key="link.to" :to="link.to"
-                  @click="isMenuOpen = false; showMobileUserMenu = false"
-                  class="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 hover:text-[#274a82] text-sm font-medium text-gray-700 transition-colors border-b border-gray-50 last:border-b-0">
-                  <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" :style="{ backgroundColor: avatarColor + '15' }">
-                    <UIcon :name="link.icon" class="w-3.5 h-3.5" :style="{ color: avatarColor }" />
-                  </div>
-                  {{ link.label }}
-                </NuxtLink>
+
+                <!-- Liens compte (masqués pour le livreur) -->
+                <template v-if="!isLivreur">
+                  <NuxtLink v-for="link in accountLinks" :key="link.to" :to="link.to"
+                    @click="isMenuOpen = false; showMobileUserMenu = false"
+                    class="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 hover:text-[#274a82] text-sm font-medium text-gray-700 transition-colors border-b border-gray-50 last:border-b-0">
+                    <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" :style="{ backgroundColor: avatarColor + '15' }">
+                      <UIcon :name="link.icon" class="w-3.5 h-3.5" :style="{ color: avatarColor }" />
+                    </div>
+                    {{ link.label }}
+                  </NuxtLink>
+                </template>
+
+                <!-- ── Back Office / Espace Livreur ── -->
+                <template v-if="hasBackOffice && backOfficeLink">
+                  <div class="h-px bg-gray-100" />
+                  <NuxtLink :to="backOfficeLink.to"
+                    @click="isMenuOpen = false; showMobileUserMenu = false"
+                    class="flex items-center gap-3 px-4 py-3 text-sm font-black transition-colors"
+                    :class="isAdmin ? 'text-[#274a82] hover:bg-[#274a82]/5' : 'text-[#274a82] hover:bg-[#e07b39]/5'">
+                    <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                      :class="isAdmin ? 'bg-[#274a82]/10' : 'bg-[#e07b39]/10'">
+                      <UIcon :name="backOfficeLink.icon" class="w-3.5 h-3.5"
+                        :class="isAdmin ? 'text-[#274a82]' : 'text-[#274a82]'" />
+                    </div>
+                    {{ backOfficeLink.label }}
+                    <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3.5 h-3.5 ml-auto opacity-40" />
+                  </NuxtLink>
+                </template>
+
                 <div class="h-px bg-gray-100"></div>
                 <button class="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 text-sm font-medium text-red-600 transition-colors" @click="handleLogout">
                   <div class="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
@@ -685,6 +740,7 @@ onUnmounted(() => {
                 </button>
               </div>
             </Transition>
+
             <div class="mt-3 flex gap-2">
               <button v-for="lang in languages" :key="lang.code" @click="selectLocale(lang.code)"
                 class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-xs font-black transition-all"

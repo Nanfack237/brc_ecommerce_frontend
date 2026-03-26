@@ -5,14 +5,48 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@nuxt/content',
     '@pinia/nuxt',
+    '@vite-pwa/nuxt' // Ajout du module PWA ici
   ],
+
+  pwa: {
+    manifest: {
+      name: 'BRC Market',
+      short_name: 'BRC Market',
+      description: 'Un Africain, Un Ordinateur - E-commerce informatique',
+      theme_color: '#274a82', // Ton brcBlue
+      background_color: '#ffffff',
+      display: 'standalone',
+      orientation: 'portrait',
+      scope: '/',
+      start_url: '/',
+      icons: [
+        {
+          src: 'icon-192x192.png',
+          sizes: '192x192',
+          type: 'image/png'
+        },
+        {
+          src: 'icon-512x512.png',
+          sizes: '512x512',
+          type: 'image/png'
+        }
+      ]
+    },
+    workbox: {
+      navigateFallback: '/'
+    },
+    devOptions: {
+      enabled: true, // Permet de tester l'installation même en local (npm run dev)
+      type: 'module'
+    }
+  },
 
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE ?? 'http://127.0.0.1:8000/api',
-      cloudinaryCloudName:    process.env.NUXT_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '',
-      cloudinaryUploadPreset: process.env.NUXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '',
-    },
+      cloudinaryCloudName:     process.env.NUXT_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '',
+      cloudinaryUploadPreset: process.env.NUXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? ''
+    }
   },
 
   vite: {
@@ -29,7 +63,7 @@ export default defineNuxtConfig({
         colors: {
           primary:   '#007bff',
           secondary: '#ff0000',
-          brcBlue:   '#274a82',
+          brcBlue:   '#274a82'
         }
       }
     }

@@ -12,8 +12,9 @@ useHead({
 
 const mainItems = [
   { image: '/images/publicity1.jpg', title: "L'Excellence Informatique", subtitle: 'Hardware de pointe pour professionnels' },
-  { image: '/images/publicity3.jpg', title: 'Vous Satisfaire notre priorité', subtitle: 'Maintenance & Réseaux certifiés' },
-  { image: '/images/publicity6.jpg', title: 'Smartphone et Tablette', subtitle: 'le point de vente' }
+  { image: '/images/publicity6.jpg', title: 'Smartphone et Tablette', subtitle: 'le point de vente' },
+  { image: '/images/network.png', title: 'Reseau et Telecom', subtitle: 'Contacter' },
+   { image: '/images/publicity3.jpg', title: 'Vous Satisfaire notre priorité', subtitle: 'Maintenance & Réseaux certifiés' },
 ]
 
 const brands = [
