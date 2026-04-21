@@ -81,7 +81,7 @@ const handleRegister = async () => {
     token.value = response.data.token
 
     toast.add({
-      title:       '🎉 Compte créé avec succès !',
+      title:       'Compte créé avec succès !',
       description: `Bienvenue sur BRC Market, ${response.data.user.first_name} ${response.data.user.last_name} !`,
       color:       'success',
       icon:        'i-heroicons-check-circle',

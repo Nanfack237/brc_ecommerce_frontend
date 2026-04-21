@@ -199,8 +199,7 @@ const accountLinks = [
 
 const servicesData = [
   { label: 'Maintenance Et Réparation', links: [
-    { label: 'Ordinateur',        to: '/services/ordinateur'          },
-    { label: 'Support Technique', to: '/services/maintenance-support' },
+    { label: 'Ordinateur et Assistance',        to: '/services/Maintenance-support'          },
   ]},
   { label: 'Sécurité & Réseau', links: [
     { label: 'Vidéo Surveillance', to: '/services/videosurveillance' },
@@ -253,7 +252,7 @@ onUnmounted(() => {
               <p class="text-sm text-red-500 font-medium">Impossible de charger les catégories</p>
               <button @click="fetchCategories" class="text-xs text-[#274a82] font-bold hover:underline mt-1">Réessayer</button>
             </div>
-            <div v-else class="grid grid-cols-3 gap-6">
+            <div v-else class="grid grid-cols-3 gap-4">
               <div v-for="cat in categoriesData" :key="cat.slug">
                 <NuxtLink :to="`/categories/${cat.slug}`"
                   class="block font-bold mb-2 border-b-2 border-red-500 text-[14px] text-gray-900 hover:text-red-600 transition-colors pb-1">
@@ -265,8 +264,27 @@ onUnmounted(() => {
                       {{ link.label }}
                     </NuxtLink>
                   </li>
+                  
                 </ul>
+                
               </div>
+              <div>
+              <NuxtLink
+                to="/boutique?promo=1"
+                class="block font-bold mb-2 border-b-2 border-red-500 text-[14px] text-gray-900 hover:text-red-600 transition-colors pb-1"
+              >
+                Nos promos
+              </NuxtLink>
+
+              <ul class="space-y-1">
+                <li>
+                  <NuxtLink to="/boutique?promo=1" class="text-sm text-gray-600 hover:text-red-600 transition-colors">
+                    Tous les produits en promo
+                  </NuxtLink>
+                </li>
+                
+              </ul>
+            </div>
             </div>
           </div>
         </template>

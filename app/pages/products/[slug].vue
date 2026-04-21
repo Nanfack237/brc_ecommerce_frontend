@@ -564,7 +564,7 @@ const formatPrice = (p: number) =>
                 </div>
               </div>
               <div class="p-2 flex flex-col flex-1 border-t border-gray-50">
-                <h3 class="text-[13px] text-gray-600 font-medium mb-2 line-clamp-2 h-10 leading-snug">{{ item.name }}</h3>
+                <h3 class="text-[13px] text-gray-600 font-medium mb-2 line-clamp-2 h-10 leading-snug group-hover:text-[#e60012]">{{ item.name }}</h3>
                 <div class="mt-auto">
                   <div class="text-[18px] font-black text-gray-900 mb-0.5">{{ item.price.toLocaleString() }} FCFA</div>
                   <div class="flex items-center justify-between">

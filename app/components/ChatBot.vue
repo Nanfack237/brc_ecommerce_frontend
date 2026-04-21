@@ -18,7 +18,7 @@
             <div class="flex items-center gap-2">
               <UAvatar src="/brclogo.jpg" alt="BRC Bot" size="sm" />
               <div>
-                <p class="text-sm text-[#274a82] font-bold">Support BRC</p>
+                <p class="text-sm text-[#274a82] font-bold">Support BRC Market</p>
                 <p class="text-[10px] opacity-80 text-green-300">● En ligne</p>
               </div>
             </div>
@@ -105,7 +105,7 @@ const isTyping = ref(false)
 const userInputValue = ref('')
 const chatContainer = ref(null)
 
-const whatsappNumber = "237683627787"
+const whatsappNumber = "237689205751"
 
 onClickOutside(chatWidget, () => {
   if (isOpen.value) isOpen.value = false
@@ -116,9 +116,9 @@ const messages = ref([
 ])
 
 const faqs = [
-  { id: 1, question: '📍Emplacement', answer: 'Nous sommes à Akwa Douala, rue Castelnau, juste après la rue du Collège King Akwa.' },
-  { id: 2, question: '💻Dell Latitude 3310', answer: 'Le Dell Latitude 3310  Dual Core est disponible à 45 000 FCFA. Souhaitez-vous le commander sur WhatsApp ?' },
-  { id: 3, question: '✅Garantie', answer: 'Tous nos produits sont garantis avec un SAV assuré par nos techniciens.' }
+  { id: 1, question: 'Emplacement', answer: 'Nous sommes à Akwa Douala, rue Castelnau, juste après la rue du Collège King Akwa.' },
+  { id: 2, question: 'Dell Latitude 5510', answer: 'Le Dell Latitude 5510 corei5 10 Generation est disponible à 139 000 FCFA avec Cle, Souris et Sac Housse offert. Souhaitez-vous le commander sur WhatsApp ?' },
+  { id: 3, question: 'Garantie', answer: 'Tous nos produits sont garantis avec un SAV assuré par nos techniciens.' }
 ]
 
 // Fonction pour ouvrir WhatsApp

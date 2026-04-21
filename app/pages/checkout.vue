@@ -11,16 +11,10 @@ useHead({
 })
 
 // ── Guard auth ────────────────────────────────────────────────────────────────
-const authToken = useCookie('auth_token')
-const authRole  = useCookie('auth_role')
+const authToken  = useCookie('auth_token')
+const authRole   = useCookie('auth_role')
 const isLoggedIn = computed(() => !!authToken.value && !!authRole.value)
 
-onMounted(() => {
-  if (!isLoggedIn.value) navigateTo('/login?redirect=/checkout')
-})
-if (process.server && !authToken.value) {
-  await navigateTo('/login?redirect=/checkout')
-}
 
 const toast  = useToast()
 const config = useRuntimeConfig()
@@ -39,30 +33,31 @@ const playOrderSound = () => {
 // ── Tunnel ────────────────────────────────────────────────────────────────────
 const currentStep = ref(1)
 const steps = [
-  { id: 1, title: 'Adresse',  desc: 'Vos coordonnées',  icon: 'i-heroicons-map-pin'    },
-  { id: 2, title: 'Paiement', desc: 'Mode de règlement', icon: 'i-heroicons-credit-card' },
+  { id: 1, title: 'Adresse',  desc: 'Vos coordonnées',   icon: 'i-heroicons-map-pin'     },
+  { id: 2, title: 'Methode', desc: 'Mode de règlement',  icon: 'i-heroicons-credit-card' },
+  { id: 3, title: 'Finisaliser', desc: 'Finalisation par Mail',  icon: 'i-heroicons-mail' },
 ]
 
 // ── Pays ──────────────────────────────────────────────────────────────────────
 const countryCodes = [
-  { flag: '🇨🇲', code: '+237', name: 'Cameroun'     },
-  { flag: '🇧🇯', code: '+229', name: 'Bénin'        },
-  { flag: '🇧🇫', code: '+226', name: 'Burkina Faso' },
-  { flag: '🇨🇬', code: '+242', name: 'Congo'        },
-  { flag: '🇨🇩', code: '+243', name: 'RD Congo'     },
-  { flag: '🇨🇮', code: '+225', name: "Côte d'Ivoire"},
-  { flag: '🇬🇦', code: '+241', name: 'Gabon'        },
-  { flag: '🇬🇭', code: '+233', name: 'Ghana'        },
-  { flag: '🇬🇳', code: '+224', name: 'Guinée'       },
-  { flag: '🇰🇪', code: '+254', name: 'Kenya'        },
-  { flag: '🇲🇦', code: '+212', name: 'Maroc'        },
-  { flag: '🇲🇱', code: '+223', name: 'Mali'         },
-  { flag: '🇳🇪', code: '+227', name: 'Niger'        },
-  { flag: '🇳🇬', code: '+234', name: 'Nigéria'      },
-  { flag: '🇸🇳', code: '+221', name: 'Sénégal'      },
-  { flag: '🇹🇩', code: '+235', name: 'Tchad'        },
-  { flag: '🇹🇬', code: '+228', name: 'Togo'         },
-  { flag: '🇹🇳', code: '+216', name: 'Tunisie'      },
+  { flag: '🇨🇲', code: '+237', name: 'Cameroun'      },
+  { flag: '🇧🇯', code: '+229', name: 'Bénin'         },
+  { flag: '🇧🇫', code: '+226', name: 'Burkina Faso'  },
+  { flag: '🇨🇬', code: '+242', name: 'Congo'         },
+  { flag: '🇨🇩', code: '+243', name: 'RD Congo'      },
+  { flag: '🇨🇮', code: '+225', name: "Côte d'Ivoire" },
+  { flag: '🇬🇦', code: '+241', name: 'Gabon'         },
+  { flag: '🇬🇭', code: '+233', name: 'Ghana'         },
+  { flag: '🇬🇳', code: '+224', name: 'Guinée'        },
+  { flag: '🇰🇪', code: '+254', name: 'Kenya'         },
+  { flag: '🇲🇦', code: '+212', name: 'Maroc'         },
+  { flag: '🇲🇱', code: '+223', name: 'Mali'          },
+  { flag: '🇳🇪', code: '+227', name: 'Niger'         },
+  { flag: '🇳🇬', code: '+234', name: 'Nigéria'       },
+  { flag: '🇸🇳', code: '+221', name: 'Sénégal'       },
+  { flag: '🇹🇩', code: '+235', name: 'Tchad'         },
+  { flag: '🇹🇬', code: '+228', name: 'Togo'          },
+  { flag: '🇹🇳', code: '+216', name: 'Tunisie'       },
   { flag: '🇿🇦', code: '+27',  name: 'Afrique du Sud'},
 ]
 
@@ -78,21 +73,54 @@ const form = ref({
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const emailValid = computed(() => !form.value.email || emailRegex.test(form.value.email))
 
-// ── Calculs (sans livraison) ──────────────────────────────────────────────────
-const subtotal  = computed(() => totalPrice.value)
-const promoCode     = ref('')
-const promoApplied  = ref(false)
-const promoDiscount = ref(0)
-const grandTotal    = computed(() => subtotal.value - promoDiscount.value)
+// ── Calculs ───────────────────────────────────────────────────────────────────
+const subtotal   = computed(() => totalPrice.value)
+const grandTotal = computed(() => subtotal.value)
 
-const applyPromo = () => {
-  if (promoCode.value.toUpperCase() === 'BRC10') {
-    promoDiscount.value = Math.round(subtotal.value * 0.1)
-    promoApplied.value  = true
-    toast.add({ title: 'Code appliqué !', description: '-10% sur votre commande', color: 'success', icon: 'i-heroicons-tag' })
-  } else {
-    toast.add({ title: 'Code invalide', color: 'error', icon: 'i-heroicons-x-circle' })
-  }
+// ── Autocomplete Ville ────────────────────────────────────────────────────────
+const villesSuggestions = [
+  'Yaoundé', 'Douala', 'Bafoussam', 'Bamenda', 'Garoua',
+  'Maroua', 'Ngaoundéré', 'Bertoua', 'Ebolowa', 'Kribi',
+  'Limbé', 'Kumba', 'Buea', 'Edéa', 'Nkongsamba',
+]
+const showVilleSuggestions    = ref(false)
+const villeSuggestionsFiltered = computed(() =>
+  form.value.ville.length >= 2
+    ? villesSuggestions.filter(v =>
+        v.toLowerCase().startsWith(form.value.ville.toLowerCase())
+      )
+    : []
+)
+const selectVille = (v: string) => {
+  form.value.ville = v
+  showVilleSuggestions.value = false
+}
+
+// ── Autocomplete Quartier ─────────────────────────────────────────────────────
+const quartiersYaounde = [
+  'Bastos', 'Melen', 'Ngousso', 'Ekounou', 'Biyem-Assi',
+  'Essos', 'Omnisport', 'Nlongkak', 'Mvog-Mbi', 'Tsinga',
+  'Etoa-Meki', 'Mendong', 'Messa', 'Obili', 'Mvog-Betsi',
+  'Nkomo', 'Etoug-Ebe', 'Djoungolo', 'Briqueterie', 'Madagascar',
+]
+const quartiersDouala = [
+  'Akwa', 'Bonanjo', 'Bonapriso', 'Bali', 'Deido',
+  'Ndokoti', 'Makepe', 'Kotto', 'Logbessou', 'PK',
+  'Bonaberi', 'Bépanda', 'New-Bell', 'Yassa', 'Nyalla',
+]
+const quartiersAll = [...quartiersYaounde, ...quartiersDouala]
+
+const showQuartierSuggestions    = ref(false)
+const quartierSuggestionsFiltered = computed(() =>
+  form.value.quartier.length >= 2
+    ? quartiersAll.filter(q =>
+        q.toLowerCase().startsWith(form.value.quartier.toLowerCase())
+      )
+    : []
+)
+const selectQuartier = (q: string) => {
+  form.value.quartier = q
+  showQuartierSuggestions.value = false
 }
 
 // ── Validation étape ──────────────────────────────────────────────────────────
@@ -103,13 +131,18 @@ const canGoNext = computed(() => {
 })
 
 // ── Codes Mobile Money ────────────────────────────────────────────────────────
-const MARCHAND_OM   = '#150*14*278956*696923379*Montant#'
+const MARCHAND_OM   = '#150*14**696923379*Montant#'
 const MARCHAND_MOMO = '*126*14*271452*678451236*Montant#'
 
 // ── Soumission ────────────────────────────────────────────────────────────────
 const isSubmitting = ref(false)
 
 const submitOrder = async () => {
+
+  if (!isLoggedIn.value) navigateTo('/login?redirect=/checkout')
+  if (process.server && !authToken.value) {
+    await navigateTo('/login?redirect=/checkout')
+  }
   if (currentStep.value < 2) { currentStep.value++; return }
 
   if (!authToken.value || !authRole.value) {
@@ -138,14 +171,13 @@ const submitOrder = async () => {
       image:    (i.image && !i.image.startsWith('data:')) ? i.image : null,
       slug:     i.slug     || null,
     })),
-    subtotal:   subtotal.value,
-    livraison:  0,
-    discount:   promoDiscount.value || 0,
-    total:      grandTotal.value,
-    payment:    form.value.payment,
-    shipping:   'standard',
-    promo_code: promoApplied.value ? promoCode.value : null,
-    notes:      form.value.infosPlus?.trim() || null,
+    subtotal:  subtotal.value,
+    livraison: 0,
+    discount:  0,
+    total:     grandTotal.value,
+    payment:   form.value.payment,
+    shipping:  'standard',
+    notes:     form.value.infosPlus?.trim() || null,
   }
 
   try {
@@ -170,43 +202,23 @@ const submitOrder = async () => {
   }
 
   isSubmitting.value = false
-
-  // ✅ Son + toast en même temps
   playOrderSound()
 
   const emailInfo = form.value.email
-    ? `Un email de confirmation a été envoyé à ${form.value.email}.`
-    : `Conservez la référence ${orderRef} pour le suivi.`
+    ? `Un email de confirmation vous serra envoyé à ${form.value.email} avec tous les détails et instructions pour finaliser votre paiement.`
+    : `Conservez la référence ${orderRef} pour le suivi de votre commande.`
 
   toast.add({
-    title: '🎉 Commande confirmée !',
+    title: 'Commande confirmée !',
     description: `Merci ${form.value.prenom || form.value.nom} ! Votre commande ${orderRef} est enregistrée. ${emailInfo}`,
     color: 'success',
     icon: 'i-heroicons-check-circle',
     duration: 10000,
   })
 
-  if (form.value.payment === 'om') {
-    toast.add({
-      title: '🟠 Paiement Orange Money',
-      description: `Envoyez ${formatPrice(grandTotal.value)} au ${MARCHAND_OM}. Réf : ${orderRef}. Valable 24h.`,
-      color: 'warning',
-      icon: 'i-heroicons-banknotes',
-      duration: 15000,
-    })
-  } else if (form.value.payment === 'momo') {
-    toast.add({
-      title: '🟡 Paiement MTN MoMo',
-      description: `Envoyez ${formatPrice(grandTotal.value)} au ${MARCHAND_MOMO}. Réf : ${orderRef}. Valable 24h.`,
-      color: 'warning',
-      icon: 'i-heroicons-banknotes',
-      duration: 15000,
-    })
-  }
+ 
 
-  // Émettre l'event global (app.vue écoute aussi)
   window.dispatchEvent(new Event('order:placed'))
-
   clearCart()
   await new Promise(r => setTimeout(r, 3000))
   navigateTo('/boutique')
@@ -221,7 +233,7 @@ const formatPrice = (n: number) =>
   <div class="min-h-screen bg-[#f4f5f7]">
     <UContainer class="py-8 sm:py-12">
 
-      <!-- STEPPER — 2 étapes seulement -->
+      <!-- STEPPER -->
       <div class="max-w-2xl mx-auto mb-10">
         <div class="flex items-center relative">
           <div class="absolute top-5 left-[15%] right-[15%] h-0.5 bg-gray-200 z-0"></div>
@@ -268,7 +280,7 @@ const formatPrice = (n: number) =>
             <div class="p-6 sm:p-8">
               <Transition name="slide" mode="out-in">
 
-                <!-- ══ STEP 1 — Coordonnées ══ -->
+                <!-- ══ STEP 1 ══ -->
                 <div v-if="currentStep === 1" key="s1" class="space-y-4">
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -307,12 +319,52 @@ const formatPrice = (n: number) =>
                         :trailing-icon="form.email ? (emailValid ? 'i-heroicons-check-circle-solid' : 'i-heroicons-x-circle-solid') : undefined" />
                     </UFormGroup>
 
-                    <UFormGroup label="Ville *">
-                      <UInput v-model="form.ville" icon="i-heroicons-building-office-2" placeholder="Ex : Yaoundé, Douala…" size="lg" variant="outline" class="w-full" />
+                    <!-- Ville avec autocomplete -->
+                    <UFormGroup label="Ville *" class="relative">
+                      <UInput
+                        v-model="form.ville"
+                        icon="i-heroicons-building-office-2"
+                        placeholder="Ex : Yaoundé, Douala…"
+                        size="lg"
+                        variant="outline"
+                        class="w-full"
+                        autocomplete="off"
+                        @focus="showVilleSuggestions = true"
+                        @blur="setTimeout(() => showVilleSuggestions = false, 200)"
+                      />
+                      <ul v-if="showVilleSuggestions && villeSuggestionsFiltered.length"
+                        class="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1 overflow-hidden">
+                        <li v-for="v in villeSuggestionsFiltered" :key="v"
+                          @mousedown.prevent="selectVille(v)"
+                          class="px-4 py-2.5 text-sm cursor-pointer hover:bg-[#274a82]/10 hover:text-[#274a82] font-medium transition-colors flex items-center gap-2">
+                          <UIcon name="i-heroicons-building-office-2" class="w-3.5 h-3.5 text-gray-300" />
+                          {{ v }}
+                        </li>
+                      </ul>
                     </UFormGroup>
 
-                    <UFormGroup label="Quartier / Arrondissement" class="sm:col-span-2">
-                      <UInput v-model="form.quartier" icon="i-heroicons-map-pin" placeholder="Ex : Bastos, Akwa…" size="lg" variant="outline" class="w-full" />
+                    <!-- Quartier avec autocomplete -->
+                    <UFormGroup label="Quartier / Arrondissement" class="sm:col-span-2 relative">
+                      <UInput
+                        v-model="form.quartier"
+                        icon="i-heroicons-map-pin"
+                        placeholder="Ex : Bastos, Akwa…"
+                        size="lg"
+                        variant="outline"
+                        class="w-full"
+                        autocomplete="off"
+                        @focus="showQuartierSuggestions = true"
+                        @blur="setTimeout(() => showQuartierSuggestions = false, 200)"
+                      />
+                      <ul v-if="showQuartierSuggestions && quartierSuggestionsFiltered.length"
+                        class="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1 overflow-hidden">
+                        <li v-for="q in quartierSuggestionsFiltered" :key="q"
+                          @mousedown.prevent="selectQuartier(q)"
+                          class="px-4 py-2.5 text-sm cursor-pointer hover:bg-[#274a82]/10 hover:text-[#274a82] font-medium transition-colors flex items-center gap-2">
+                          <UIcon name="i-heroicons-map-pin" class="w-3.5 h-3.5 text-gray-300" />
+                          {{ q }}
+                        </li>
+                      </ul>
                     </UFormGroup>
 
                     <UFormGroup label="Instructions de livraison" class="sm:col-span-2">
@@ -326,16 +378,18 @@ const formatPrice = (n: number) =>
                     <UIcon name="i-heroicons-envelope" class="w-4 h-4 text-[#274a82] flex-shrink-0 mt-0.5" />
                     <p class="text-[12px] text-gray-600 leading-relaxed">
                       <template v-if="form.email && emailValid">
-                        Un email de confirmation sera envoyé à <strong class="text-[#274a82]">{{ form.email }}</strong>.
+                        Un email et Message Whatsapp de confirmation sera envoyé à <strong class="text-[#274a82]">{{ form.email }}</strong>
+                        avec le récapitulatif de votre commande et les <strong>instructions pour finaliser votre paiement</strong>.
                       </template>
                       <template v-else>
-                        Renseignez votre email pour recevoir la <strong class="text-gray-800">confirmation de commande</strong> automatiquement.
+                        Renseignez votre email pour recevoir un <strong class="text-gray-800">email de confirmation</strong> ou alors votre <strong class="text-gray-800">Whatsapp</strong>
+                        avec le récapitulatif complet de votre commande et les instructions pour finaliser votre paiement.
                       </template>
                     </p>
                   </div>
                 </div>
 
-                <!-- ══ STEP 2 — Paiement ══ -->
+                <!-- ══ STEP 2 ══ -->
                 <div v-else key="s2" class="space-y-3">
 
                   <!-- Récap adresse -->
@@ -453,7 +507,7 @@ const formatPrice = (n: number) =>
                   : 'bg-[#274a82] hover:bg-[#1a3460] text-white'">
                 <UIcon v-if="isSubmitting" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
                 <UIcon v-else-if="currentStep === 2" name="i-heroicons-lock-closed" class="w-4 h-4" />
-                <span>{{ isSubmitting ? 'Traitement...' : currentStep === 2 ? 'Confirmer la commande' : 'Continuer' }}</span>
+                <span>{{ isSubmitting ? 'Traitement...' : currentStep === 2 ? 'Confirmer' : 'Continuer' }}</span>
                 <UIcon v-if="!isSubmitting && currentStep < 2" name="i-heroicons-arrow-right" class="w-4 h-4" />
               </button>
             </div>
@@ -484,33 +538,16 @@ const formatPrice = (n: number) =>
                   <p class="text-xs font-bold">Panier vide</p>
                 </div>
               </div>
-              <div class="px-5 py-4 border-t border-gray-50 space-y-2.5 bg-gray-50/30">
-                <div v-if="promoApplied" class="flex justify-between text-sm">
-                  <span class="text-green-600 font-bold flex items-center gap-1">
-                    <UIcon name="i-heroicons-tag" class="w-3.5 h-3.5" />Code promo
-                  </span>
-                  <span class="font-bold text-green-600">- {{ formatPrice(promoDiscount) }}</span>
-                </div>
-                <div class="flex justify-between items-center pt-1 border-t border-gray-100">
+              <div class="px-5 py-4 border-t border-gray-50 bg-gray-50/30">
+                <div class="flex justify-between items-center">
                   <span class="font-black text-gray-900 text-sm">Total</span>
                   <span class="text-xl font-black text-[#e60012]">{{ formatPrice(grandTotal) }}</span>
-                </div>
-              </div>
-              <div class="px-5 py-4 border-t border-gray-100">
-                <div class="flex gap-2">
-                  <input v-model="promoCode" placeholder="Code promo" :disabled="promoApplied"
-                    class="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#274a82] bg-gray-50/50 disabled:opacity-40 placeholder:text-gray-300" />
-                  <button @click="applyPromo" :disabled="promoApplied || !promoCode"
-                    class="px-3 py-2 bg-gray-900 hover:bg-[#274a82] text-white text-[11px] font-black rounded-lg transition-colors disabled:opacity-40">
-                    {{ promoApplied ? '✓' : 'Appliquer' }}
-                  </button>
                 </div>
               </div>
             </div>
 
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
               <div v-for="g in [
-                { icon: 'i-heroicons-shield-check',  text: 'Paiement 100% sécurisé',  color: 'text-green-500'  },
                 { icon: 'i-heroicons-envelope',       text: 'Confirmation par email',  color: 'text-[#e60012]' },
                 { icon: 'i-heroicons-phone',          text: 'Suivi par téléphone',     color: 'text-[#274a82]' },
                 { icon: 'i-heroicons-arrow-path',     text: 'Retour sous 7 jours',     color: 'text-orange-400'},

@@ -72,7 +72,7 @@ const columns: TableColumn<Order>[] = [
   },
   {
     id: 'total', header: 'Montant',
-    cell: ({ row }) => h('p', { class: 'font-bold text-[#e07b39]' }, formatPrice(row.original.total))
+    cell: ({ row }) => h('p', { class: 'font-bold text-[#274a82]' }, formatPrice(row.original.total))
   },
   {
     id: 'status', header: 'Statut',
@@ -91,7 +91,7 @@ onMounted(fetchHistory)
         <p class="text-sm text-gray-500">Retrouvez toutes vos livraisons effectuées.</p>
       </div>
       <div class="bg-green-50 px-4 py-2 rounded-xl border border-green-100">
-        <p class="text-[10px] font-bold text-green-600 uppercase">Total Livré</p>
+        <p class="text-[13px] font-bold text-green-600 ">Total Livré</p>
         <p class="text-xl font-black text-green-700">{{ orders.length }}</p>
       </div>
     </div>

@@ -36,6 +36,7 @@ interface Product {
   is_featured:    boolean
   is_best_seller: boolean
   is_new:         boolean
+  is_promoted:    boolean
   images:         string[]
   specs:          { key: string; value: string }[]
   reviews_count:  number
@@ -169,21 +170,22 @@ const allImages = computed(() => [
 ])
 
 const emptyForm = () => ({
-  id:            0,
-  name:          '',
-  slug:          '',
-  description:   '',
-  brand:         '',
-  sku:           '',
-  price:         '' as string | number,
-  old_price:     '' as string | number,
-  stock:         '' as string | number,
-  category_id:   null as number | null,
-  status:        'published' as string,
-  is_featured:   false,
-  is_best_seller:false,
-  is_new:        true,
-  specs:         [{ key: '', value: '' }] as { key: string; value: string }[],
+  id:             0,
+  name:           '',
+  slug:           '',
+  description:    '',
+  brand:          '',
+  sku:            '',
+  price:          '' as string | number,
+  old_price:      '' as string | number,
+  stock:          '' as string | number,
+  category_id:    null as number | null,
+  status:         'published' as string,
+  is_featured:    false,
+  is_best_seller: false,
+  is_new:         true,
+  is_promoted:    false,  // ← AJOUT
+  specs:          [{ key: '', value: '' }] as { key: string; value: string }[],
 })
 
 const form = ref(emptyForm())
@@ -209,7 +211,10 @@ const openEdit = (p: Product) => {
     id: p.id, name: p.name, slug: p.slug, description: p.description ?? '',
     brand: p.brand ?? '', sku: p.sku ?? '', price: p.price, old_price: p.old_price ?? '',
     stock: p.stock, category_id: p.category_id, status: p.status,
-    is_featured: p.is_featured, is_best_seller: p.is_best_seller, is_new: p.is_new,
+    is_featured:    p.is_featured,
+    is_best_seller: p.is_best_seller,
+    is_new:         p.is_new,
+    is_promoted:    p.is_promoted,  // ← AJOUT
     specs: p.specs?.length ? p.specs : [{ key: '', value: '' }],
   }
   previewImages.value = p.images ?? []
@@ -286,21 +291,22 @@ const saveProduct = async (asDraft = false) => {
   // Étape 2 — Envoyer au backend Laravel (URLs Cloudinary uniquement)
   saving.value = true
   const payload = {
-    name:          form.value.name,
-    slug:          form.value.slug,
-    description:   form.value.description || null,
-    brand:         form.value.brand || null,
-    sku:           form.value.sku || null,
-    price:         Number(form.value.price),
-    old_price:     form.value.old_price ? Number(form.value.old_price) : null,
-    stock:         Number(form.value.stock) || 0,
-    category_id:   form.value.category_id,
-    status:        asDraft ? 'draft' : form.value.status,
-    is_featured:   form.value.is_featured,
-    is_best_seller:form.value.is_best_seller,
-    is_new:        form.value.is_new,
-    images:        previewImages.value,   // ← URLs Cloudinary, légères en DB
-    specs:         form.value.specs.filter(s => s.key && s.value),
+    name:           form.value.name,
+    slug:           form.value.slug,
+    description:    form.value.description || null,
+    brand:          form.value.brand || null,
+    sku:            form.value.sku || null,
+    price:          Number(form.value.price),
+    old_price:      form.value.old_price ? Number(form.value.old_price) : null,
+    stock:          Number(form.value.stock) || 0,
+    category_id:    form.value.category_id,
+    status:         asDraft ? 'draft' : form.value.status,
+    is_featured:    form.value.is_featured,
+    is_best_seller: form.value.is_best_seller,
+    is_new:         form.value.is_new,
+    is_promoted:    form.value.is_promoted,  // ← AJOUT
+    images:         previewImages.value,
+    specs:          form.value.specs.filter(s => s.key && s.value),
   }
 
   try {
@@ -403,6 +409,15 @@ const columns: TableColumn<Product>[] = [
       return h('span', {
         style: { fontWeight: '700', fontSize: '13px', color: s === 0 ? '#dc2626' : s <= 5 ? '#d97706' : '#16a34a' },
       }, String(s))
+    },
+  },
+  {
+    id: 'promoted', header: 'Promo',
+    cell: ({ row }) => {
+      const p = row.original
+      return p.is_promoted
+        ? h('span', { class: 'text-[10px] font-black text-white bg-[#e60012] px-2 py-0.5 rounded-full' }, '🔥 Promo')
+        : h('span', { class: 'text-[10px] text-gray-300 italic' }, '—')
     },
   },
   {
@@ -514,7 +529,7 @@ const columns: TableColumn<Product>[] = [
             <!-- Séparateur vertical coloré -->
             <div class="w-1 h-9 rounded-full flex-shrink-0" :class="isEditing ? 'bg-[#274a82]' : 'bg-[#e60012]'"></div>
 
-            <div class="min-w-0 ">
+            <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <UIcon
                   :name="isEditing ? 'i-heroicons-pencil-square' : 'i-heroicons-plus-circle'"
@@ -556,6 +571,7 @@ const columns: TableColumn<Product>[] = [
 
         </div>
       </div>
+
       <!-- Grille -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -572,15 +588,15 @@ const columns: TableColumn<Product>[] = [
             </div>
             <div class="p-5 flex flex-col gap-4">
               <div>
-                <label class="block text-xs font-black text-gray-500  tracking-wider mb-1.5">Nom du produit <span class="text-[#e60012]">*</span></label>
+                <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">Nom du produit <span class="text-[#e60012]">*</span></label>
                 <input v-model="form.name" type="text" placeholder="Ex: Samsung Galaxy S24 Ultra 256Go" :class="inputCls" />
               </div>
               <div>
-                <label class="block text-xs font-black text-gray-500  tracking-wider mb-1.5">Slug</label>
+                <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">Slug</label>
                 <input v-model="form.slug" type="text" placeholder="samsung-galaxy-s24" :class="inputCls" />
               </div>
               <div>
-                <label class="block text-xs font-black text-gray-500  tracking-wider mb-1.5">Description</label>
+                <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">Description</label>
                 <textarea v-model="form.description" rows="4" placeholder="Décrivez le produit..."
                   class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 bg-white focus:outline-none focus:border-[#274a82] focus:ring-2 focus:ring-[#274a82]/10 transition-all resize-none"></textarea>
               </div>
@@ -772,21 +788,32 @@ const columns: TableColumn<Product>[] = [
                 </button>
               </div>
               <div class="flex flex-col gap-3 pt-1">
-                <label v-for="(toggle, key) in [
-                  { model: 'is_featured',    label: 'En vedette',      sub: 'Page d\'accueil',   color: '#274a82' },
-                  { model: 'is_best_seller', label: 'Meilleure vente', sub: 'Badge Best Seller', color: '#e60012' },
-                  { model: 'is_new',         label: 'Nouveau',         sub: 'Badge Nouveau',     color: '#16a34a' },
-                ]" :key="key" class="flex items-center justify-between cursor-pointer"
-                  @click="(form as any)[toggle.model] = !(form as any)[toggle.model]">
+                <label
+                  v-for="(toggle, key) in [
+                    { model: 'is_featured',    label: 'En vedette',      sub: 'Page d\'accueil',          color: '#274a82' },
+                    { model: 'is_best_seller', label: 'Meilleure vente', sub: 'Badge Best Seller',        color: '#e60012' },
+                    { model: 'is_new',         label: 'Nouveau',         sub: 'Badge Nouveau',            color: '#16a34a' },
+                    { model: 'is_promoted',    label: 'En promotion',    sub: 'Page /promotions + badge', color: '#f97316' },
+                  ]"
+                  :key="key"
+                  class="flex items-center justify-between cursor-pointer"
+                  @click="(form as any)[toggle.model] = !(form as any)[toggle.model]"
+                >
                   <div>
                     <p class="text-xs font-black text-gray-700">{{ toggle.label }}</p>
                     <p class="text-[10px] text-gray-400">{{ toggle.sub }}</p>
                   </div>
-                  <span class="relative flex-shrink-0 rounded-full"
-                    :style="{ width: '40px', height: '22px', backgroundColor: (form as any)[toggle.model] ? toggle.color : '#d1d5db' }">
-                    <span class="absolute bg-white rounded-full shadow-sm transition-transform"
-                      :style="{ top: '3px', left: '0', width: '16px', height: '16px', transform: (form as any)[toggle.model] ? 'translateX(18px)' : 'translateX(3px)' }">
-                    </span>
+                  <span
+                    class="relative flex-shrink-0 rounded-full transition-colors duration-200"
+                    :style="{ width: '40px', height: '22px', backgroundColor: (form as any)[toggle.model] ? toggle.color : '#d1d5db' }"
+                  >
+                    <span
+                      class="absolute bg-white rounded-full shadow-sm transition-transform duration-200"
+                      :style="{
+                        top: '3px', left: '0', width: '16px', height: '16px',
+                        transform: (form as any)[toggle.model] ? 'translateX(21px)' : 'translateX(3px)'
+                      }"
+                    ></span>
                   </span>
                 </label>
               </div>
@@ -819,6 +846,11 @@ const columns: TableColumn<Product>[] = [
                 <div v-if="discountPercent > 0" class="flex justify-between items-center">
                   <span class="text-xs text-white/70">Remise</span>
                   <span class="text-xs text-[#e60012] font-black bg-white/10 px-1.5 py-0.5 rounded-md">-{{ discountPercent }}%</span>
+                </div>
+                <!-- Badge Promo dans le résumé -->
+                <div v-if="form.is_promoted" class="flex justify-between items-center">
+                  <span class="text-xs text-white/70">Promotion</span>
+                  <span class="text-[10px] font-black text-white bg-orange-500 px-2 py-0.5 rounded-full">Actif</span>
                 </div>
               </div>
             </div>

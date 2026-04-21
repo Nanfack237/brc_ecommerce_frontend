@@ -410,35 +410,35 @@ onMounted(() => {
 
 // ── Promos & Services ─────────────────────────────────────────────────────────
 const promoFlyers = [
-  { image: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?q=80&w=500' },
-  { image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?q=80&w=500' },
-  { image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=500' },
+  { image: '/images/offres/offre_special_dell_5510.png' },
+  { image: '/images/offres/offre_flash_all_in_one.png',},
+ 
 ]
 
-const expandedServices = ref<Record<string, boolean>>({
-  maintenance: false, imprimantes: false, integration: false, securite: false, support: false,
-})
-const toggleService = (k: string) => { expandedServices.value[k] = !expandedServices.value[k] }
+// const expandedServices = ref<Record<string, boolean>>({
+//   maintenance: false, imprimantes: false, integration: false, securite: false, support: false,
+// })
+// const toggleService = (k: string) => { expandedServices.value[k] = !expandedServices.value[k] }
 
-const servicesList = [
-  { key: 'maintenance', icon: 'i-heroicons-wrench-screwdriver', label: 'Maintenance & Réparation',  color: 'text-blue-600',
-    links: [{ label: 'Laptops', to: '/services/maintenance/laptops' }, { label: 'Desktops', to: '/services/maintenance/desktops' }, { label: 'Serveurs', to: '/services/maintenance/serveurs' }] },
-  { key: 'imprimantes', icon: 'i-heroicons-printer',            label: 'Imprimantes & Accessoires', color: 'text-purple-600',
-    links: [{ label: 'Toners & Encres', to: '/services/accessoires/toners' }, { label: 'Câblage & Réseau', to: '/services/accessoires/reseau' }, { label: 'Périphériques', to: '/services/accessoires/peripheriques' }] },
-  { key: 'integration', icon: 'i-heroicons-server-stack',       label: 'Intégration & Déploiement', color: 'text-green-600',
-    links: [{ label: 'Mise en réseau', to: '/services/integration/reseau' }, { label: 'Déploiement de parcs', to: '/services/integration/parcs' }, { label: 'Cloud & Serveurs', to: '/services/integration/cloud' }] },
-  { key: 'securite',   icon: 'i-heroicons-shield-check',        label: 'Sécurité Informatique',     color: 'text-red-600',
-    links: [{ label: 'Vidéosurveillance', to: '/services/securite/cameras' }, { label: 'Solutions Antivirus', to: '/services/securite/antivirus' }, { label: "Contrôle d'accès", to: '/services/securite/controle-acces' }] },
-  { key: 'support',    icon: 'i-heroicons-chat-bubble-left-right', label: 'Support Technique',       color: 'text-orange-500',
-    links: [{ label: 'Assistance Hotline', to: '/contact' }, { label: 'Maintenance à distance', to: '/contact' }] },
-]
+// const servicesList = [
+//   { key: 'maintenance', icon: 'i-heroicons-wrench-screwdriver', label: 'Maintenance & Réparation',
+//     links: [{ label: 'Laptops', to: '/services/maintenance/laptops' }, { label: 'Desktops', to: '/services/maintenance/desktops' }, { label: 'Serveurs', to: '/services/maintenance/serveurs' }] },
+//   { key: 'imprimantes', icon: 'i-heroicons-printer',            label: 'Imprimantes & Accessoires',
+//     links: [{ label: 'Toners & Encres', to: '/services/accessoires/toners' }, { label: 'Câblage & Réseau', to: '/services/accessoires/reseau' }, { label: 'Périphériques', to: '/services/accessoires/peripheriques' }] },
+//   { key: 'integration', icon: 'i-heroicons-server-stack',       label: 'Intégration IT',
+//     links: [{ label: 'Mise en réseau', to: '/services/integration/reseau' }, { label: 'Déploiement de parcs', to: '/services/integration/parcs' }, { label: 'Cloud & Serveurs', to: '/services/integration/cloud' }] },
+//   { key: 'securite',   icon: 'i-heroicons-shield-check',        label: 'Sécurité Informatique',
+//     links: [{ label: 'Vidéosurveillance', to: '/services/securite/cameras' }, { label: 'Solutions Antivirus', to: '/services/securite/antivirus' }, { label: "Contrôle d'accès", to: '/services/securite/controle-acces' }] },
+//   { key: 'support',    icon: 'i-heroicons-chat-bubble-left-right', label: 'Support Technique',
+//     links: [{ label: 'Assistance Hotline', to: '/contact' }, { label: 'Maintenance à distance', to: '/contact' }] },
+// ]
 </script>
 
 <template>
   <UContainer class="py-8 bg-white">
 
     <!-- BREADCRUMB -->
-    <nav class="flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2 overflow-x-auto">
+    <nav class="hidden sm:flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2 overflow-x-auto">
       <template v-for="(item, index) in breadcrumbItems" :key="index">
         <NuxtLink :to="item.to" class="flex items-center gap-1 transition-colors hover:text-[#e60012] whitespace-nowrap"
           :class="item.current ? 'text-[#274a82] font-bold pointer-events-none' : ''">
@@ -604,7 +604,7 @@ const servicesList = [
         </div>
 
         <!-- Nos Expertises -->
-        <div>
+        <!-- <div>
           <h3 class="text-[11px] font-extrabold text-gray-500 uppercase tracking-widest mb-3">Nos Expertises</h3>
           <div class="rounded-sm border border-gray-100 overflow-hidden divide-y divide-gray-100">
             <div v-for="service in servicesList" :key="service.key">
@@ -623,7 +623,7 @@ const servicesList = [
               </div>
             </div>
           </div>
-        </div>
+        </div> -->
       </aside>
 
       <!-- MAIN -->
@@ -829,7 +829,7 @@ const servicesList = [
               </div>
 
               <div class="p-2 flex flex-col flex-1 border-t border-gray-50">
-                <h3 class="text-[12px] sm:text-[13px] text-gray-700 font-semibold mb-2 line-clamp-2 h-9 leading-snug">{{ p.name }}</h3>
+                <h3 class="text-[12px] sm:text-[13px] text-gray-700 font-semibold mb-2 line-clamp-2 h-9 leading-snug group-hover:text-[#e60012]">{{ p.name }}</h3>
                 <div class="mt-auto flex items-end justify-between gap-2">
                   <div>
                     <div class="text-sm sm:text-base font-black text-gray-900 leading-tight">{{ formatPrice(p.price) }} <span class="text-[9px]">FCFA</span></div>
@@ -861,7 +861,7 @@ const servicesList = [
               <div class="relative overflow-hidden aspect-[16/7]"><img :src="item.image" class="w-full h-full object-cover" draggable="false" /><div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none"></div></div>
             </UCarousel>
           </div>
-          <div>
+          <!-- <div>
             <h3 class="text-base font-bold text-gray-900 border-b-2 border-[#e60012] pb-1 mb-4 inline-block">Nos Expertises</h3>
             <div class="space-y-2">
               <div v-for="service in servicesList" :key="service.key" class="border border-gray-100 rounded-sm bg-white overflow-hidden">
@@ -877,7 +877,7 @@ const servicesList = [
                 </div>
               </div>
             </div>
-          </div>
+          </div> -->
         </div>
 
       </main>

@@ -109,13 +109,11 @@ onMounted(fetchMyReviews)
 
     <!-- BREADCRUMB -->
    <div class="mb-8">
-    <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
-      <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
-      <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-300" />
-      <NuxtLink to="/compte" class="hover:text-[#274a82] transition-colors">Mon compte</NuxtLink>
-      <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-300" />
-      <span class="text-gray-600 font-medium">Mes avis</span>
-    </div>
+    <div class="hidden sm:flex items-center gap-2 text-sm text-gray-400 mb-2">
+          <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
+          <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
+          <span class="text-gray-600 font-medium">Mes Avis</span>
+        </div>
 
     <h1 class="text-2xl font-black text-gray-900">Mes Avis</h1>
     <p class="text-gray-500 text-sm mt-0.5">

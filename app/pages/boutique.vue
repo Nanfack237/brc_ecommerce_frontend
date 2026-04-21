@@ -11,6 +11,7 @@ useHead({
 
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
+const route  = useRoute()
 
 /* ================= TYPES ================= */
 interface Product {
@@ -31,12 +32,6 @@ interface PaginationMeta {
   total: number; per_page: number; current_page: number; last_page: number
 }
 
-/* ================= BREADCRUMB ================= */
-const breadcrumbItems = [
-  { label: 'Accueil', to: '/'},
-  { label: 'Boutique', to: '/boutique', current: true }
-]
-
 /* ================= AFFICHAGE ================= */
 const viewMode           = ref<'grid' | 'grid-small' | 'list' | 'list-compact'>('grid')
 const isMobileFilterOpen = ref(false)
@@ -53,6 +48,25 @@ const filterGroups     = ref<Record<string, Record<string, number>>>({})
 const baseFilterGroups = ref<Record<string, Record<string, number>>>({})
 const appliedFilters   = ref<Record<string, string | null>>({})
 
+// ✅ 1. Initialisation immédiate depuis l'URL
+if (route.query.promo === '1') {
+  appliedFilters.value['__promo'] = 'Promotions'
+}
+
+// ✅ 2. Breadcrumb réactif
+const breadcrumbItems = computed(() => {
+  const items: { label: string; to: string; current?: boolean; icon?: string }[] = [
+    { label: 'Accueil', to: '/' },
+    { label: 'Boutique', to: '/boutique' },
+  ]
+  if (appliedFilters.value['__promo']) {
+    items.push({ label: 'Promotions', to: '/boutique?promo=1', current: true })
+  } else {
+    items[1].current = true
+  }
+  return items
+})
+
 const activeFilterCount = computed(() => Object.values(appliedFilters.value).filter(Boolean).length)
 
 const FIXED_FILTER_DEFS: Record<string, string[]> = {
@@ -64,79 +78,57 @@ const FIXED_FILTER_DEFS: Record<string, string[]> = {
   'Etat':       ['Neuf', 'Occasion'],
 }
 
-// Normalisation de base
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 
-// ── Matching flexible par filtre ──────────────────────────────────────────────
-// Extrait le nombre d'une chaîne : "10th Gen" → 10, "10ieme Gen" → 10, "10" → 10
 const extractNumber = (s: string): number | null => {
   const m = s.match(/\d+/)
   return m ? parseInt(m[0]) : null
 }
 
-// Extrait la valeur en Go/TB d'une chaîne : "16 Go" → 16, "1 TB" → 1024, "256 Go SSD" → 256
 const extractStorage = (s: string): { gb: number; type: string } | null => {
   const m = s.toLowerCase().match(/(\d+)\s*(go|gb|to|tb)/)
   if (!m) return null
   const n    = parseInt(m[1])
   const unit = m[2]
   const gb   = (unit === 'to' || unit === 'tb') ? n * 1024 : n
-  // type : ssd, hdd, sas ou vide
   const type = s.toLowerCase().includes('ssd') ? 'ssd'
              : s.toLowerCase().includes('hdd') ? 'hdd'
              : s.toLowerCase().includes('sas') ? 'sas' : ''
   return { gb, type }
 }
 
-// Compare une valeur de spec (BD) à une option de filtre (FIXED_FILTER_DEFS)
 const specMatchesOption = (filterLabel: string, opt: string, specKey: string, specVal: string): boolean => {
   const normKey   = normalize(specKey)
   const normLabel = normalize(filterLabel)
-
-  // La clé de spec doit correspondre au groupe de filtre
   if (!normKey.includes(normLabel) && !normLabel.includes(normKey)) return false
 
   const normOpt = normalize(opt)
   const normVal = normalize(specVal)
 
-  // ── Génération : comparer juste le numéro ────────────────────────────────
   if (filterLabel === 'Génération') {
     const nOpt = extractNumber(opt)
     const nVal = extractNumber(specVal)
     return nOpt !== null && nVal !== null && nOpt === nVal
   }
-
-  // ── RAM : comparer la valeur numérique en Go ─────────────────────────────
   if (filterLabel === 'Ram') {
     const nOpt = extractNumber(opt)
     const nVal = extractNumber(specVal)
     return nOpt !== null && nVal !== null && nOpt === nVal
   }
-
-  // ── Stockage : comparer capacité ET type (SSD/HDD) ──────────────────────
   if (filterLabel === 'Stockage') {
     const sOpt = extractStorage(opt)
     const sVal = extractStorage(specVal)
     if (!sOpt || !sVal) return normVal === normOpt
-    const sameSize = sOpt.gb === sVal.gb
-    const sameType = !sOpt.type || !sVal.type || sOpt.type === sVal.type
-    return sameSize && sameType
+    return sOpt.gb === sVal.gb && (!sOpt.type || !sVal.type || sOpt.type === sVal.type)
   }
-
-  // ── Processeur : matching souple (inclut Core i5, i5-1235U, etc.) ───────
   if (filterLabel === 'Processeur') {
     if (opt === 'Dual Core') return normVal.includes('dualcore') || normVal.includes('dual')
-    // "Core i5" matche "i5", "corei5", "Intel Core i5-xxxx", etc.
-    const proc = normalize(opt) // ex: "corei5"
+    const proc = normalize(opt)
     return normVal.includes(proc) || normVal.replace(/[^a-z0-9]/g, '').includes(proc)
   }
-
-  // ── État : exact normalisé ───────────────────────────────────────────────
   if (filterLabel === 'État') {
     return normVal === normOpt
   }
-
-  // Fallback : exact normalisé
   return normVal === normOpt
 }
 
@@ -198,12 +190,10 @@ const buildFiltersFromProducts = (prods: Product[], isFilteredFetch = false) => 
     productSpecsList.push({ brand: p.brand ?? null, specPairs })
   })
 
-  // Marques
   productSpecsList.forEach(({ brand }) => {
     if (brand) groups['Marques'][brand] = (groups['Marques'][brand] ?? 0) + 1
   })
 
-  // ── Comptage avec matching flexible ─────────────────────────────────────
   Object.entries(FIXED_FILTER_DEFS).forEach(([filterLabel, options]) => {
     options.forEach(opt => {
       let count = 0
@@ -217,7 +207,6 @@ const buildFiltersFromProducts = (prods: Product[], isFilteredFetch = false) => 
     })
   })
 
-  // Debug temporaire — à retirer une fois les specs BD vérifiées
   if (process.dev) {
     console.log('[boutique] filterGroups built:', JSON.stringify(groups, null, 2))
     console.log('[boutique] sample specPairs:', productSpecsList.slice(0, 3))
@@ -267,12 +256,14 @@ const fetchProducts = async (resetPage = false) => {
       per_page: itemsPerPage,
       sort:     sortParam.value,
     }
-    if (appliedFilters.value['Marques'])          params.brand     = appliedFilters.value['Marques']
-    if (priceRange.value[0] > 0)                  params.min_price = priceRange.value[0]
-    if (priceRange.value[1] < priceMax.value)     params.max_price = priceRange.value[1]
+
+    if (appliedFilters.value['Marques'])      params.brand     = appliedFilters.value['Marques']
+    if (priceRange.value[0] > 0)              params.min_price = priceRange.value[0]
+    if (priceRange.value[1] < priceMax.value) params.max_price = priceRange.value[1]
+    if (appliedFilters.value['__promo'])      params.is_promoted = 1
 
     Object.entries(appliedFilters.value).forEach(([k, v]) => {
-      if (!v || k === 'Marques') return
+      if (!v || k === 'Marques' || k === '__promo') return
       const paramKey = `spec_${k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_')}`
       params[paramKey] = v
     })
@@ -324,8 +315,15 @@ const selectFilter = (groupKey: string, opt: string) => {
 
 const resetFilters = () => {
   Object.keys(appliedFilters.value).forEach(k => appliedFilters.value[k] = null)
-  priceRange.value  = [0, priceMax.value]
-  fetchProducts(true)
+  delete appliedFilters.value['__promo']
+  priceRange.value = [0, priceMax.value]
+
+  if (route.query.promo === '1') {
+    navigateTo('/boutique', { replace: true })
+    // le watch détectera le changement et appellera fetchProducts(true)
+  } else {
+    fetchProducts(true)
+  }
 }
 
 const setPage = (page: number) => {
@@ -334,6 +332,7 @@ const setPage = (page: number) => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+/* ================= WATCHERS ================= */
 watch(sortBy, () => fetchProducts(true))
 watch(currentPage, () => { fetchProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }) })
 
@@ -343,12 +342,23 @@ watch(priceRange, () => {
   priceTimer = setTimeout(() => fetchProducts(true), 400)
 })
 
+// ✅ 3. Watch sur ?promo — gère la navigation externe ET le resetFilters
+watch(() => route.query.promo, (newVal, oldVal) => {
+  if (newVal === oldVal) return
+  if (newVal === '1') {
+    appliedFilters.value['__promo'] = 'Promotions'
+  } else {
+    delete appliedFilters.value['__promo']
+  }
+  fetchProducts(true)
+})
+
 /* ================= HELPERS ================= */
-const formatPrice     = (p: number) => new Intl.NumberFormat('fr-CM', { maximumFractionDigits: 0 }).format(p)
-const getImage        = (p: Product) => p.images?.[0] ?? '/images/placeholder.jpg'
-const getImageHover   = (p: Product) => p.images?.[1] ?? p.images?.[0] ?? '/images/placeholder.jpg'
-const isOutOfStock    = (p: Product) => p.status === 'out_of_stock' || p.stock === 0
-const goToProduit     = (p: Product) => p.slug ? `/products/${p.slug}` : `/products/${p.id}`
+const formatPrice   = (p: number) => new Intl.NumberFormat('fr-CM', { maximumFractionDigits: 0 }).format(p)
+const getImage      = (p: Product) => p.images?.[0] ?? '/images/placeholder.jpg'
+const getImageHover = (p: Product) => p.images?.[1] ?? p.images?.[0] ?? '/images/placeholder.jpg'
+const isOutOfStock  = (p: Product) => p.status === 'out_of_stock' || p.stock === 0
+const goToProduit   = (p: Product) => p.slug ? `/products/${p.slug}` : `/products/${p.id}`
 
 const discountPercent = (p: Product) => {
   if (p.discount_percent) return `-${p.discount_percent}%`
@@ -378,9 +388,9 @@ const addToWishlist = (p: Product) => toggleWishlist(p.id, p.name)
 
 /* ================= PROMOS / SERVICES ================= */
 const promoFlyers = [
-  { image: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?q=80&w=500' },
-  { image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?q=80&w=500' },
-  { image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=500' }
+  { image: '/images/offres/offre_special_dell_5510.png' },
+  { image: '/images/offres/offre_flash_all_in_one.png',},
+ 
 ]
 
 const expandedServices = ref<Record<string, boolean>>({
@@ -388,27 +398,31 @@ const expandedServices = ref<Record<string, boolean>>({
 })
 const toggleService = (key: string) => { expandedServices.value[key] = !expandedServices.value[key] }
 
-const servicesList = [
-  { key: 'maintenance', icon: 'i-heroicons-wrench-screwdriver', label: 'Maintenance & Réparation',  color: 'text-blue-600',
-    links: [{ label: 'Laptops', to: '/services/maintenance/laptops' }, { label: 'Desktops', to: '/services/maintenance/desktops' }, { label: 'Serveurs', to: '/services/maintenance/serveurs' }] },
-  { key: 'imprimantes', icon: 'i-heroicons-printer',            label: 'Imprimantes & Accessoires', color: 'text-purple-600',
-    links: [{ label: 'Toners & Encres', to: '/services/accessoires/toners' }, { label: 'Câblage & Réseau', to: '/services/accessoires/reseau' }, { label: 'Périphériques', to: '/services/accessoires/peripheriques' }] },
-  { key: 'integration', icon: 'i-heroicons-server-stack',       label: 'Intégration IT',            color: 'text-green-600',
-    links: [{ label: 'Mise en réseau', to: '/services/integration/reseau' }, { label: 'Déploiement de parcs', to: '/services/integration/parcs' }, { label: 'Cloud & Serveurs', to: '/services/integration/cloud' }] },
-  { key: 'securite',   icon: 'i-heroicons-shield-check',        label: 'Sécurité Informatique',     color: 'text-red-600',
-    links: [{ label: 'Vidéosurveillance', to: '/services/securite/cameras' }, { label: 'Solutions Antivirus', to: '/services/securite/antivirus' }, { label: "Contrôle d'accès", to: '/services/securite/controle-acces' }] },
-  { key: 'support',    icon: 'i-heroicons-chat-bubble-left-right', label: 'Support Technique',      color: 'text-orange-500',
-    links: [{ label: 'Assistance Hotline', to: '/contact' }, { label: 'Maintenance à distance', to: '/contact' }] },
-]
+// const servicesList = [
+//   { key: 'maintenance', icon: 'i-heroicons-wrench-screwdriver', label: 'Maintenance & Réparation',
+//     links: [{ label: 'Laptops', to: '/services/maintenance/laptops' }, { label: 'Desktops', to: '/services/maintenance/desktops' }, { label: 'Serveurs', to: '/services/maintenance/serveurs' }] },
+//   { key: 'imprimantes', icon: 'i-heroicons-printer',            label: 'Imprimantes & Accessoires',
+//     links: [{ label: 'Toners & Encres', to: '/services/accessoires/toners' }, { label: 'Câblage & Réseau', to: '/services/accessoires/reseau' }, { label: 'Périphériques', to: '/services/accessoires/peripheriques' }] },
+//   { key: 'integration', icon: 'i-heroicons-server-stack',       label: 'Intégration IT',
+//     links: [{ label: 'Mise en réseau', to: '/services/integration/reseau' }, { label: 'Déploiement de parcs', to: '/services/integration/parcs' }, { label: 'Cloud & Serveurs', to: '/services/integration/cloud' }] },
+//   { key: 'securite',   icon: 'i-heroicons-shield-check',        label: 'Sécurité Informatique',
+//     links: [{ label: 'Vidéosurveillance', to: '/services/securite/cameras' }, { label: 'Solutions Antivirus', to: '/services/securite/antivirus' }, { label: "Contrôle d'accès", to: '/services/securite/controle-acces' }] },
+//   { key: 'support',    icon: 'i-heroicons-chat-bubble-left-right', label: 'Support Technique',
+//     links: [{ label: 'Assistance Hotline', to: '/contact' }, { label: 'Maintenance à distance', to: '/contact' }] },
+// ]
 
-onMounted(() => { fetchProducts(); fetchRecentProducts(); initWishlist() })
+/* ================= INIT ================= */
+onMounted(() => {
+  fetchProducts()      // ✅ __promo déjà initialisé si ?promo=1
+  fetchRecentProducts()
+  initWishlist()
+})
 </script>
-
 <template>
   <UContainer class="py-6 bg-white">
 
     <!-- BREADCRUMB -->
-    <nav class="flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2 overflow-x-auto">
+    <nav class="hidden sm:flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2 overflow-x-auto">
       <template v-for="(item, index) in breadcrumbItems" :key="index">
         <NuxtLink :to="item.to" class="flex items-center gap-1 transition-colors hover:text-[#e60012] whitespace-nowrap"
           :class="item.current ? 'text-[#274a82] font-bold pointer-events-none' : ''">
@@ -595,8 +609,8 @@ onMounted(() => { fetchProducts(); fetchRecentProducts(); initWishlist() })
         </div>
 
         <!-- Nos Expertises -->
-        <div>
-          <h3 class="text-[11px] font-extrabold text-gray-500 uppercase tracking-widest mb-3">Nos Expertises</h3>
+        <!-- <div>
+          <h3 class="text-[11px] font-extrabold text-gray-500 tracking-widest mb-3">Nos Expertises</h3>
           <div class="rounded-sm border border-gray-100 overflow-hidden divide-y divide-gray-100">
             <div v-for="service in servicesList" :key="service.key">
               <button @click="toggleService(service.key)"
@@ -616,7 +630,7 @@ onMounted(() => { fetchProducts(); fetchRecentProducts(); initWishlist() })
               </div>
             </div>
           </div>
-        </div>
+        </div> -->
       </aside>
 
       <!-- MAIN -->
@@ -694,11 +708,11 @@ onMounted(() => { fetchProducts(); fetchRecentProducts(); initWishlist() })
               'relative w-full h-32 sm:h-40': viewMode === 'grid-small',
               'relative h-28 w-28 sm:h-36 sm:w-36 flex-shrink-0': viewMode === 'list',
               'relative h-16 w-16 flex-shrink-0': viewMode === 'list-compact'
-            }" class="overflow-hidden flex items-center justify-center bg-[#fcfcfc] rounded-sm"
+            }" class="overflow-hidden flex items-center justify-center bg-gray-40 rounded-sm"
               @mouseenter="setHover(`grid:${p.id}`, true)"
               @mouseleave="setHover(`grid:${p.id}`, false)">
 
-              <div v-if="discountPercent(p)" class="absolute bottom-2 left-2 bg-[#e60012] text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">{{ discountPercent(p) }}</div>
+              <div v-if="discountPercent(p)" class="absolute top-2 left-2 bg-[#e60012] text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">{{ discountPercent(p) }}</div>
               <div v-if="isOutOfStock(p)" class="absolute top-2 left-2 bg-gray-500 text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">Rupture</div>
               <div v-else-if="p.stock > 0 && p.stock <= 5" class="absolute top-2 left-2 bg-orange-500 text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">Plus que {{ p.stock }}</div>
 
@@ -722,7 +736,7 @@ onMounted(() => { fetchProducts(); fetchRecentProducts(); initWishlist() })
               </div>
             </div>
 
-            <div class="flex flex-col flex-1 min-w-0" :class="viewMode.startsWith('grid') ? 'p-2 sm:p-3' : ''">
+            <div class="flex flex-col flex-1 min-w-0 border-t border-gray-100" :class="viewMode.startsWith('grid') ? 'p-2 sm:p-3' : ''">
               <span class="text-[10px] sm:text-[11px] text-gray-400 font-bold tracking-widest truncate">{{ p.category?.name ?? '' }}</span>
               <h3 class="font-bold leading-snug group-hover:text-[#e60012] transition-colors truncate sm:whitespace-normal"
                 :class="{
@@ -795,7 +809,7 @@ onMounted(() => { fetchProducts(); fetchRecentProducts(); initWishlist() })
               :to="goToProduit(p)"
               class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl"
             >
-              <div class="relative h-40 sm:h-48 w-full overflow-hidden flex items-center justify-center bg-[#fcfcfc]"
+              <div class="relative h-40 sm:h-48 w-full overflow-hidden flex items-center justify-center bg-gray-40"
                 @mouseenter="setHover(`recent:${p.id}`, true)"
                 @mouseleave="setHover(`recent:${p.id}`, false)">
                 <div class="hidden sm:flex absolute right-[-50px] group-hover:right-3 top-3 flex-col gap-2 z-30 transition-all duration-300">
@@ -819,8 +833,8 @@ onMounted(() => { fetchProducts(); fetchRecentProducts(); initWishlist() })
                 <img :src="imgSrc(p, 'recent')" class="w-full h-full object-contain p-2 transition-opacity duration-300" :alt="p.name" />
               </div>
 
-              <div class="p-2 flex flex-col flex-1 border-t border-gray-50">
-                <h3 class="text-[12px] sm:text-[13px] text-gray-700 font-semibold mb-2 line-clamp-2 h-9 leading-snug">{{ p.name }}</h3>
+              <div class="p-2 flex flex-col flex-1 border-t border-gray-100">
+                <h3 class="text-[12px] sm:text-[13px] text-gray-700 font-semibold mb-2 line-clamp-2 h-9 leading-snug group-hover:text-[#e60012]">{{ p.name }}</h3>
                 <div class="mt-auto flex items-end justify-between gap-2">
                   <div>
                     <div class="text-sm sm:text-base font-black text-gray-900 leading-tight">{{ formatPrice(p.price) }} <span class="text-[9px]">FCFA</span></div>
@@ -839,7 +853,7 @@ onMounted(() => { fetchProducts(); fetchRecentProducts(); initWishlist() })
         </section>
 
         <!-- MOBILE ONLY -->
-        <div class="lg:hidden mt-10 space-y-8">
+        <!-- <div class="lg:hidden mt-10 space-y-8">
           <div>
             <h3 class="text-base font-bold text-gray-900 border-b-2 border-[#e60012] pb-1 mb-4 inline-block">Nos Promos</h3>
             <UCarousel v-slot="{ item }" :items="promoFlyers" arrows dots :autoplay="{ delay: 2000 }" class="relative rounded-sm overflow-hidden shadow-sm" :prev="{ variant: 'solid' }" :next="{ variant: 'solid' }">
@@ -871,7 +885,7 @@ onMounted(() => { fetchProducts(); fetchRecentProducts(); initWishlist() })
               </div>
             </div>
           </div>
-        </div>
+        </div> -->
 
       </main>
     </div>

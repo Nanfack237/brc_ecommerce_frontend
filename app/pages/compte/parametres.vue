@@ -63,7 +63,6 @@ const settingSections = [
     title: 'Compte', icon: 'i-heroicons-user-circle',
     items: [
       { label: 'Modifier mes informations', desc: 'Nom, email, téléphone', to: '/compte/informations', icon: 'i-heroicons-pencil-square' },
-      { label: 'Mes adresses',              desc: 'Adresses de livraison',  to: '/compte/adresses',    icon: 'i-heroicons-map-pin' },
     ]
   },
   {
@@ -94,7 +93,7 @@ const settingSections = [
       <div v-for="section in settingSections" :key="section.title" class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-50 bg-gray-50/50">
           <UIcon :name="section.icon" class="w-4 h-4 text-[#274a82]" />
-          <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">{{ section.title }}</span>
+          <span class="text-[14px] font-bold text-gray-500 tracking-wider">{{ section.title }}</span>
         </div>
         <div>
           <NuxtLink
@@ -115,47 +114,11 @@ const settingSections = [
         </div>
       </div>
 
-      <!-- Notifications -->
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-50 bg-gray-50/50">
-          <UIcon name="i-heroicons-bell" class="w-4 h-4 text-[#274a82]" />
-          <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Notifications</span>
-        </div>
-        <div class="divide-y divide-gray-50">
-          <div class="flex items-center justify-between px-5 py-4">
-            <div>
-              <p class="text-sm font-semibold text-gray-800">Commandes</p>
-              <p class="text-xs text-gray-400">Confirmations et mises à jour de livraison</p>
-            </div>
-            <UToggle v-model="notifications.email_orders" color="primary" />
-          </div>
-          <div class="flex items-center justify-between px-5 py-4">
-            <div>
-              <p class="text-sm font-semibold text-gray-800">Promotions</p>
-              <p class="text-xs text-gray-400">Offres spéciales et réductions</p>
-            </div>
-            <UToggle v-model="notifications.email_promotions" color="primary" />
-          </div>
-          <div class="flex items-center justify-between px-5 py-4">
-            <div>
-              <p class="text-sm font-semibold text-gray-800">Newsletter</p>
-              <p class="text-xs text-gray-400">Actualités et nouveaux produits</p>
-            </div>
-            <UToggle v-model="notifications.email_newsletter" color="primary" />
-          </div>
-        </div>
-        <div class="px-5 py-4 bg-gray-50/50 border-t border-gray-100">
-          <UButton size="sm" color="primary" variant="outline" icon="i-heroicons-check" @click="saveNotifications">
-            Sauvegarder les préférences
-          </UButton>
-        </div>
-      </div>
-
       <!-- Security -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-50 bg-gray-50/50">
           <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-[#274a82]" />
-          <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Sécurité</span>
+          <span class="text-[14px] font-bold text-gray-500 tracking-wider">Sécurité</span>
         </div>
         <div class="px-5 py-4 flex items-center justify-between border-b border-gray-50">
           <div>
@@ -176,10 +139,10 @@ const settingSections = [
       </div>
 
       <!-- Danger zone -->
-      <div class="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
+      <!-- <div class="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
         <div class="flex items-center gap-2 px-5 py-3 border-b border-red-50 bg-red-50/50">
           <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4 text-red-500" />
-          <span class="text-xs font-bold text-red-500 uppercase tracking-wider">Zone dangereuse</span>
+          <span class="text-[14px] font-bold text-red-500 tracking-wider">Zone dangereuse</span>
         </div>
         <div class="px-5 py-4 flex items-center justify-between">
           <div>
@@ -190,12 +153,12 @@ const settingSections = [
             Supprimer
           </UButton>
         </div>
-      </div>
+      </div> -->
 
     </div>
 
     <!-- Delete modal -->
-    <UModal v-model:open="showDeleteModal">
+    <!-- <UModal v-model:open="showDeleteModal">
   <template #content>
     <div class="p-6">
       <div class="flex items-center gap-3 mb-4">
@@ -219,7 +182,7 @@ const settingSections = [
         </UButton>
       </div>
     </div>
-  </template>
-    </UModal>
+  </template> -->
+    <!-- </UModal> -->
 
 </template>

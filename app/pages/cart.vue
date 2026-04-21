@@ -62,7 +62,7 @@ const handleClear = () => {
   <UContainer class="py-6 bg-white min-h-screen">
 
     <!-- BREADCRUMB -->
-    <nav class="flex items-center gap-2 text-[14px] mb-6 text-gray-500 font-medium border-b border-gray-50 pb-3 overflow-x-auto">
+    <nav class="hidden sm:flex items-center gap-2 text-[14px] mb-6 text-gray-500 font-medium border-b border-gray-50 pb-3 overflow-x-auto">
       <template v-for="(item, index) in breadcrumbItems" :key="index">
         <NuxtLink :to="item.to"
           class="flex items-center gap-1 transition-colors hover:text-[#e60012] whitespace-nowrap"
@@ -222,10 +222,10 @@ const handleClear = () => {
               Valider la commande
             </NuxtLink>
 
-            <div class="flex items-center justify-center gap-2 pt-1">
+            <!-- <div class="flex items-center justify-center gap-2 pt-1">
               <UIcon name="i-heroicons-shield-check" class="w-3.5 h-3.5 text-gray-400" />
               <span class="text-[10px] text-gray-400 font-medium">Paiement 100% sécurisé</span>
-            </div>
+            </div> -->
           </div>
         </div>
       </div>

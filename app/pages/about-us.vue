@@ -16,7 +16,7 @@
   <div class="max-w-7xl mx-auto px-4">
     <!-- ================= HERO BANNER ================= -->
     <section
-      class="relative h-[320px] md:h-[400px] gap-5 flex items-center justify-center overflow-hidden  "
+      class="relative h-[320px] md:h-[400px] gap-5 flex items-center justify-center overflow-hidden"
     >
       <!-- Background -->
       <img
@@ -34,7 +34,7 @@
           À propos de BRC Market
         </h1>
         <p class="text-gray-200 max-w-3xl mx-auto text-lg">
-          Votre partenaire technologique de confiance à Douala et partout au Cameroun
+          Votre partenaire technologique de confiance au Cameroun et partout dans l'Afrique.
         </p>
       </div>
     </section>
@@ -113,14 +113,14 @@
           <UCard class="p-6 shadow-md">
             <h3 class="font-semibold mb-2">Infrastructure IT</h3>
             <p class="text-gray-600 text-sm">
-              Réseaux, serveurs, vidéosurveillance et solutions professionnelles.
+              Réseaux, serveurs et solutions professionnelles.
             </p>
           </UCard>
 
           <UCard class="p-6 shadow-md">
             <h3 class="font-semibold mb-2">Sécurité informatique</h3>
             <p class="text-gray-600 text-sm">
-              Protection des données, firewalls, contrôle d’accès et biométrie.
+              Systèmes d'alarme, videosurveillance, contrôle d’accès et biométrie.
             </p>
           </UCard>
 

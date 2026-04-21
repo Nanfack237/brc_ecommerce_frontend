@@ -108,11 +108,11 @@ await fetchFavorites()
 
     <!-- ══ BREADCRUMB + TITRE ══════════════════════════════════════════════ -->
     <div>
-      <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
-        <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
-        <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
-        <span class="text-gray-600 font-medium">Mes favoris</span>
-      </div>
+      <div class="hidden sm:flex items-center gap-2 text-sm text-gray-400 mb-2">
+          <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
+          <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
+          <span class="text-gray-600 font-medium">Mes Favoris</span>
+        </div>
       <h1 class="text-2xl font-black text-gray-900">Mes favoris</h1>
       <p class="text-gray-500 text-sm mt-0.5">{{ stats.total }} produit(s) sauvegardé(s)</p>
     </div>
@@ -234,7 +234,7 @@ await fetchFavorites()
         <!-- ── Zone info ──────────────────────────────────────────────── -->
         <div class="p-2 flex flex-col flex-1 border-t border-gray-50">
           <span class="text-[11px] text-gray-400 font-bold tracking-widest">{{ product.category ?? '' }}</span>
-          <h3 class="text-[13px] text-gray-600 font-medium mb-2 line-clamp-2 h-10 leading-snug">{{ product.name }}</h3>
+          <h3 class="text-sm sm:text-[15px] text-gray-600 font-semibold line-clamp-2 leading-tight overflow-hidden w-full min-h-[40px] h-[40px] group-hover:text-[#e60012]">{{ product.name }}</h3>
 
           <!-- Desktop : prix -->
           <div class="hidden sm:block mt-auto">

@@ -24,6 +24,16 @@ export default defineNuxtConfig({
     },
   },
 
+  // ── Icônes bundlées localement ──────────────────────────────────────────
+  icon: {
+    serverBundle: false,
+    clientBundle: {
+      scan: true,
+      collections: ['heroicons', 'lucide', 'simple-icons'],
+      sizeLimitKb: 512,
+    },
+  },
+
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
@@ -55,19 +65,38 @@ export default defineNuxtConfig({
           purpose: 'any',
         },
         {
-          src: '/icons/maskable-512x512.png',
+          // TRÈS IMPORTANT : Ce fichier doit être ton logo SUR FOND BLEU PLEIN
+          src: '/icons/pwa-512x512-maskable.png', 
           sizes: '512x512',
           type: 'image/png',
           purpose: 'maskable',
         },
       ],
+      // Les screenshots aident Chrome à afficher un bouton "Installer" plus grand (Rich Install UI)
+      screenshots: [
+        {
+          src: '/screenshots/mobile.png',
+          sizes: '1169x2531',
+          type: 'image/png',
+          form_factor: 'narrow',
+        },
+      ],
     },
+
     workbox: {
       navigateFallback: '/',
       globPatterns: ['**/*.{js,css,html,png,svg,ico,woff,woff2}'],
+
+      navigateFallbackDenylist: [
+        /^\/api\//,
+        /^\/_nuxt\//,
+      ],
+
       runtimeCaching: [
         {
-          urlPattern: ({ url }) => url.pathname.startsWith('/api'),
+          urlPattern: ({ url }) =>
+            url.pathname.startsWith('/api') &&
+            !url.pathname.startsWith('/api/_nuxt'),
           handler: 'NetworkFirst',
           options: {
             cacheName: 'brc-api-cache',
@@ -104,14 +133,14 @@ export default defineNuxtConfig({
         },
       ],
     },
+
     devOptions: {
-      enabled: true,
-      suppressWarnings: true,
-      navigateFallbackAllowlist: [/^\/(?!api)/],
-      type: 'module',
+      enabled: true,          // ← active le SW en dev
+      type: 'module',         // ← requis avec Vite
     },
+
     client: {
-      installPrompt: true,
+      installPrompt: true, // Active la détection du bouton d'installation
       periodicSyncForUpdates: 3600,
     },
   },
@@ -154,4 +183,19 @@ export default defineNuxtConfig({
       },
     },
   },
+
+  app: {
+    head: {
+      viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
+      meta: [
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'apple-mobile-web-app-title', content: 'BRC Market' },
+      ],
+      link: [
+        { rel: 'apple-touch-icon', href: '/icons/pwa-192x192.png' },
+      ]
+    }
+  },
+  
 })

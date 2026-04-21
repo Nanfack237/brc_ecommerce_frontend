@@ -111,6 +111,68 @@ const clearSelection = () => {
   selectedIds.value = new Set()
 }
 
+const openDetail = (order: Order) => {
+  selectedOrder.value    = { ...order, items: order.items ?? [] }
+  newStatus.value        = order.status
+  newPaymentStatus.value = order.payment_status
+  selectedLivId.value    = order.delivery_driver_id ?? null
+  newShippingCost.value  = (order.shipping_cost ?? 0) > 0 ? order.shipping_cost : null
+  showAssign.value       = false
+  showDetail.value       = true
+}
+
+// ── Frais de livraison ────────────────────────────────────────────────────────
+const newShippingCost = ref<number | null>(null)
+const savingShipping  = ref(false)
+
+const saveShippingCost = async () => {
+  if (!selectedOrder.value || newShippingCost.value === null) return
+  savingShipping.value = true
+  try {
+  const { data } = await axios.patch(
+    `${API}/admin/orders/${selectedOrder.value.id}/shipping-cost`,
+    { shipping_cost: newShippingCost.value },
+    { headers: authHeaders.value }
+  )
+
+  // Mettre à jour le state local
+  const idx = orders.value.findIndex(o => o.id === selectedOrder.value!.id)
+  if (idx !== -1) {
+    orders.value[idx].shipping_cost = newShippingCost.value
+    orders.value[idx].total         = data.order.total
+  }
+  selectedOrder.value.shipping_cost = newShippingCost.value
+  selectedOrder.value.total         = data.order.total
+
+  // ⚠️ Capturer AVANT le reset (important)
+  const frozenOrder = { ...selectedOrder.value, items: [...selectedOrder.value.items] } as Order
+  const frozenCost  = newShippingCost.value!
+  newShippingCost.value = null
+
+  // Toast
+  toast.add({
+    title:       'Frais définis',
+    description: data.email_sent
+      ? `Email + WhatsApp envoyés — ${frozenCost} FCFA`
+      : `WhatsApp ouvert — ${frozenCost} FCFA (pas d'email, adresse manquante)`,
+    color:    'success',
+    icon:     'i-heroicons-check-circle',
+    duration: 6000,
+  })
+
+  // ✅ WhatsApp automatique
+  sendWhatsAppShipping(frozenOrder, frozenCost)
+
+} catch (e: any) {
+  toast.add({
+    title:       'Erreur',
+    description: e?.response?.data?.message ?? 'Impossible de définir les frais.',
+    color: 'error',
+    icon:  'i-heroicons-x-circle',
+  })
+}
+}
+
 const selectedOrders = computed(() =>
   orders.value.filter(o => selectedIds.value.has(o.id))
 )
@@ -217,6 +279,7 @@ const printBordereau = (order: Order) => {
     ? `${order.user.first_name} ${order.user.last_name}`
     : `${order.shipping_first_name} ${order.shipping_last_name}`
   const clientPhone = order.user?.phone ?? order.shipping_phone ?? '—'
+  const notes = order.notes || '—'
   const adresse = [order.shipping_street, order.shipping_city].filter(Boolean).join(', ') || '—'
 
   const itemsRows = (order.items ?? []).map(item => `
@@ -248,9 +311,9 @@ const printBordereau = (order: Order) => {
     .badge-number { background: #274a82; color: white; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 900; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
     .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; }
-    .card-title { font-size: 9px; font-weight: 900; color: #9ca3af; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+    .card-title { font-size: 9px; font-weight: 900; color: #9ca3af; letter-spacing: .08em; margin-bottom: 8px; }
     .card p { font-size: 12px; color: #374151; margin-bottom: 3px; }
-    .card .name { font-size: 14px; font-weight: 900; color: #111827; }
+    .card .name { font-size: 12px; font-weight: 900; color: #111827; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
     th { background: #274a82; color: white; padding: 8px 10px; text-align: left; font-size: 10px; text-transform: uppercase; }
     td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; font-size: 11px; }
@@ -283,14 +346,14 @@ const printBordereau = (order: Order) => {
   <div class="grid2">
     <div class="card">
       <p class="card-title">Destinataire</p>
-      <p class="name">${clientName_}</p>
-      <p>📞 ${clientPhone}</p>
-      <p>📍 ${adresse}</p>
+      Nom: <p class="name">${clientName_}</p>
+      Tel: <p>${clientPhone}</p>
+      Adresse: <p>${adresse}</p>
     </div>
     <div class="card">
       <p class="card-title">Livreur assigné</p>
-      <p class="name">${livreurName}</p>
-      <p>📞 ${livreurPhone}</p>
+      Nom: <p class="name">${livreurName}</p>
+      Tel: <p>${livreurPhone}</p>
       <p style="margin-top:6px;font-size:10px;color:#6b7280">Mode paiement : <strong>${paymentMethodLabel}</strong></p>
       <p style="font-size:10px;color:${order.payment_status === 'paid' ? '#166534' : '#854d0e'}">
         Statut paiement : <strong>${order.payment_status === 'paid' ? 'Payé' : 'À encaisser'}</strong>
@@ -583,6 +646,78 @@ const livColor     = (id: number) => avatarColors[id % avatarColors.length]
 const itemName  = (item: Order['items'][0]) => item.product?.name ?? item.product_name ?? 'Produit'
 const itemImage = (item: Order['items'][0]) => item.product?.images?.[0] ?? item.product_image ?? null
 
+
+// ── WhatsApp ───────────────────────────────────────────────────────────────────
+const sendWhatsAppShipping = (order: Order, shippingCost: number) => {
+  const raw = order.user?.phone ?? order.shipping_phone ?? ''
+  if (!raw) return // numéro absent → silencieux
+
+  // Normalisation vers 237XXXXXXXXX
+  const cleaned   = raw.replace(/[\s\-().+]/g, '')
+  const intlPhone =
+    cleaned.startsWith('237') ? cleaned :
+    cleaned.startsWith('0')   ? `237${cleaned.slice(1)}` :
+                                `237${cleaned}`
+
+  const clientName_ = order.user
+    ? `${order.user.first_name} ${order.user.last_name}`
+    : `${order.shipping_first_name} ${order.shipping_last_name}`
+
+  const adresse = [order.shipping_street, order.shipping_city]
+    .filter(Boolean).join(', ') || 'Non précisée'
+
+  const notes = order.notes
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('fr-CM', {
+      style: 'currency', currency: 'XAF', maximumFractionDigits: 0,
+    }).format(n).replace('XAF', 'FCFA')
+
+  const itemsList = (order.items ?? [])
+    .map(i => {
+      const name = i.product?.name ?? i.product_name ?? 'Produit'
+      return `  • ${name} ×${i.quantity} — ${fmt(i.unit_price * i.quantity)}`
+    })
+    .join('\n')
+
+  const totalFinal = (order.subtotal ?? 0) + shippingCost - (order.discount_amount ?? 0)
+
+  const paymentLabel =
+    order.payment_method === 'mobile_money'     ? 'Mobile Money'            :
+    order.payment_method === 'cash_on_delivery' ? 'Paiement à la livraison' :
+    order.payment_method
+
+  const message = `
+    Cher(e) ${clientName_}
+
+    Votre commande *#${order.order_number}* est confirmée et en cours de traitement.
+
+    ━━━━━━━━━━━━━━━━
+    *VOS ARTICLES*
+    
+    ${itemsList}
+
+    ━━━━━━━━━━━━━━━━
+    *RÉCAPITULATIF*
+    
+      • Sous-total  : ${fmt(order.subtotal ?? 0)}
+      • Livraison   : ${fmt(shippingCost)}${(order.discount_amount ?? 0) > 0 ? `\n  • Réduction   : -${fmt(order.discount_amount)}` : ''}
+      *TOTAL      : ${fmt(totalFinal)}*
+
+    ━━━━━━━━━━━━━━━━
+    *LIVRAISON*
+    
+      • Adresse  : ${adresse}
+      • Notes  : ${notes}
+      • Paiement : ${paymentLabel}
+
+    Notre équipe vous contactera pour organiser la livraison.
+    Merci pour votre confiance ! 
+    *— BRC Market*`.trim()
+
+  window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`, '_blank')
+}
+
 // ── Stats ──────────────────────────────────────────────────────────────────────
 const stats = computed(() => ({
   total:      orders.value.length,
@@ -639,14 +774,6 @@ const fetchLivreurs = async () => {
 onMounted(() => { fetchOrders(); fetchLivreurs() })
 
 // ── Ouvrir détail ──────────────────────────────────────────────────────────────
-const openDetail = (order: Order) => {
-  selectedOrder.value = { ...order, items: order.items ?? [] }
-  newStatus.value        = order.status
-  newPaymentStatus.value = order.payment_status
-  selectedLivId.value = order.delivery_driver_id ?? null
-  showAssign.value    = false
-  showDetail.value    = true
-}
 
 // ── Changer statut ─────────────────────────────────────────────────────────────
 const requestStatusChange = () => {
@@ -1113,8 +1240,8 @@ const columns: TableColumn<Order>[] = [
                   <UIcon name="i-heroicons-truck" class="w-3.5 h-3.5 text-gray-400" />
                   Frais de livraison
                 </span>
-                <span class="font-bold" :class="(selectedOrder.shipping_cost ?? 0) === 0 ? 'text-green-600' : 'text-gray-700'">
-                  {{ (selectedOrder.shipping_cost ?? 0) === 0 ? 'Gratuit' : formatPrice(selectedOrder.shipping_cost) }}
+                <span class="font-bold" :class="(selectedOrder.shipping_cost ?? 0) === 0 ? 'text-yellow-600' : 'text-gray-700'">
+                  {{ (selectedOrder.shipping_cost ?? 0) === 0 ? 'En cours' : formatPrice(selectedOrder.shipping_cost) }}
                 </span>
               </div>
               <div v-if="(selectedOrder.discount_amount ?? 0) > 0"
@@ -1159,6 +1286,80 @@ const columns: TableColumn<Order>[] = [
                 {{ updatingPayment ? 'Mise à jour...' : 'Valider paiement' }}
               </button>
             </div>
+          </div>
+
+          <!-- ── Frais de livraison ── -->
+          <div class="px-6 py-4">
+            <p class="text-xs font-black text-gray-400 tracking-widest mb-3">Frais de livraison</p>
+
+            <!-- Statut actuel -->
+            <div class="flex items-center gap-3 px-4 py-3 rounded-xl mb-3"
+              :class="(selectedOrder.shipping_cost ?? 0) > 0
+                ? 'bg-green-50 border border-green-100'
+                : 'bg-amber-50 border border-amber-100'">
+              <UIcon
+                :name="(selectedOrder.shipping_cost ?? 0) > 0
+                  ? 'i-heroicons-check-circle'
+                  : 'i-heroicons-clock'"
+                class="w-4 h-4 flex-shrink-0"
+                :class="(selectedOrder.shipping_cost ?? 0) > 0 ? 'text-green-500' : 'text-amber-500'"
+              />
+              <div class="flex-1">
+                <p class="text-sm font-black"
+                  :class="(selectedOrder.shipping_cost ?? 0) > 0 ? 'text-green-700' : 'text-amber-700'">
+                  {{ (selectedOrder.shipping_cost ?? 0) > 0
+                    ? `Frais définis : ${formatPrice(selectedOrder.shipping_cost)}`
+                    : 'Frais non encore définis' }}
+                </p>
+                <p class="text-[11px] text-gray-400 mt-0.5">
+                  {{ (selectedOrder.shipping_cost ?? 0) > 0
+                    ? 'Le client a reçu un email de confirmation avec les frais.'
+                    : 'Définissez les frais pour envoyer le mail final au client.' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Total recalculé si frais définis -->
+            <div v-if="(selectedOrder.shipping_cost ?? 0) > 0"
+              class="flex justify-between items-center px-4 py-2.5 bg-[#274a82]/5 rounded-xl border border-[#274a82]/10 mb-3">
+              <span class="text-xs font-black text-gray-500">Total final (articles + livraison)</span>
+              <span class="text-base font-black text-[#274a82]">
+                {{ formatPrice((selectedOrder.subtotal ?? 0) + (selectedOrder.shipping_cost ?? 0) - (selectedOrder.discount_amount ?? 0)) }}
+              </span>
+            </div>
+
+            <!-- Input + bouton -->
+            <div class="flex gap-2 items-center">
+              <div class="relative flex-1">
+                <input
+                  v-model.number="newShippingCost"
+                  type="number"
+                  min="0"
+                  step="100"
+                  :placeholder="(selectedOrder.shipping_cost ?? 0) > 0
+                    ? `Modifier (actuel : ${selectedOrder.shipping_cost} FCFA)`
+                    : 'Ex : 2000'"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-800 focus:outline-none focus:border-[#274a82] focus:ring-2 focus:ring-[#274a82]/10 transition-all pr-16"
+                />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-gray-300">FCFA</span>
+              </div>
+              <button
+                @click="saveShippingCost"
+                :disabled="newShippingCost === null || savingShipping"
+                class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#274a82] hover:bg-[#1a3460] text-white font-black text-xs transition-all disabled:opacity-40 whitespace-nowrap">
+                <UIcon
+                  :name="savingShipping ? 'i-heroicons-arrow-path' : 'i-heroicons-paper-airplane'"
+                  class="w-3.5 h-3.5"
+                  :class="savingShipping ? 'animate-spin' : ''"
+                />
+                {{ savingShipping ? 'Envoi...' : 'Définir & Envoyer mail' }}
+              </button>
+            </div>
+
+            <p class="text-[11px] text-gray-400 mt-2 flex items-center gap-1.5">
+              <UIcon name="i-heroicons-envelope" class="w-3 h-3 flex-shrink-0" />
+              Un email avec les frais confirmés + la mention de la clé USB sera envoyé au client.
+            </p>
           </div>
 
           <!-- Assigner livreur -->

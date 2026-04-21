@@ -19,7 +19,7 @@ const API    = config.public.apiBase
 const UIcon   = resolveComponent('UIcon')
 const UButton = resolveComponent('UButton')
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────
 interface OrderItem {
   id:            number
   product_name:  string
@@ -52,43 +52,60 @@ interface Order {
   items:               OrderItem[]
 }
 
-// ── State ────────────────────────────────────────────────────────────────────
-const orders        = ref<Order[]>([])
-const loading       = ref(true)
-const cancelling    = ref<number | null>(null)
-const activeFilter  = ref('all')
+// ── State ─────────────────────────────────────────────────────────────────
+const orders            = ref<Order[]>([])
+const loading           = ref(true)
+const cancelling        = ref<number | null>(null)
+const activeFilter      = ref('all')
 const selectedOrder     = ref<Order | null>(null)
 const showDetail        = ref(false)
 const orderToCancel     = ref<Order | null>(null)
 const showCancelConfirm = ref(false)
 
+// ── Pagination ────────────────────────────────────────────────────────────
+const currentPage  = ref(1)
+const itemsPerPage = 10
+
+// ── Annulation ────────────────────────────────────────────────────────────
+const cancelReason       = ref('')
+const cancelReasonError  = ref('')
+
+const cancelReasons = [
+  'Je ne veux plus cet article',
+  'J\'ai commandé par erreur',
+  'J\'ai trouvé moins cher ailleurs',
+  'Le délai de livraison est trop long',
+  'Je souhaite modifier ma commande',
+  'Autre raison',
+]
+
 const authHeaders = computed(() => ({ Authorization: `Bearer ${token.value}` }))
 
-// ── Statut config ────────────────────────────────────────────────────────────
+// ── Statut config ─────────────────────────────────────────────────────────
 const statusConfig: Record<string, { label: string; bg: string; text: string; icon: string }> = {
-  pending:    { label: 'En attente',   bg: '#fef9c3', text: '#854d0e', icon: 'i-heroicons-clock'         },
-  processing: { label: 'En cours',     bg: '#dbeafe', text: '#1e40af', icon: 'i-heroicons-cog-6-tooth'   },
-  shipped:    { label: 'Expédiée',     bg: '#e0f2fe', text: '#0369a1', icon: 'i-heroicons-truck'          },
-  delivered:  { label: 'Livrée',       bg: '#dcfce7', text: '#166534', icon: 'i-heroicons-check-circle'  },
-  cancelled:  { label: 'Annulée',      bg: '#fee2e2', text: '#991b1b', icon: 'i-heroicons-x-circle'      },
-  refunded:   { label: 'Remboursée',   bg: '#f3e8ff', text: '#6b21a8', icon: 'i-heroicons-arrow-uturn-left' },
+  pending:    { label: 'En attente', bg: '#fef9c3', text: '#854d0e', icon: 'i-heroicons-clock'            },
+  processing: { label: 'En cours',   bg: '#dbeafe', text: '#1e40af', icon: 'i-heroicons-cog-6-tooth'      },
+  shipped:    { label: 'Expédiée',   bg: '#e0f2fe', text: '#0369a1', icon: 'i-heroicons-truck'             },
+  delivered:  { label: 'Livrée',     bg: '#dcfce7', text: '#166534', icon: 'i-heroicons-check-circle'     },
+  cancelled:  { label: 'Annulée',    bg: '#fee2e2', text: '#991b1b', icon: 'i-heroicons-x-circle'         },
+  refunded:   { label: 'Remboursée', bg: '#f3e8ff', text: '#6b21a8', icon: 'i-heroicons-arrow-uturn-left' },
 }
 
 const paymentConfig: Record<string, { label: string; icon: string }> = {
-  mobile_money:    { label: 'Mobile Money',      icon: 'i-heroicons-device-phone-mobile' },
-  cash_on_delivery:{ label: 'À la livraison',    icon: 'i-heroicons-banknotes'           },
-  card:            { label: 'Carte bancaire',     icon: 'i-heroicons-credit-card'         },
-  bank_transfer:   { label: 'Virement bancaire',  icon: 'i-heroicons-building-library'    },
+  mobile_money:     { label: 'Mobile Money',     icon: 'i-heroicons-device-phone-mobile' },
+  cash_on_delivery: { label: 'À la livraison',   icon: 'i-heroicons-banknotes'           },
+  card:             { label: 'Carte bancaire',    icon: 'i-heroicons-credit-card'         },
+  bank_transfer:    { label: 'Virement bancaire', icon: 'i-heroicons-building-library'    },
 }
 
-// ── Filters ──────────────────────────────────────────────────────────────────
+// ── Filters ───────────────────────────────────────────────────────────────
 const filters = [
-  { key: 'all',        label: 'Toutes'      },
-  { key: 'pending',    label: 'En attente'  },
-  { key: 'processing', label: 'En cours'    },
-  { key: 'shipped',    label: 'Expédiées'   },
-  { key: 'delivered',  label: 'Livrées'     },
-  { key: 'cancelled',  label: 'Annulées'    },
+  { key: 'all',        label: 'Toutes'     },
+  { key: 'pending',    label: 'En attente' },
+  { key: 'processing', label: 'En cours'   },
+  { key: 'shipped',    label: 'Expédiées'  },
+  { key: 'delivered',  label: 'Livrées'    },
+  { key: 'cancelled',  label: 'Annulées'   },
 ]
 
 const filteredOrders = computed(() =>
@@ -97,7 +114,17 @@ const filteredOrders = computed(() =>
     : orders.value.filter(o => o.status === activeFilter.value)
 )
 
-// ── Stats mini ───────────────────────────────────────────────────────────────
+// ── Pagination computed ───────────────────────────────────────────────────
+const totalPages   = computed(() => Math.ceil(filteredOrders.value.length / itemsPerPage))
+const paginatedOrders = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  return filteredOrders.value.slice(start, start + itemsPerPage)
+})
+
+// Reset page quand le filtre change
+watch(activeFilter, () => { currentPage.value = 1 })
+
+// ── Stats ─────────────────────────────────────────────────────────────────
 const stats = computed(() => ({
   total:     orders.value.length,
   pending:   orders.value.filter(o => o.status === 'pending').length,
@@ -105,7 +132,7 @@ const stats = computed(() => ({
   cancelled: orders.value.filter(o => o.status === 'cancelled').length,
 }))
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
 const formatPrice = (p: number) =>
   new Intl.NumberFormat('fr-CM', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 })
     .format(p).replace('XAF', 'FCFA')
@@ -113,7 +140,7 @@ const formatPrice = (p: number) =>
 const formatDate = (d: string) =>
   new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 
-// ── Fetch ────────────────────────────────────────────────────────────────────
+// ── Fetch ─────────────────────────────────────────────────────────────────
 const fetchOrders = async () => {
   loading.value = true
   try {
@@ -126,7 +153,7 @@ const fetchOrders = async () => {
   }
 }
 
-// ── Détail ───────────────────────────────────────────────────────────────────
+// ── Détail ────────────────────────────────────────────────────────────────
 const openDetail = async (order: Order) => {
   try {
     const { data } = await axios.get(`${API}/orders/${order.id}`, { headers: authHeaders.value })
@@ -137,36 +164,47 @@ const openDetail = async (order: Order) => {
   showDetail.value = true
 }
 
-// ── Annuler ──────────────────────────────────────────────────────────────────
+// ── Annuler ───────────────────────────────────────────────────────────────
 const askCancel = (order: Order) => {
-  orderToCancel.value = order
+  orderToCancel.value     = order
+  cancelReason.value      = ''
+  cancelReasonError.value = ''
   showCancelConfirm.value = true
 }
 
 const confirmCancel = async () => {
+  if (!cancelReason.value) {
+    cancelReasonError.value = 'Veuillez sélectionner une raison d\'annulation.'
+    return
+  }
   const order = orderToCancel.value
   if (!order) return
-  cancelling.value = order.id
+
+  cancelling.value        = order.id
   showCancelConfirm.value = false
+
   try {
-    await axios.post(`${API}/orders/${order.id}/cancel`, {}, { headers: authHeaders.value })
+    await axios.post(`${API}/orders/${order.id}/cancel`,
+      { reason: cancelReason.value },
+      { headers: authHeaders.value }
+    )
     await fetchOrders()
     if (selectedOrder.value?.id === order.id) showDetail.value = false
     toast.add({ title: 'Commande annulée', color: 'success', icon: 'i-heroicons-check-circle' })
   } catch (e: any) {
     toast.add({
-      title: "Impossible d'annuler",
+      title:       "Impossible d'annuler",
       description: e?.response?.data?.message ?? 'Réessayez.',
-      color: 'error',
-      icon: 'i-heroicons-x-circle',
+      color:       'error',
+      icon:        'i-heroicons-x-circle',
     })
   } finally {
-    cancelling.value = null
+    cancelling.value    = null
     orderToCancel.value = null
   }
 }
 
-// ── Colonnes UTable ──────────────────────────────────────────────────────────
+// ── Colonnes UTable ───────────────────────────────────────────────────────
 const columns: TableColumn<Order>[] = [
   {
     id: 'order', header: 'Commande',
@@ -196,10 +234,7 @@ const columns: TableColumn<Order>[] = [
             : h(UIcon, { name: 'i-heroicons-cube', class: 'w-4 h-4 text-gray-300' }),
         ]),
         h('div', { class: 'min-w-0' }, [
-          h('p', {
-            class: 'text-xs font-semibold text-gray-800 truncate max-w-[160px]',
-            title: first.product_name,
-          }, first.product_name),
+          h('p', { class: 'text-xs font-semibold text-gray-800 truncate max-w-[160px]', title: first.product_name }, first.product_name),
           items.length > 1
             ? h('p', { class: 'text-[11px] text-gray-400' }, `+${items.length - 1} autre(s)`)
             : h('p', { class: 'text-[11px] text-gray-400' }, `Qté : ${first.quantity}`),
@@ -254,17 +289,15 @@ const columns: TableColumn<Order>[] = [
   {
     id: 'actions', header: '',
     cell: ({ row }) => {
-      const o          = row.original
-      const canCancel  = ['pending', 'processing'].includes(o.status)
+      const o           = row.original
+      const canCancel   = ['pending', 'processing'].includes(o.status)
       const isCancelling = cancelling.value === o.id
       return h('div', { class: 'flex items-center justify-end gap-1.5' }, [
-        // Bouton détail
         h('button', {
           onClick: () => openDetail(o),
           class: 'w-7 h-7 rounded-lg bg-[#274a82]/10 hover:bg-[#274a82] text-[#274a82] hover:text-white flex items-center justify-center transition-all',
           title: 'Voir le détail',
         }, [h(UIcon, { name: 'i-heroicons-eye', class: 'w-3.5 h-3.5' })]),
-        // Bouton annuler (si annulable)
         canCancel
           ? h('button', {
               onClick: () => askCancel(o),
@@ -281,12 +314,13 @@ const columns: TableColumn<Order>[] = [
   },
 ]
 
-// ── Init + polling toutes les 30s ──────────────────────────────────────────
+// ── Init + polling ────────────────────────────────────────────────────────
+let pollingTimer: ReturnType<typeof setInterval>
+const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
+
 onMounted(() => {
   fetchOrders()
-  // Recharge automatiquement toutes les 30 secondes
   pollingTimer = setInterval(fetchOrders, 30_000)
-  // Recharge aussi quand l'utilisateur revient sur l'onglet
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
@@ -294,30 +328,27 @@ onUnmounted(() => {
   clearInterval(pollingTimer)
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
-
-let pollingTimer: ReturnType<typeof setInterval>
-const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
 </script>
 
 <template>
   <div class="space-y-6">
 
-    <!-- ══ BREADCRUMB + TITRE ══════════════════════════════════════════════ -->
+    <!-- ══ BREADCRUMB (masqué sur mobile) ══════════════════════════════════ -->
     <div class="flex items-start justify-between gap-3">
       <div>
-        <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
+        <div class="hidden sm:flex items-center gap-2 text-sm text-gray-400 mb-2">
           <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
           <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
           <span class="text-gray-600 font-medium">Mes commandes</span>
         </div>
         <h1 class="text-2xl font-black text-gray-900">Mes commandes</h1>
         <p class="text-gray-500 text-sm mt-0.5">
-          {{ stats.total }} commande(s) au total ·
+          {{ stats.total }} commande(s) ·
           <span class="text-gray-400 text-xs">Actualisation automatique</span>
         </p>
       </div>
       <button @click="fetchOrders" :disabled="loading"
-        class="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-600 hover:border-[#274a82] hover:text-[#274a82] transition-all flex-shrink-0 disabled:opacity-50 mt-1">
+        class="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-600 hover:border-[#274a82] hover:text-[#274a82] transition-all flex-shrink-0 mt-1 disabled:opacity-50">
         <UIcon name="i-heroicons-arrow-path" class="w-4 h-4" :class="loading ? 'animate-spin' : ''" />
         Actualiser
       </button>
@@ -343,8 +374,21 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
       </div>
     </div>
 
-    <!-- ══ FILTRES ══════════════════════════════════════════════════════════ -->
-    <div class="flex gap-2 flex-wrap">
+    <!-- ══ FILTRES : select mobile + pills desktop ══════════════════════════ -->
+    <!-- Select sur mobile -->
+    <div class="block sm:hidden">
+      <select
+        v-model="activeFilter"
+        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 focus:outline-none focus:border-[#274a82]"
+      >
+        <option v-for="f in filters" :key="f.key" :value="f.key">
+          {{ f.label }} {{ f.key !== 'all' ? `(${orders.filter(o => o.status === f.key).length})` : '' }}
+        </option>
+      </select>
+    </div>
+
+    <!-- Pills sur desktop -->
+    <div class="hidden sm:flex gap-2 flex-wrap">
       <button
         v-for="f in filters" :key="f.key"
         @click="activeFilter = f.key"
@@ -366,7 +410,7 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
         :loading="loading"
         loading-color="primary"
         loading-animation="carousel"
-        :data="filteredOrders"
+        :data="paginatedOrders"
         :columns="columns"
         :ui="{
           thead: 'bg-gray-50/60',
@@ -397,12 +441,49 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
       </UTable>
     </div>
 
-    <!-- ══ MODAL DÉTAIL ═════════════════════════════════════════════════════ -->
+    <!-- ══ PAGINATION ═══════════════════════════════════════════════════════ -->
+    <div v-if="totalPages > 1" class="flex items-center justify-between gap-3">
+      <p class="text-xs text-gray-400 font-medium">
+        Page {{ currentPage }} / {{ totalPages }} ·
+        {{ filteredOrders.length }} commande(s)
+      </p>
+      <div class="flex items-center gap-1.5">
+        <!-- Précédent -->
+        <button
+          @click="currentPage--"
+          :disabled="currentPage === 1"
+          class="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:border-[#274a82] hover:text-[#274a82] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
+        </button>
+
+        <!-- Pages -->
+        <button
+          v-for="p in totalPages" :key="p"
+          @click="currentPage = p"
+          class="w-8 h-8 rounded-lg border text-sm font-bold transition-all"
+          :class="currentPage === p
+            ? 'bg-[#274a82] border-[#274a82] text-white'
+            : 'border-gray-200 bg-white text-gray-600 hover:border-[#274a82] hover:text-[#274a82]'"
+        >
+          {{ p }}
+        </button>
+
+        <!-- Suivant -->
+        <button
+          @click="currentPage++"
+          :disabled="currentPage === totalPages"
+          class="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:border-[#274a82] hover:text-[#274a82] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ MODAL DÉTAIL ══════════════════════════════════════════════════════ -->
     <UModal v-model:open="showDetail">
       <template #content>
         <div v-if="selectedOrder" class="p-6 max-h-[90vh] overflow-y-auto">
-
-          <!-- Header modal -->
           <div class="flex items-start justify-between mb-5">
             <div>
               <h2 class="text-lg font-black text-gray-900">#{{ selectedOrder.order_number }}</h2>
@@ -422,11 +503,9 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
 
           <!-- Articles -->
           <div class="space-y-2 mb-5">
-            <p class="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-3">Articles commandés</p>
-            <div
-              v-for="item in selectedOrder.items" :key="item.id"
-              class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100"
-            >
+            <p class="text-xs font-black text-gray-400 tracking-wider mb-3">Articles Commandés</p>
+            <div v-for="item in selectedOrder.items" :key="item.id"
+              class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
               <div class="w-11 h-11 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                 <img v-if="item.product_image" :src="item.product_image" class="w-full h-full object-cover" />
                 <UIcon v-else name="i-heroicons-cube" class="w-5 h-5 text-gray-400" />
@@ -442,9 +521,9 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
             </div>
           </div>
 
-          <!-- Infos livraison -->
+          <!-- Livraison -->
           <div class="p-4 bg-blue-50/50 border border-blue-100 rounded-xl mb-4">
-            <p class="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">Adresse de livraison</p>
+            <p class="text-[11px] font-black text-gray-400 tracking-wider mb-2">Adresse de Livraison</p>
             <p class="text-sm font-bold text-gray-800">{{ selectedOrder.shipping_first_name }} {{ selectedOrder.shipping_last_name }}</p>
             <p class="text-xs text-gray-500 mt-0.5">{{ selectedOrder.shipping_phone }}</p>
             <p class="text-xs text-gray-500">
@@ -497,28 +576,23 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
                 class="w-4 h-4"
                 :class="cancelling === selectedOrder.id ? 'animate-spin' : ''"
               />
-              {{ cancelling === selectedOrder.id ? 'Annulation...' : 'Annuler la commande' }}
+              {{ cancelling === selectedOrder.id ? 'Annulation...' : 'Annuler' }}
             </button>
-            <button
-              @click="showDetail = false"
-              class="flex-1 py-2.5 rounded-xl bg-[#274a82] hover:bg-[#1a3460] text-white font-black text-sm transition-colors"
-            >
+            <button @click="showDetail = false"
+              class="flex-1 py-2.5 rounded-xl bg-[#274a82] hover:bg-[#1a3460] text-white font-black text-sm transition-colors">
               Fermer
             </button>
           </div>
-
         </div>
       </template>
     </UModal>
-
-  </div>
 
     <!-- ══ MODAL CONFIRMATION ANNULATION ═══════════════════════════════════ -->
     <UModal v-model:open="showCancelConfirm">
       <template #content>
         <div v-if="orderToCancel" class="p-6">
 
-          <!-- Icône d'alerte -->
+          <!-- Icône -->
           <div class="flex flex-col items-center text-center mb-6">
             <div class="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
               <UIcon name="i-heroicons-exclamation-triangle" class="w-8 h-8 text-[#e60012]" />
@@ -530,7 +604,7 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
           </div>
 
           <!-- Détail commande -->
-          <div class="bg-gray-50 border border-gray-100 rounded-xl p-4 mb-6 space-y-2">
+          <div class="bg-gray-50 border border-gray-100 rounded-xl p-4 mb-5 space-y-2">
             <div class="flex justify-between text-sm">
               <span class="text-gray-500">Commande</span>
               <span class="font-black text-gray-900">#{{ orderToCancel.order_number }}</span>
@@ -543,6 +617,24 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
               <span class="text-gray-500">Montant</span>
               <span class="font-black text-[#274a82]">{{ formatPrice(orderToCancel.total) }}</span>
             </div>
+          </div>
+
+          <!-- ✅ Raison d'annulation -->
+          <div class="mb-5">
+            <label class="block text-sm font-bold text-gray-700 mb-2">
+              Raison de l'annulation <span class="text-[#e60012]">*</span>
+            </label>
+            <select
+              v-model="cancelReason"
+              class="w-full px-4 py-3 rounded-xl border text-sm font-medium text-gray-700 bg-white focus:outline-none transition-colors"
+              :class="cancelReasonError ? 'border-red-400 focus:border-red-400' : 'border-gray-200 focus:border-[#274a82]'"
+            >
+              <option value="" disabled>Sélectionnez une raison...</option>
+              <option v-for="r in cancelReasons" :key="r" :value="r">{{ r }}</option>
+            </select>
+            <p v-if="cancelReasonError" class="text-xs text-[#e60012] font-semibold mt-1.5">
+              {{ cancelReasonError }}
+            </p>
           </div>
 
           <!-- Boutons -->
@@ -571,4 +663,5 @@ const onVisibilityChange = () => { if (!document.hidden) fetchOrders() }
       </template>
     </UModal>
 
+  </div>
 </template>

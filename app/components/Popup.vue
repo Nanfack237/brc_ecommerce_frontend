@@ -58,11 +58,11 @@ onMounted(() => {
           <p class="text-sm text-gray-400 mb-2">BRC Market</p>
 
           <h2 class="text-2xl font-bold mb-3">
-            Our Best Deals of the Year
+            Le Best Deals du Mois
             <span class="text-[#e60012]">50% Off!</span>
           </h2>
 
-          <p class="text-gray-600 mb-6 text-sm">
+          <p class="text-gray-600 mb-6 text-xl">
             DELL Latitude 5510 Intel Core i5 - 10 Generation
           </p>
 
@@ -73,14 +73,14 @@ onMounted(() => {
           </button>
 
           <p class="text-xs text-gray-400 mt-6">
-            Fini le 31 Janvier 2026.
+            Fini le 31 Mai 2026.
           </p>
         </div>
 
         <!-- RIGHT IMAGE -->
         <div class="relative hidden md:block">
           <img
-            src="/images/about-us1.jpg"
+            src="/images/dell-5510.png"
             alt="Promotion"
             class="w-full h-full object-cover"
           />

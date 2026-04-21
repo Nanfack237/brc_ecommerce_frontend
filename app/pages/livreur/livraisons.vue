@@ -325,7 +325,7 @@ onUnmounted(() => {
     <!-- ══ BREADCRUMB + TITRE ══════════════════════════════════════════════ -->
     <div class="flex items-start justify-between gap-3">
       <div>
-        <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
+        <div class="hidden sm:flex items-center gap-2 text-sm text-gray-400 mb-2">
           <NuxtLink to="/livreur/livraisons" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
           <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
           <span class="text-gray-600 font-medium">Mes livraisons</span>
@@ -462,7 +462,7 @@ onUnmounted(() => {
 
           <!-- Infos client + adresse -->
           <div class="p-4 bg-orange-50/50 border border-orange-100 rounded-xl mb-4">
-            <p class="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">Informations de livraison</p>
+            <p class="text-[13px] font-black text-gray-400 tracking-wider mb-2">Informations de livraison</p>
             <p class="text-sm font-bold text-gray-800">{{ selectedOrder.shipping_first_name }} {{ selectedOrder.shipping_last_name }}</p>
             <div class="flex items-center gap-1.5 mt-1">
               <UIcon name="i-heroicons-phone" class="w-3.5 h-3.5 text-[#274a82]" />
@@ -480,7 +480,7 @@ onUnmounted(() => {
 
           <!-- Articles -->
           <div class="space-y-2 mb-5">
-            <p class="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-3">Articles à livrer</p>
+            <p class="text-[13px] font-black text-gray-400 tracking-wider mb-3">Articles à livrer</p>
             <div
               v-for="item in selectedOrder.items" :key="item.id"
               class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100"
@@ -498,7 +498,7 @@ onUnmounted(() => {
 
           <!-- Paiement -->
           <div class="p-4 rounded-xl border border-gray-100 mb-4">
-            <p class="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">Paiement</p>
+            <p class="text-[14px] font-black text-gray-400 tracking-wider mb-2">Paiement</p>
             <div class="flex justify-between text-sm">
               <span class="text-gray-500">Mode</span>
               <span class="font-semibold text-gray-800">{{ paymentConfig[selectedOrder.payment_method]?.label ?? selectedOrder.payment_method }}</span>
@@ -550,7 +550,7 @@ onUnmounted(() => {
             </button>
             <button
               @click="showDetail = false"
-              class="flex-1 py-2.5 rounded-xl bg-[#274a82] hover:bg-orange-600 text-white font-black text-sm transition-colors"
+              class="flex-1 py-2.5 rounded-xl bg-[#274a82] hover:bg-[#e60012] text-white font-black text-sm transition-colors"
             >
               Fermer
             </button>
