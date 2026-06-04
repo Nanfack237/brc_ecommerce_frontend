@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import axios from 'axios'
 
 const year = new Date().getFullYear()
-
+const { isLoggedIn } = useAuth()
 // Accordéon mobile
 const openSection = ref<string | null>(null)
 const toggle = (section: string) => {
@@ -15,7 +15,8 @@ const token  = useCookie('auth_token')
 const router = useRouter()
 const toast  = useToast()
 
-const isLoggedIn = computed(() => !!token.value)
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
 
 // User dropdown
 const userMenuOpen = ref(false)
@@ -23,8 +24,8 @@ const userMenuOpen = ref(false)
 const handleLogout = async () => {
   userMenuOpen.value = false
   try {
-    await axios.post('http://127.0.0.1:8000/api/auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token.value}` }
+    await axios.post(`${API}/auth/logout`, {
+      headers: { Authorization: `Bearer ${token.value}` },
     })
   } catch {}
 
@@ -61,21 +62,21 @@ const userLinks = [
         <!-- BRAND -->
         <div class="mb-6 md:mb-0">
           <div class="flex items-center gap-3 mb-3">
-            <img src="/brclogo.png" alt="BRC Market" class="h-12 w-auto object-contain" />
+            <img src="/images/logos/brclogo.png" alt="BRC Market" class="h-12 w-auto object-contain" />
             <span class="text-xl font-bold text-white">BRC Market</span>
           </div>
 
           <p class="text-sm text-gray-400 leading-relaxed mb-4">
             BRC Market est votre partenaire de confiance pour
             l'achat de matériel informatique, smartphones,
-            réseaux et services IT professionnels au Cameroun.
+            réseaux, electricite et services IT professionnels au Cameroun.
           </p>
 
           <div class="flex items-center gap-3 flex-wrap">
             <NuxtLink to="https://www.facebook.com/profile.php?id=61555704845467" target="_blank">
               <UButton icon="i-lucide-facebook" color="gray" variant="ghost" size="sm" />
             </NuxtLink>
-            <NuxtLink to="https://wa.me/237683627787" target="_blank">
+            <NuxtLink to="https://wa.me/237689205751" target="_blank">
               <UButton icon="i-simple-icons-whatsapp" color="gray" variant="ghost" size="sm" />
             </NuxtLink>
             <NuxtLink to="/about-us" class="text-sm hover:text-white transition ml-1">
@@ -102,9 +103,9 @@ const userLinks = [
             :class="openSection === 'shop' ? 'max-h-40 pb-4' : 'max-h-0 md:max-h-none'"
           >
             <li><NuxtLink to="/boutique" class="hover:text-white transition">Tous les produits</NuxtLink></li>
-            <li><NuxtLink to="/categories/laptops" class="hover:text-white transition">Ordinateurs</NuxtLink></li>
-            <li><NuxtLink to="/categories/smartphones" class="hover:text-white transition">Smartphones</NuxtLink></li>
-            <li><NuxtLink to="/categories/accessoires" class="hover:text-white transition">Accessoires</NuxtLink></li>
+            <li><NuxtLink to="/categories/ordinateurs/laptops" class="hover:text-white transition">Ordinateurs</NuxtLink></li>
+            <li><NuxtLink to="/categories/smartphones-et-tablettes/smartphones" class="hover:text-white transition">Smartphones</NuxtLink></li>
+            <li><NuxtLink to="/categories/accessoires-ordinateurs" class="hover:text-white transition">Accessoires Ordinateurs</NuxtLink></li>
           </ul>
         </div>
 
@@ -125,10 +126,10 @@ const userLinks = [
             class="space-y-2 text-sm overflow-hidden transition-all duration-300 md:block"
             :class="openSection === 'services' ? 'max-h-48 pb-4' : 'max-h-0 md:max-h-none'"
           >
-            <li><NuxtLink to="/services/maintenance" class="hover:text-white transition">Maintenance & Réparation</NuxtLink></li>
-            <li><NuxtLink to="/services/integration" class="hover:text-white transition">Intégration IT</NuxtLink></li>
-            <li><NuxtLink to="/services/videosurveillance" class="hover:text-white transition">Vidéo Surveillance</NuxtLink></li>
-            <li><NuxtLink to="/services/reseau" class="hover:text-white transition">Réseau & Sécurité</NuxtLink></li>
+            <li><NuxtLink to="/services/maintenance-support" class="hover:text-white transition">Maintenance & Réparation</NuxtLink></li>
+            <li><NuxtLink to="/services/securite-electronique" class="hover:text-white transition">Securite Electronique</NuxtLink></li>
+            <li><NuxtLink to="/services/audit-cablage" class="hover:text-white transition">Audit et Cablage</NuxtLink></li>
+            <li><NuxtLink to="/services/electricite-energie" class="hover:text-white transition">Electricite et Energie</NuxtLink></li>
           </ul>
         </div>
 
@@ -138,7 +139,7 @@ const userLinks = [
           <ul class="space-y-3 text-sm mb-5">
             <li class="flex items-start gap-2">
               <UIcon name="i-heroicons-map-pin" class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <span>Douala – Cameroun, Akwa Rue face MTN Dubai</span>
+              <span>Akwa Douala – Cameroun, rue Castelnau</span>
             </li>
             <li class="flex items-start gap-2">
               <UIcon name="i-heroicons-phone" class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
@@ -146,8 +147,8 @@ const userLinks = [
             </li>
             <li class="flex items-start gap-2">
               <UIcon name="i-heroicons-envelope" class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <a href="mailto:contact@brcmarket.com" class="hover:text-white transition break-all">
-                contact@brcmarket.com
+              <a href="mailto:contact@brcmarket.cm" class="hover:text-white transition break-all">
+                contact@brcmarket.cm
               </a>
             </li>
           </ul>
@@ -224,8 +225,7 @@ const userLinks = [
         <span>© {{ year }} BRC Market. Tous droits réservés.</span>
         <div class="flex gap-4">
           <NuxtLink to="/mentions-legales" class="hover:text-white transition">Mentions légales</NuxtLink>
-          <NuxtLink to="/politique-confidentialite" class="hover:text-white transition">Confidentialité</NuxtLink>
-          <NuxtLink to="/conditions" class="hover:text-white transition">Conditions</NuxtLink>
+         
         </div>
       </UContainer>
     </div>

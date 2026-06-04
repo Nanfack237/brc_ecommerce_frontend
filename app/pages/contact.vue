@@ -1,10 +1,32 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+const SEO_URL = 'https://brcmarket.cm/contact'
+
+useSeoMeta({
+  title:              'Contact',
+  ogTitle:            'Contactez BRC Market',
+  description:        'Contactez BRC Market pour toute question sur vos commandes, nos produits informatiques ou nos services. Disponible à Douala, Yaoundé et dans tout le Cameroun.',
+  ogDescription:      'Contactez BRC Market pour toute question sur vos commandes, nos produits informatiques ou nos services. Disponible à Douala, Yaoundé et dans tout le Cameroun.',
+  ogImage:            'https://brcmarket.cm/images/og-image.png',
+  ogUrl:              SEO_URL,
+  twitterTitle:       'Contactez BRC Market',
+  twitterDescription: 'Contactez BRC Market pour toute question sur vos commandes, nos produits informatiques ou nos services.',
+  twitterImage:       'https://brcmarket.cm/images/og-image.png',
+})
+
 useHead({
-  title: 'Contact',
-  titleTemplate: (t) => t ? `${t} - BRC Market` : 'BRC Market',
-  link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }]
+  link: [{ rel: 'canonical', href: SEO_URL }],
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type':    'ContactPage',
+      name:       'Contact - BRC Market',
+      url:        SEO_URL,
+      description: 'Page de contact de BRC Market, votre boutique informatique au Cameroun.',
+    }),
+  }],
 })
 
 const config = useRuntimeConfig()
@@ -81,7 +103,7 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="bg-[#f4f4f4] min-h-screen pb-20">
+  <div class="bg-[#f4f4f4] min-h-screen pb-10">
     <div class="max-w-7xl mx-auto px-4">
 
       <!-- ================= HERO BANNER ================= -->
@@ -98,7 +120,7 @@ const handleSubmit = async () => {
       </section>
 
       <!-- ================= CONTENT ================= -->
-      <UContainer class="py-16">
+      <UContainer class="py-10">
         <div class="relative grid grid-cols-1 lg:grid-cols-2 gap-2">
 
           <!-- ===== LEFT : CONTACT INFO ===== -->
@@ -121,12 +143,13 @@ const handleSubmit = async () => {
 
               <div class="flex items-center gap-2">
                 <UIcon name="i-heroicons-envelope" class="w-6 h-6 text-red-600" />
-                <span>businessrevcompany@gmail.com</span>
+                <span>contact@brcmarket.cm</span>
               </div>
 
               <div class="flex items-center gap-2">
                 <UIcon name="i-heroicons-clock" class="w-6 h-6 text-red-600" />
-                <span>Lun – Sam : 8h15 – 16h45</span>
+                <span>Lun – Vendredi: 8h00 – 17h00</span>
+                <span>Samedi: 8h00 – 14h30</span>
               </div>
             </div>
 
@@ -220,7 +243,7 @@ const handleSubmit = async () => {
       </UContainer>
 
       <!-- ================= MAP ================= -->
-      <section class="relative h-[450px] md:h-[550px] overflow-hidden mb-10">
+      <section class="relative h-[450px] md:h-[550px] overflow-hidden mb-0">
         <iframe
           src="https://www.google.com/maps?q=Akwa%20Douala%20rue%20Castelnau&output=embed"
           class="w-full h-full border-0"

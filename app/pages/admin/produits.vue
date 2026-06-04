@@ -9,6 +9,11 @@ requireUserOrAdmin()
 
 useHead({ title: 'BRC Market — Admin Produits' })
 
+
+const currentPage = ref(1)
+const perPage     = 10
+const totalItems  = ref(0)
+
 const toast  = useToast()
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
@@ -26,6 +31,7 @@ interface Product {
   slug:           string
   description:    string
   brand:          string
+  supplier_name:  string | null
   sku:            string
   price:          number
   old_price:      number | null
@@ -66,11 +72,14 @@ const formatPrice = (p: number) =>
 const fetchProducts = async () => {
   loading.value = true
   try {
-    const params: any = {}
+    const params: any = { page: currentPage.value, per_page: perPage }
     if (searchQuery.value)  params.q      = searchQuery.value
     if (filterStatus.value) params.status = filterStatus.value
     const { data } = await axios.get(`${API}/admin/products`, { headers: authHeaders.value, params })
-    products.value = data.data ?? data
+    products.value   = data.data ?? data
+    totalItems.value = data.total ?? data.meta?.total ?? products.value.length
+    // Lire last_page exactement comme fetchOrders
+    totalPages.value = data.last_page ?? data.meta?.last_page ?? 1
   } catch {
     toast.add({ title: 'Erreur de chargement', color: 'error', icon: 'i-heroicons-exclamation-circle' } as ToastProps)
   } finally {
@@ -78,6 +87,7 @@ const fetchProducts = async () => {
   }
 }
 
+const totalPages = ref(1)
 const fetchCategories = async () => {
   try {
     const { data } = await axios.get(`${API}/admin/categories`, { headers: authHeaders.value })
@@ -86,7 +96,11 @@ const fetchCategories = async () => {
 }
 
 onMounted(() => { fetchProducts(); fetchCategories() })
-watch([searchQuery, filterStatus], () => fetchProducts())
+watch([searchQuery, filterStatus], () => {
+  currentPage.value = 1
+  totalPages.value  = 1
+  fetchProducts()
+})
 
 // ── Stats ──────────────────────────────────────────────────────────────────
 const stats = computed(() => ({
@@ -185,6 +199,7 @@ const emptyForm = () => ({
   is_best_seller: false,
   is_new:         true,
   is_promoted:    false,  // ← AJOUT
+  supplier_name:  '',
   specs:          [{ key: '', value: '' }] as { key: string; value: string }[],
 })
 
@@ -215,6 +230,7 @@ const openEdit = (p: Product) => {
     is_best_seller: p.is_best_seller,
     is_new:         p.is_new,
     is_promoted:    p.is_promoted,  // ← AJOUT
+    supplier_name:  p.supplier_name ?? '',
     specs: p.specs?.length ? p.specs : [{ key: '', value: '' }],
   }
   previewImages.value = p.images ?? []
@@ -305,6 +321,7 @@ const saveProduct = async (asDraft = false) => {
     is_best_seller: form.value.is_best_seller,
     is_new:         form.value.is_new,
     is_promoted:    form.value.is_promoted,  // ← AJOUT
+    supplier_name:  form.value.supplier_name || null,
     images:         previewImages.value,
     specs:          form.value.specs.filter(s => s.key && s.value),
   }
@@ -375,6 +392,17 @@ const columns: TableColumn<Product>[] = [
       return cat
         ? h('span', { class: 'text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full' }, cat.name)
         : h('span', { class: 'text-xs text-gray-300 italic' }, '—')
+    },
+  },
+  {
+    id: 'supplier_name', header: 'Fournisseur',
+    cell: ({ row }) => {
+      const supplier = row.original.supplier_name
+      if (!supplier) return h('span', { class: 'text-xs text-gray-300 italic' }, '—')
+      return h('div', { class: 'flex items-center gap-1.5' }, [
+        h(UIcon, { name: 'i-heroicons-building-storefront', class: 'w-3.5 h-3.5 text-gray-400 flex-shrink-0' }),
+        h('span', { class: 'text-xs font-semibold text-gray-600 truncate max-w-[120px]' }, supplier),
+      ])
     },
   },
   {
@@ -507,7 +535,38 @@ const columns: TableColumn<Product>[] = [
             </div>
           </template>
         </UTable>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="flex items-center justify-between px-5 py-4 border-t border-gray-100 bg-white rounded-b-2xl">
+          <p class="text-xs text-gray-400 font-medium">
+            Page {{ currentPage }} / {{ totalPages }} · {{ totalItems }} produit{{ totalItems > 1 ? 's' : '' }}
+          </p>
+          <div class="flex items-center gap-2">
+            <button
+              @click="currentPage--; fetchProducts()"
+              :disabled="currentPage <= 1"
+              class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+              <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
+            </button>
+            <button
+              v-for="p in totalPages" :key="p"
+              @click="currentPage = p; fetchProducts()"
+              class="w-8 h-8 rounded-lg text-xs font-black transition-all"
+              :class="p === currentPage
+                ? 'bg-[#274a82] text-white'
+                : 'border border-gray-200 text-gray-500 hover:bg-gray-50'">
+              {{ p }}
+            </button>
+            <button
+              @click="currentPage++; fetchProducts()"
+              :disabled="currentPage >= totalPages"
+              class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+              <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
+
     </div>
 
     <!-- ══ VUE FORMULAIRE ══════════════════════════════════════════════════ -->
@@ -610,8 +669,26 @@ const columns: TableColumn<Product>[] = [
                   <input v-model="form.sku" type="text" placeholder="Ex: SAM-S24U-256" :class="inputCls" />
                 </div>
               </div>
+
+              <div>
+                <label class="block text-xs font-black text-gray-500 tracking-wider mb-1.5">
+                  Fournisseur
+                  <span class="text-gray-300 font-normal normal-case tracking-normal ml-1">(optionnel)</span>
+                </label>
+                <div class="relative">
+                  <UIcon name="i-heroicons-building-storefront" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 pointer-events-none" />
+                  <input
+                    v-model="form.supplier_name"
+                    type="text"
+                    placeholder="Ex: Ingram Micro, Tech Data, distributeur local..."
+                    class="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 bg-white focus:outline-none focus:border-[#274a82] focus:ring-2 focus:ring-[#274a82]/10 transition-all"
+                  />
+                </div>
+              </div>
             </div>
           </div>
+
+
 
           <!-- Prix & Stock -->
           <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -837,6 +914,12 @@ const columns: TableColumn<Product>[] = [
                   <span class="text-xs text-white/70">Stock</span>
                   <span class="text-xs text-white font-black">{{ form.stock || '—' }}</span>
                 </div>
+
+                <div v-if="form.supplier_name" class="flex justify-between items-center">
+                  <span class="text-xs text-white/70">Fournisseur</span>
+                  <span class="text-xs text-white font-black truncate max-w-[140px]">{{ form.supplier_name }}</span>
+                </div>
+
                 <div class="flex justify-between items-center">
                   <span class="text-xs text-white/70">Images</span>
                   <span class="text-xs font-black" :class="pendingFiles.length > 0 ? 'text-orange-300' : 'text-white'">

@@ -10,39 +10,33 @@ const toast  = useToast()
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Spec    { key: string; value: string }
 interface Product {
-  id:             number
-  name:           string
-  slug:           string
-  description:    string | null
-  brand:          string | null
-  sku:            string | null
-  price:          number
-  old_price:      number | null
-  stock:          number
-  status:         string
-  is_featured:    boolean
-  is_best_seller: boolean
-  is_new:         boolean
-  images:         string[]
-  specs:          Spec[]
+  id:              number
+  name:            string
+  slug:            string
+  description:     string | null
+  brand:           string | null
+  sku:             string | null
+  price:           number
+  old_price:       number | null
+  stock:           number
+  status:          string
+  is_featured:     boolean
+  is_best_seller:  boolean
+  is_new:          boolean
+  images:          string[]
+  specs:           Spec[]
   discount_percent?: number
-  category:       { id: number; name: string; slug: string } | null
-  reviews_count:  number
+  category:        { id: number; name: string; slug: string } | null
+  reviews_count:   number
 }
 
 interface Review {
-  id:          number
-  rating:      number
-  comment:     string | null
-  created_at:  string
-  user:        { first_name: string; last_name: string } | null
+  id:         number
+  rating:     number
+  comment:    string | null
+  created_at: string
+  user:       { first_name: string; last_name: string } | null
 }
-
-useHead({
-  title: 'BRC Market',
-  titleTemplate: (t) => t ? `${t} - BRC Market` : 'BRC Market',
-  link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
-})
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 const { token, isLoggedIn } = useAuth()
@@ -54,41 +48,186 @@ const relatedProducts = ref<Product[]>([])
 const loading         = ref(true)
 const notFound        = ref(false)
 
-const fetchProduct = async () => {
+// ─── Avis (déclaré avant setSeo pour éviter référence avant init) ─────────────
+const reviews   = ref<Review[]>([])
+const avgRating = computed(() => {
+  if (!reviews.value.length) return 0
+  return Math.round(reviews.value.reduce((s, r) => s + r.rating, 0) / reviews.value.length * 10) / 10
+})
+
+// ─── SEO ──────────────────────────────────────────────────────────────────────
+const setSeo = (p: Product) => {
+  const title       = `${p.name} - BRC Market`
+  const description = p.description
+    ? p.description.slice(0, 155)
+    : `Achetez ${p.name} au meilleur prix au Cameroun. Livraison rapide à Douala et Yaoundé.`
+  const image = p.images?.[0] ?? 'https://brcmarket.cm/images/og-image.jpg'
+  const url   = `https://brcmarket.cm/products/${p.slug}`
+
+  useSeoMeta({
+    title,
+    ogTitle:            title,
+    description,
+    ogDescription:      description,
+    ogImage:            image,
+    ogUrl:              url,
+    ogType:             'product',
+    twitterTitle:       title,
+    twitterDescription: description,
+    twitterImage:       image,
+  })
+
+  useHead({
+    link: [{ rel: 'canonical', href: url }],
+    script: [{
+      type:      'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type':    'Product',
+        name:       p.name,
+        description,
+        image:      p.images ?? [],
+        sku:        p.sku   ?? undefined,
+        brand:      p.brand ? { '@type': 'Brand', name: p.brand } : undefined,
+        url,
+
+        offers: {
+          '@type':         'Offer',
+          priceCurrency:   'XAF',
+          price:           p.price,
+          priceValidUntil: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+                             .toISOString().split('T')[0],
+          availability:  p.stock > 0
+            ? 'https://schema.org/InStock'
+            : 'https://schema.org/OutOfStock',
+          itemCondition: 'https://schema.org/NewCondition',
+          url,
+          seller: {
+            '@type': 'Organization',
+            name:    'BRC Market',
+          },
+        },
+
+        ...(reviews.value.length > 0 || p.reviews_count > 0 ? {
+          aggregateRating: {
+            '@type':      'AggregateRating',
+            ratingValue:  avgRating.value || 0,
+            reviewCount:  p.reviews_count || reviews.value.length,
+            bestRating:   5,
+            worstRating:  1,
+          },
+        } : {}),
+
+        ...(reviews.value.length > 0 ? {
+          review: reviews.value.slice(0, 5).map(r => ({
+            '@type':      'Review',
+            reviewRating: {
+              '@type':      'Rating',
+              ratingValue:  r.rating,
+              bestRating:   5,
+              worstRating:  1,
+            },
+            author: {
+              '@type': 'Person',
+              name:    r.user
+                ? `${r.user.first_name} ${r.user.last_name[0]}.`
+                : 'Anonyme',
+            },
+            datePublished: r.created_at.split('T')[0],
+            reviewBody:    r.comment ?? undefined,
+          })),
+        } : {}),
+      }),
+    }],
+  })
+}
+
+// ─── Fetch produit — SSR + prerender ─────────────────────────────────────────
+// useAsyncData s'exécute côté serveur au moment du build (nuxt generate)
+// → setSeo() est appelé avant que le HTML soit généré
+// → Google voit la bonne og:image dans le HTML statique
+const slug = computed(() => route.params.slug as string)
+
+const { data: productData, error: productError } = await useAsyncData(
+  `product-${slug.value}`,
+  () => $fetch<Product>(`${API}/products/${slug.value}`),
+)
+
+product.value  = productData.value ?? null
+notFound.value = !!productError.value
+loading.value  = false
+
+if (productData.value) {
+  setSeo(productData.value)
+
+  // Produits liés
+  if (productData.value.category?.slug) {
+    try {
+      const r = await $fetch<any>(`${API}/categories/${productData.value.category.slug}/products`, {
+        params: { limit: 6 },
+      })
+      relatedProducts.value = (r.data ?? r)
+        .filter((p: Product) => p.id !== productData.value!.id)
+        .slice(0, 6)
+    } catch {}
+  }
+} else if (productError.value) {
+  useSeoMeta({ robots: 'noindex, nofollow' })
+}
+
+// ─── Rechargement client quand le slug change (navigation entre produits) ─────
+const reloadProduct = async (newSlug: string) => {
   loading.value  = true
   notFound.value = false
   try {
-    const data = await $fetch<any>(`${API}/products/${route.params.slug}`)
+    const data = await $fetch<Product>(`${API}/products/${newSlug}`)
     product.value = data
-    useHead({ title: data.name })
+    setSeo(data)
+    relatedProducts.value = []
     if (data.category?.slug) {
       try {
-        const r = await $fetch<any>(`${API}/categories/${data.category.slug}/products`, { params: { limit: 6 } })
-        relatedProducts.value = (r.data ?? r).filter((p: Product) => p.id !== data.id).slice(0, 6)
+        const r = await $fetch<any>(`${API}/categories/${data.category.slug}/products`, {
+          params: { limit: 6 },
+        })
+        relatedProducts.value = (r.data ?? r)
+          .filter((p: Product) => p.id !== data.id)
+          .slice(0, 6)
       } catch {}
     }
   } catch (err: any) {
     if (err.statusCode === 404 || err.response?.status === 404) notFound.value = true
+    useSeoMeta({ robots: 'noindex, nofollow' })
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => { fetchProduct(); initWishlist() })
-watch(() => route.params.slug, fetchProduct)
+watch(slug, reloadProduct)
+
+onMounted(() => { initWishlist() })
 
 // ─── Galerie ──────────────────────────────────────────────────────────────────
-const mainImage  = ref('')
+const mainImage  = ref(productData.value?.images?.[0] ?? '')
 const thumbnails = computed(() => product.value?.images ?? [])
 watch(product, (p) => { if (p?.images?.[0]) mainImage.value = p.images[0] })
 const selectImage = (img: string) => { mainImage.value = img }
 
-// ─── Zoom ─────────────────────────────────────────────────────────────────────
+// ─── Zoom desktop uniquement ──────────────────────────────────────────────────
 const isZoomed = ref(false)
 const zoomPos  = ref({ x: 0, y: 0 })
+const isMobile = ref(false)
+onMounted(() => {
+  isMobile.value = window.innerWidth < 640
+  window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 640 })
+})
+
 const handleMouseMove = (e: MouseEvent) => {
+  if (isMobile.value) return
   const { left, top, width, height } = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  zoomPos.value = { x: ((e.clientX - left) / width) * 100, y: ((e.clientY - top) / height) * 100 }
+  zoomPos.value = {
+    x: ((e.clientX - left) / width) * 100,
+    y: ((e.clientY - top) / height) * 100,
+  }
 }
 
 // ─── Quantité ─────────────────────────────────────────────────────────────────
@@ -99,7 +238,6 @@ const activeTab = ref('description')
 const { addToCart: addToCartStore } = useCart()
 const { isFav, toggleWishlist, initWishlist } = useWishlist()
 
-// FIX : on passe quantity.value à addToCartStore
 const addToCart = () => {
   if (!product.value) return
   addToCartStore({
@@ -124,7 +262,6 @@ const addToCartItem = (item: Product) => {
 const addToWishlist = (id: number, name?: string) => toggleWishlist(id, name)
 
 // ─── Avis ─────────────────────────────────────────────────────────────────────
-const reviews        = ref<Review[]>([])
 const loadingReviews = ref(false)
 const reviewsLoaded  = ref(false)
 
@@ -135,6 +272,8 @@ const fetchReviews = async () => {
     const data = await $fetch<any>(`${API}/products/${product.value.id}/reviews`)
     reviews.value       = data.data ?? data
     reviewsLoaded.value = true
+    // Met à jour le schema.org avec les vraies notes
+    if (product.value) setSeo(product.value)
   } catch {} finally {
     loadingReviews.value = false
   }
@@ -142,15 +281,11 @@ const fetchReviews = async () => {
 
 watch(activeTab, (tab) => { if (tab === 'reviews') fetchReviews() })
 
-const avgRating   = computed(() => {
-  if (!reviews.value.length) return 0
-  return Math.round(reviews.value.reduce((s, r) => s + r.rating, 0) / reviews.value.length * 10) / 10
-})
 const reviewCount    = computed(() => product.value?.reviews_count ?? reviews.value.length)
-// Seulement les approuvés, max 5 pour le marquee
 const marqueeReviews = computed(() => reviews.value.slice(0, 5))
 
-const reviewerName = (r: Review) => r.user ? `${r.user.first_name} ${r.user.last_name[0]}.` : 'Anonyme'
+const reviewerName = (r: Review) =>
+  r.user ? `${r.user.first_name} ${r.user.last_name[0]}.` : 'Anonyme'
 const reviewDate   = (d: string) =>
   new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 
@@ -166,8 +301,8 @@ const openReviewModal = () => {
     navigateTo('/login?redirect=' + route.fullPath)
     return
   }
-  reviewForm.value  = { rating: 5, comment: '' }
-  hoverRating.value = 0
+  reviewForm.value      = { rating: 5, comment: '' }
+  hoverRating.value     = 0
   showReviewModal.value = true
 }
 
@@ -180,18 +315,35 @@ const submitReview = async () => {
       { rating: reviewForm.value.rating, comment: reviewForm.value.comment },
       { headers: authHeaders.value }
     )
-    toast.add({ title: 'Avis envoyé !', description: 'Merci ! Votre avis est en attente de validation.', color: 'success', icon: 'i-heroicons-check-circle' })
+    toast.add({
+      title:       'Avis envoyé !',
+      description: 'Merci ! Votre avis est en attente de validation.',
+      color:       'success',
+      icon:        'i-heroicons-check-circle',
+    })
     showReviewModal.value = false
     reviewsLoaded.value   = false
     fetchReviews()
   } catch (e: any) {
-    toast.add({ title: 'Erreur', description: e?.response?.data?.message ?? "Impossible d'envoyer votre avis.", color: 'error', icon: 'i-heroicons-x-circle' })
+    toast.add({
+      title:       'Erreur',
+      description: e?.response?.data?.message ?? "Impossible d'envoyer votre avis.",
+      color:       'error',
+      icon:        'i-heroicons-x-circle',
+    })
   } finally {
     submittingReview.value = false
   }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+const discountPercent = (item: Product) => {
+  if (item.discount_percent) return `-${item.discount_percent}%`
+  if (item.old_price && item.old_price > item.price)
+    return `-${Math.round((1 - item.price / item.old_price) * 100)}%`
+  return null
+}
+
 const formatPrice = (p: number) =>
   new Intl.NumberFormat('fr-CM', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 })
     .format(p).replace('XAF', 'FCFA')
@@ -213,7 +365,9 @@ const formatPrice = (p: number) =>
       </div>
       <h2 class="text-xl font-black text-gray-800">Produit introuvable</h2>
       <p class="text-sm text-gray-400">Ce produit n'existe pas ou a été supprimé.</p>
-      <NuxtLink to="/" class="mt-2 px-6 py-2.5 bg-[#274a82] text-white text-sm font-black rounded-lg hover:bg-[#e60012] transition">
+      <NuxtLink
+        to="/"
+        class="mt-2 px-6 py-2.5 bg-[#274a82] text-white text-sm font-black rounded-lg hover:bg-[#e60012] transition">
         Retour à la boutique
       </NuxtLink>
     </div>
@@ -222,28 +376,31 @@ const formatPrice = (p: number) =>
     <template v-else-if="product">
 
       <!-- BREADCRUMB -->
-      <nav class="flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2">
+      <nav
+        aria-label="Fil d'Ariane"
+        class="flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2">
         <NuxtLink to="/" class="hover:text-[#274a82] transition-colors flex-shrink-0">Boutique</NuxtLink>
         <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 flex-shrink-0" />
-        <NuxtLink v-if="product.category" :to="`/categories/${product.category.slug}`"
+        <NuxtLink
+          v-if="product.category"
+          :to="`/categories/${product.category.slug}`"
           class="text-[#274a82] hover:text-[#e60012] transition-colors flex-shrink-0">
           {{ product.category.name }}
         </NuxtLink>
         <span v-else class="text-[#274a82] flex-shrink-0">Produit</span>
         <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 flex-shrink-0" />
-        <span class="truncate max-w-[150px] sm:max-w-[200px] text-[#274a82] font-bold pointer-events-none">{{ product.name }}</span>
+        <span
+          class="truncate max-w-[150px] sm:max-w-[200px] text-[#274a82] font-bold pointer-events-none"
+          aria-current="page">
+          {{ product.name }}
+        </span>
       </nav>
 
-      <!-- TITRE + BADGES -->
+      <!-- TITRE -->
       <div class="mb-5 sm:mb-8 flex items-start gap-3 flex-wrap">
-        <h1 class="text-lg sm:text-2xl font-black text-gray-900 leading-tight uppercase tracking-tight flex-1">
+        <h1 class="text-lg sm:text-2xl font-black text-gray-900 leading-tight tracking-tight flex-1">
           {{ product.name }}
         </h1>
-        <div class="flex gap-2 flex-wrap mt-1">
-          <span v-if="product.is_new" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200">Nouveau</span>
-          <span v-if="product.is_best_seller" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#e60012]/10 text-[#e60012] border border-[#e60012]/20">Best Seller</span>
-          <span v-if="product.is_featured" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#274a82]/10 text-[#274a82] border border-[#274a82]/20">En vedette</span>
-        </div>
       </div>
 
       <!-- ZONE PRODUIT -->
@@ -251,37 +408,85 @@ const formatPrice = (p: number) =>
 
         <!-- GALERIE -->
         <div class="lg:col-span-6 flex gap-2 sm:gap-4">
-          <div v-if="thumbnails.length > 1"
+
+          <!-- Thumbnails desktop -->
+          <div
+            v-if="thumbnails.length > 1"
             class="hidden sm:flex flex-col gap-2 py-1 overflow-y-auto max-h-[420px] custom-scrollbar flex-shrink-0">
-            <button v-for="(img, i) in thumbnails" :key="i" @click="selectImage(img)"
+            <button
+              v-for="(img, i) in thumbnails" :key="i"
+              @click="selectImage(img)"
+              :aria-label="`Voir image ${i + 1}`"
               class="w-14 h-14 border-2 rounded-sm p-0.5 transition-all flex-shrink-0"
-              :class="mainImage === img ? 'border-[#274a82] ring-1 ring-[#274a82]' : 'border-gray-200 hover:border-gray-300'">
-              <img :src="img" class="w-full h-full object-cover rounded-sm" :alt="`Image ${i+1}`" />
+              :class="mainImage === img
+                ? 'border-[#274a82] ring-1 ring-[#274a82]'
+                : 'border-gray-200 hover:border-gray-300'">
+              <img
+                :src="img"
+                loading="lazy"
+                decoding="async"
+                class="w-full h-full object-cover rounded-sm"
+                :alt="`${product.name} - vue ${i + 1}`" />
             </button>
           </div>
+
+          <!-- Image principale -->
           <div class="flex-1 flex flex-col gap-2">
-            <div class="relative border border-gray-100 rounded-sm overflow-hidden bg-white h-[280px] sm:h-[420px]"
-              @mouseenter="isZoomed = true" @mouseleave="isZoomed = false" @mousemove="handleMouseMove"
-              :class="isZoomed ? 'cursor-none' : 'cursor-zoom-in'">
-              <div v-if="product.discount_percent && product.discount_percent > 0"
+            <div
+              class="relative border border-gray-100 rounded-sm overflow-hidden bg-white h-[280px] sm:h-[420px]"
+              @mouseenter="!isMobile && (isZoomed = true)"
+              @mouseleave="isZoomed = false"
+              @mousemove="handleMouseMove"
+              :class="isMobile ? 'cursor-default' : isZoomed ? 'cursor-none' : 'cursor-zoom-in'">
+
+              <!-- Badge promo -->
+              <div
+                v-if="product.discount_percent && product.discount_percent > 0"
                 class="absolute top-3 right-3 bg-[#e60012] text-white text-[10px] sm:text-[11px] font-black px-2 sm:px-3 py-1 rounded-sm shadow-lg z-30">
-                -{{ product.discount_percent }}% BRC MARKET
+                -{{ product.discount_percent }}%
               </div>
-              <div v-if="!mainImage" class="w-full h-full flex items-center justify-center bg-gray-50">
+
+              <!-- Placeholder -->
+              <div
+                v-if="!mainImage"
+                class="w-full h-full flex items-center justify-center bg-gray-50">
                 <UIcon name="i-heroicons-photo" class="w-16 h-16 text-gray-200" />
               </div>
-              <img v-else :src="mainImage" :alt="product.name"
+
+              <!-- ✅ Image principale : fetchpriority=high pour LCP Google -->
+              <img
+                v-else
+                :src="mainImage"
+                :alt="product.name"
+                fetchpriority="high"
+                decoding="async"
+                width="600"
+                height="600"
                 class="w-full h-full object-contain p-4 sm:p-10 transition-transform duration-200"
-                :style="isZoomed ? { transform: 'scale(2.5)', transformOrigin: `${zoomPos.x}% ${zoomPos.y}%` } : {}" />
-              <div v-if="isZoomed && mainImage"
+                :style="isZoomed && !isMobile
+                  ? { transform: 'scale(2.5)', transformOrigin: `${zoomPos.x}% ${zoomPos.y}%` }
+                  : {}" />
+
+              <!-- Loupe desktop -->
+              <div
+                v-if="isZoomed && mainImage && !isMobile"
                 class="absolute pointer-events-none border-2 border-[#274a82] rounded-full w-20 h-20 sm:w-24 sm:h-24 shadow-2xl z-40 bg-white/10"
                 :style="{ left: `calc(${zoomPos.x}% - 40px)`, top: `calc(${zoomPos.y}% - 40px)` }" />
             </div>
+
+            <!-- Thumbnails mobile -->
             <div v-if="thumbnails.length > 1" class="flex sm:hidden gap-2 overflow-x-auto pb-1">
-              <button v-for="(img, i) in thumbnails" :key="i" @click="selectImage(img)"
+              <button
+                v-for="(img, i) in thumbnails" :key="i"
+                @click="selectImage(img)"
                 class="w-14 h-14 border-2 rounded-sm p-0.5 transition-all flex-shrink-0"
                 :class="mainImage === img ? 'border-[#274a82]' : 'border-gray-200'">
-                <img :src="img" class="w-full h-full object-cover rounded-sm" :alt="`Image ${i+1}`" />
+                <img
+                  :src="img"
+                  loading="lazy"
+                  decoding="async"
+                  class="w-full h-full object-cover rounded-sm"
+                  :alt="`${product.name} - vue ${i + 1}`" />
               </button>
             </div>
           </div>
@@ -292,39 +497,67 @@ const formatPrice = (p: number) =>
 
           <!-- Prix -->
           <div class="flex items-center gap-3 flex-wrap">
-            <span class="text-2xl sm:text-3xl font-black text-[#e60012]">{{ formatPrice(product.price) }}</span>
-            <span v-if="product.old_price" class="text-sm text-gray-400 line-through">{{ formatPrice(product.old_price) }}</span>
-            <span v-if="product.discount_percent && product.discount_percent > 0"
+            <span class="text-2xl sm:text-3xl font-black text-[#e60012]">
+              {{ formatPrice(product.price) }}
+            </span>
+            <span v-if="product.old_price" class="text-sm text-gray-400 line-through">
+              {{ formatPrice(product.old_price) }}
+            </span>
+            <span
+              v-if="product.discount_percent && product.discount_percent > 0"
               class="bg-[#e60012]/10 text-[#e60012] text-[11px] font-black px-2 py-0.5 rounded-sm">
               -{{ product.discount_percent }}%
             </span>
           </div>
 
-          <!-- Note rapide (cliquable vers onglet avis) -->
-          <button v-if="reviewCount > 0" @click="activeTab = 'reviews'"
-            class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <!-- Note rapide -->
+          <button
+            v-if="reviewCount > 0"
+            @click="activeTab = 'reviews'"
+            class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            :aria-label="`${reviewCount} avis clients`">
             <div class="flex gap-0.5">
-              <UIcon v-for="j in 5" :key="j"
+              <UIcon
+                v-for="j in 5" :key="j"
                 :name="j <= Math.round(avgRating) ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
                 class="w-3.5 h-3.5 text-yellow-400" />
             </div>
-            <span class="text-xs text-gray-500 font-bold underline underline-offset-2">{{ reviewCount }} avis</span>
+            <span class="text-xs text-gray-500 font-bold underline underline-offset-2">
+              {{ reviewCount }} avis
+            </span>
           </button>
 
           <!-- Disponibilité -->
           <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full" :class="product.stock > 0 ? 'bg-green-500' : 'bg-red-400'"></span>
-            <span class="text-[12px] font-bold" :class="product.stock > 0 ? 'text-green-600' : 'text-red-500'">
-              {{ product.stock > 5 ? 'En stock' : product.stock > 0 ? `Plus que ${product.stock} en stock` : 'Rupture de stock' }}
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="product.stock > 0 ? 'bg-green-500' : 'bg-red-400'">
             </span>
-            <span v-if="product.sku" class="ml-auto text-[11px] text-gray-400 font-mono">SKU: {{ product.sku }}</span>
+            <span
+              class="text-[12px] font-bold"
+              :class="product.stock > 0 ? 'text-green-600' : 'text-red-500'">
+              {{ product.stock > 5
+                ? 'En stock'
+                : product.stock > 0
+                  ? `Plus que ${product.stock} en stock`
+                  : 'Rupture de stock' }}
+            </span>
+            <span v-if="product.sku" class="ml-auto text-[11px] text-gray-400 font-mono">
+              SKU: {{ product.sku }}
+            </span>
           </div>
 
-          <!-- Specs -->
-          <div v-if="product.specs?.length" class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 py-4 border-y border-gray-100">
-            <div v-for="spec in product.specs" :key="spec.key" class="flex justify-between items-center border-b border-gray-50 pb-1.5">
+          <!-- Specs rapides -->
+          <div
+            v-if="product.specs?.length"
+            class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 py-4 border-y border-gray-100">
+            <div
+              v-for="spec in product.specs" :key="spec.key"
+              class="flex justify-between items-center border-b border-gray-50 pb-1.5">
               <span class="text-[11px] sm:text-[12px] text-gray-400 font-bold">{{ spec.key }}</span>
-              <span class="text-[12px] sm:text-[13px] text-gray-900 font-black text-right ml-2">{{ spec.value }}</span>
+              <span class="text-[12px] sm:text-[13px] text-gray-900 font-black text-right ml-2">
+                {{ spec.value }}
+              </span>
             </div>
           </div>
           <div v-else-if="product.brand" class="py-3 border-y border-gray-100">
@@ -334,165 +567,199 @@ const formatPrice = (p: number) =>
             </div>
           </div>
 
-          <!-- ── QUANTITÉ + PANIER ── -->
+          <!-- Quantité + Panier -->
           <div class="flex items-center gap-3 flex-wrap">
-            <div class="flex items-center border border-gray-200 rounded-sm bg-gray-50 overflow-hidden flex-shrink-0">
+            <div
+              class="flex items-center border border-gray-200 rounded-sm bg-gray-50 overflow-hidden flex-shrink-0">
               <button
                 @click="quantity > 1 ? quantity-- : null"
                 :disabled="quantity <= 1"
+                aria-label="Diminuer la quantité"
                 class="px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-200 font-bold transition-colors text-lg select-none disabled:opacity-30">
                 −
               </button>
-              <span class="px-3 sm:px-4 py-2.5 sm:py-3 font-black text-[#274a82] bg-white min-w-[44px] text-center border-x border-gray-200 text-base">
+              <span
+                class="px-3 sm:px-4 py-2.5 sm:py-3 font-black text-[#274a82] bg-white min-w-[44px] text-center border-x border-gray-200 text-base"
+                aria-live="polite">
                 {{ quantity }}
               </span>
               <button
                 @click="product.stock > 0 && quantity < product.stock ? quantity++ : null"
                 :disabled="product.stock === 0 || quantity >= product.stock"
+                aria-label="Augmenter la quantité"
                 class="px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-200 font-bold transition-colors text-lg select-none disabled:opacity-30">
                 +
               </button>
             </div>
 
-            <UButton :disabled="product.stock === 0" @click="addToCart()" block
-              class="flex-1 bg-[#274a82] hover:bg-[#e60012] text-white font-black py-3 tracking-widest shadow-md transition-all rounded-sm text-sm sm:text-base min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed">
+            <UButton
+              :disabled="product.stock === 0"
+              @click="addToCart()"
+              block
+              class="flex-1 bg-[#274a82] hover:bg-[#e60012] text-white font-black py-3 tracking-widest shadow-md transition-all rounded-sm text-sm sm:text-[12px] min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed">
               <UIcon name="i-heroicons-shopping-cart" class="w-4 h-4 mr-2" />
               {{ product.stock === 0 ? 'Rupture de stock' : 'Ajouter au panier' }}
             </UButton>
 
-            <button @click="addToWishlist(product.id, product.name)"
+            <button
+              @click="addToWishlist(product.id, product.name)"
+              :aria-label="isFav(product.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
               class="w-11 h-11 border rounded-sm flex items-center justify-center transition-colors flex-shrink-0"
-              :class="isFav(product.id) ? 'border-[#e60012] bg-red-50 text-[#e60012]' : 'border-gray-200 text-gray-400 hover:border-[#e60012] hover:text-[#e60012]'">
-              <UIcon :name="isFav(product.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'" class="w-5 h-5" />
+              :class="isFav(product.id)
+                ? 'border-[#e60012] bg-red-50 text-[#e60012]'
+                : 'border-gray-200 text-gray-400 hover:border-[#e60012] hover:text-[#e60012]'">
+              <UIcon
+                :name="isFav(product.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
+                class="w-5 h-5" />
             </button>
           </div>
 
-          <!-- Livraison -->
-          <div class="flex flex-col gap-2 p-3 bg-gray-50 rounded-sm border border-gray-100">
-            <div class="flex items-center gap-2.5">
-              <UIcon name="i-heroicons-truck" class="w-4 h-4 text-[#274a82] flex-shrink-0" />
-              <span class="text-[12px] font-semibold text-gray-700">Livraison disponible Partout en Afrique</span>
-            </div>
-            <div class="flex items-center gap-2.5">
-              <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-green-500 flex-shrink-0" />
-              <span class="text-[12px] font-semibold text-gray-700">Garantie 12 mois — SAV BRC Market</span>
-            </div>
-            <div class="flex items-center gap-2.5">
-              <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 text-orange-400 flex-shrink-0" />
-              <span class="text-[12px] font-semibold text-gray-700">Retour sous 7 jours</span>
-            </div>
-          </div>
         </div>
       </div>
 
       <!-- ONGLETS -->
       <div class="mb-8 sm:mb-10">
-        <div class="flex gap-6 sm:gap-10 border-b border-gray-100 mb-5 sm:mb-6">
-          <button @click="activeTab = 'description'"
+        <div
+          class="flex gap-6 sm:gap-10 border-b border-gray-100 mb-5 sm:mb-6"
+          role="tablist">
+          <button
+            @click="activeTab = 'description'"
+            role="tab"
+            :aria-selected="activeTab === 'description'"
             class="pb-2.5 text-[13px] sm:text-[15px] font-black transition-all border-b-2"
-            :class="activeTab === 'description' ? 'border-[#e60012] text-black' : 'border-transparent text-gray-400 hover:text-gray-600'">
+            :class="activeTab === 'description'
+              ? 'border-[#e60012] text-black'
+              : 'border-transparent text-gray-400 hover:text-gray-600'">
             Description
           </button>
-          <button v-if="product.specs?.length" @click="activeTab = 'specs'"
+          <button
+            v-if="product.specs?.length"
+            @click="activeTab = 'specs'"
+            role="tab"
+            :aria-selected="activeTab === 'specs'"
             class="pb-2.5 text-[13px] sm:text-[15px] font-black transition-all border-b-2"
-            :class="activeTab === 'specs' ? 'border-[#e60012] text-black' : 'border-transparent text-gray-400 hover:text-gray-600'">
+            :class="activeTab === 'specs'
+              ? 'border-[#e60012] text-black'
+              : 'border-transparent text-gray-400 hover:text-gray-600'">
             Fiche technique
           </button>
-          <button @click="activeTab = 'reviews'"
+          <button
+            @click="activeTab = 'reviews'"
+            role="tab"
+            :aria-selected="activeTab === 'reviews'"
             class="pb-2.5 text-[13px] sm:text-[15px] font-black transition-all border-b-2 flex items-center gap-2"
-            :class="activeTab === 'reviews' ? 'border-[#e60012] text-black' : 'border-transparent text-gray-400 hover:text-gray-600'">
+            :class="activeTab === 'reviews'
+              ? 'border-[#e60012] text-black'
+              : 'border-transparent text-gray-400 hover:text-gray-600'">
             Avis
-            <span class="bg-gray-100 text-gray-500 text-[10px] font-black px-1.5 py-0.5 rounded-full">{{ reviewCount }}</span>
+            <span class="bg-gray-100 text-gray-500 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+              {{ reviewCount }}
+            </span>
           </button>
         </div>
 
         <!-- Description -->
-        <div v-if="activeTab === 'description'">
-          <p v-if="product.description" class="text-[13px] sm:text-[14px] leading-[1.8] text-gray-700">
+        <div v-if="activeTab === 'description'" role="tabpanel">
+          <p
+            v-if="product.description"
+            class="text-[13px] sm:text-[14px] leading-[1.8] text-gray-700">
             {{ product.description }}
           </p>
           <p v-else class="text-sm text-gray-400 italic">Aucune description disponible pour ce produit.</p>
         </div>
 
         <!-- Fiche technique -->
-        <div v-else-if="activeTab === 'specs'" class="overflow-x-auto">
+        <div v-else-if="activeTab === 'specs'" role="tabpanel" class="overflow-x-auto">
           <table class="w-full text-sm border-collapse">
+            <caption class="sr-only">Fiche technique de {{ product.name }}</caption>
             <tbody>
-              <tr v-for="spec in product.specs" :key="spec.key"
+              <tr
+                v-for="spec in product.specs" :key="spec.key"
                 class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                <td class="py-3 px-4 font-bold text-gray-500 text-[12px] w-1/3 bg-gray-50/50">{{ spec.key }}</td>
+                <td class="py-3 px-4 font-bold text-gray-500 text-[12px] w-1/3 bg-gray-50/50">
+                  {{ spec.key }}
+                </td>
                 <td class="py-3 px-4 font-semibold text-gray-800 text-[13px]">{{ spec.value }}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- ── AVIS ── -->
-        <div v-else>
-          <!-- Header note + bouton -->
+        <!-- Avis -->
+        <div v-else role="tabpanel">
           <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
               <template v-if="reviews.length">
                 <span class="text-3xl font-black text-gray-900">{{ avgRating }}</span>
                 <div>
                   <div class="flex gap-0.5 mb-0.5">
-                    <UIcon v-for="j in 5" :key="j"
+                    <UIcon
+                      v-for="j in 5" :key="j"
                       :name="j <= Math.round(avgRating) ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
                       class="w-4 h-4 text-yellow-400" />
                   </div>
                   <span class="text-xs text-gray-400">{{ reviews.length }} avis clients</span>
                 </div>
               </template>
-              <span v-else-if="!loadingReviews" class="text-sm text-gray-400">Aucun avis pour l'instant</span>
+              <span v-else-if="!loadingReviews" class="text-sm text-gray-400">
+                Aucun avis pour l'instant
+              </span>
             </div>
-            <button @click="openReviewModal"
+            <button
+              @click="openReviewModal"
               class="flex items-center gap-2 px-4 py-2.5 bg-[#274a82] hover:bg-[#e60012] text-white text-xs font-black rounded-xl transition-all shadow-sm">
               <UIcon name="i-heroicons-pencil-square" class="w-3.5 h-3.5" />
               Donner mon avis
             </button>
           </div>
 
-          <!-- Chargement -->
+          <!-- Chargement avis -->
           <div v-if="loadingReviews" class="flex justify-center py-10">
             <div class="w-8 h-8 border-4 border-[#274a82] border-t-transparent rounded-full animate-spin"></div>
           </div>
 
-          <!-- Vide -->
-          <div v-else-if="!reviews.length" class="flex flex-col items-center py-12 gap-3 text-center">
+          <!-- Aucun avis -->
+          <div
+            v-else-if="!reviews.length"
+            class="flex flex-col items-center py-12 gap-3 text-center">
             <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
               <UIcon name="i-heroicons-chat-bubble-left-ellipsis" class="w-7 h-7 text-gray-300" />
             </div>
             <p class="text-sm text-gray-400 font-medium">Soyez le premier à donner votre avis !</p>
-            <button @click="openReviewModal"
+            <button
+              @click="openReviewModal"
               class="mt-1 px-5 py-2.5 bg-[#274a82] text-white text-xs font-black rounded-xl hover:bg-[#e60012] transition-all">
               Écrire un avis
             </button>
           </div>
 
-          <!-- Desktop : marquee animé (max 5 avis) -->
-          <div v-else class="space-y-0">
+          <!-- Marquee desktop — ✅ duplication pour boucle infinie vraie -->
+          <div v-else>
             <div class="hidden sm:block relative overflow-hidden py-2">
               <div class="flex gap-5 marquee-container">
                 <div class="flex gap-5 animate-marquee-scroll">
                   <div
-                    v-for="(review, i) in [...marqueeReviews]"
+                    v-for="(review, i) in [...marqueeReviews, ...marqueeReviews]"
                     :key="`m-${i}`"
-                    class="min-w-[300px] max-w-[300px] p-4 bg-slate-50 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-3 flex-shrink-0"
-                  >
+                    class="min-w-[300px] max-w-[300px] p-4 bg-slate-50 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-3 flex-shrink-0">
                     <div class="flex items-center justify-between">
                       <div class="flex gap-0.5">
-                        <UIcon v-for="j in 5" :key="j"
+                        <UIcon
+                          v-for="j in 5" :key="j"
                           :name="j <= review.rating ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
                           class="w-3.5 h-3.5 text-yellow-400" />
                       </div>
                       <span class="text-[10px] text-gray-400">{{ reviewDate(review.created_at) }}</span>
                     </div>
-                    <p v-if="review.comment" class="text-[13px] text-gray-600 leading-relaxed italic flex-1 line-clamp-3">
+                    <p
+                      v-if="review.comment"
+                      class="text-[13px] text-gray-600 leading-relaxed italic flex-1 line-clamp-3">
                       "{{ review.comment }}"
                     </p>
                     <div class="flex items-center gap-2 pt-2 border-t border-gray-100 mt-auto">
-                      <div class="w-7 h-7 rounded-full bg-[#274a82] flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
-                        {{ review.user?.first_name?.[0] ?? "?" }}{{ review.user?.last_name?.[0] ?? "" }}
+                      <div
+                        class="w-7 h-7 rounded-full bg-[#274a82] flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
+                        {{ review.user?.first_name?.[0] ?? '?' }}{{ review.user?.last_name?.[0] ?? '' }}
                       </div>
                       <span class="text-xs font-bold text-gray-700">{{ reviewerName(review) }}</span>
                     </div>
@@ -501,13 +768,15 @@ const formatPrice = (p: number) =>
               </div>
             </div>
 
-            <!-- Mobile : liste simple -->
+            <!-- Liste mobile -->
             <div class="sm:hidden flex flex-col gap-3">
-              <div v-for="review in marqueeReviews" :key="review.id"
+              <div
+                v-for="review in marqueeReviews" :key="review.id"
                 class="p-4 bg-slate-50 rounded-xl border border-gray-100 flex flex-col gap-3">
                 <div class="flex items-center justify-between">
                   <div class="flex gap-0.5">
-                    <UIcon v-for="j in 5" :key="j"
+                    <UIcon
+                      v-for="j in 5" :key="j"
                       :name="j <= review.rating ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
                       class="w-3.5 h-3.5 text-yellow-400" />
                   </div>
@@ -517,8 +786,9 @@ const formatPrice = (p: number) =>
                   "{{ review.comment }}"
                 </p>
                 <div class="flex items-center gap-2 pt-1 border-t border-gray-100">
-                  <div class="w-7 h-7 rounded-full bg-[#274a82] flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
-                    {{ review.user?.first_name?.[0] ?? "?" }}{{ review.user?.last_name?.[0] ?? "" }}
+                  <div
+                    class="w-7 h-7 rounded-full bg-[#274a82] flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
+                    {{ review.user?.first_name?.[0] ?? '?' }}{{ review.user?.last_name?.[0] ?? '' }}
                   </div>
                   <span class="text-xs font-bold text-gray-700">{{ reviewerName(review) }}</span>
                 </div>
@@ -529,79 +799,120 @@ const formatPrice = (p: number) =>
       </div>
 
       <!-- PRODUITS SIMILAIRES -->
-      <section v-if="relatedProducts.length">
+      <section v-if="relatedProducts.length" aria-label="Produits similaires">
         <div class="flex items-center justify-between border-b border-gray-200 mb-5 sm:mb-6">
-          <h2 class="text-base sm:text-xl font-bold text-gray-800 pb-2 border-b-2 border-[#e60012] mb-[-1px] tracking-tight">
+          <h2
+            class="text-base sm:text-xl font-bold text-gray-800 pb-2 border-b-2 border-[#e60012] mb-[-1px] tracking-tight">
             Produits Similaires
           </h2>
-          <NuxtLink v-if="product.category" :to="`/categorie/${product.category.slug}`"
+          <NuxtLink
+            v-if="product.category"
+            :to="`/categories/${product.category.slug}`"
             class="text-[12px] sm:text-[13px] font-black text-[#274a82] hover:text-[#e60012] flex items-center gap-1 transition-colors group">
-            Voir plus <UIcon name="i-heroicons-arrow-right" class="group-hover:translate-x-1 transition-transform" />
+            Voir plus
+            <UIcon name="i-heroicons-arrow-right" class="group-hover:translate-x-1 transition-transform" />
           </NuxtLink>
         </div>
 
+        <!-- Carousel desktop -->
         <div class="hidden sm:block">
-          <UCarousel v-slot="{ item }" :items="relatedProducts" :autoplay="{ delay: 2500 }"
+          <UCarousel
+            v-slot="{ item }"
+            :items="relatedProducts"
+            :autoplay="{ delay: 2500 }"
             :ui="{ item: 'basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/5 px-2', container: 'py-4' }"
-            indicators arrows class="rounded-sm">
-            <NuxtLink :to="`/products/${item.slug}`"
+            indicators arrows
+            class="rounded-sm">
+            <NuxtLink
+              :to="`/products/${item.slug}`"
               class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl w-full">
-              <div class="relative h-48 w-full overflow-hidden flex items-center justify-center bg-[#fcfcfc]">
-                <div class="absolute right-[-50px] group-hover:right-3 top-3 flex flex-col gap-2 z-30 transition-all duration-300">
-                  <button @click.prevent.stop="addToWishlist(item.id, item.name)"
+              <div
+                class="relative h-48 w-full overflow-hidden flex items-center justify-center bg-[#fcfcfc]">
+                <div
+                  class="absolute right-[-50px] group-hover:right-3 top-3 flex flex-col gap-2 z-30 transition-all duration-300">
+                  <button
+                    @click.prevent.stop="addToWishlist(item.id, item.name)"
+                    :aria-label="isFav(item.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
                     class="w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center transition-colors"
-                    :class="isFav(item.id) ? 'bg-[#e60012] text-white' : 'text-gray-400 hover:bg-[#e60012] hover:text-white'">
-                    <UIcon :name="isFav(item.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'" class="w-4 h-4" />
+                    :class="isFav(item.id)
+                      ? 'bg-[#e60012] text-white'
+                      : 'text-gray-400 hover:bg-[#e60012] hover:text-white'">
+                    <UIcon
+                      :name="isFav(item.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
+                      class="w-4 h-4" />
                   </button>
                 </div>
-                <img v-if="item.images?.[0]" :src="item.images[0]" :alt="item.name" class="w-full h-full object-contain p-4" />
+                <!-- ✅ lazy loading produits similaires -->
+                <img
+                  v-if="item.images?.[0]"
+                  :src="item.images[0]"
+                  :alt="item.name"
+                  loading="lazy"
+                  decoding="async"
+                  width="200"
+                  height="200"
+                  class="w-full h-full object-contain p-4" />
                 <UIcon v-else name="i-heroicons-sparkles" class="w-12 h-12 opacity-10" />
-                <div class="absolute bottom-[-100%] group-hover:bottom-0 left-0 w-full transition-all duration-300 z-20">
-                  <UButton @click.prevent.stop="addToCartItem(item)" icon="i-heroicons-shopping-cart" block
-                    class="bg-[#274a82] hover:bg-[#e60012] rounded-none font-bold text-[12px] py-2.5">
-                    Ajouter au Panier
-                  </UButton>
+                <div
+                  v-if="discountPercent(item)"
+                  class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">
+                  {{ discountPercent(item) }}
                 </div>
               </div>
-              <div class="p-2 flex flex-col flex-1 border-t border-gray-50">
-                <h3 class="text-[13px] text-gray-600 font-medium mb-2 line-clamp-2 h-10 leading-snug group-hover:text-[#e60012]">{{ item.name }}</h3>
-                <div class="mt-auto">
-                  <div class="text-[18px] font-black text-gray-900 mb-0.5">{{ item.price.toLocaleString() }} FCFA</div>
-                  <div class="flex items-center justify-between">
-                    <span v-if="item.old_price" class="text-[12px] text-gray-400 line-through">{{ item.old_price.toLocaleString() }} FCFA</span>
-                    <div v-if="item.discount_percent && item.discount_percent > 0"
-                      class="bg-[#e60012] text-white text-[11px] font-bold px-1.5 py-0.5 rounded-sm ml-auto">
-                      -{{ item.discount_percent }}%
-                    </div>
+              <div class="p-2 sm:p-3 flex flex-col flex-1 border-t border-gray-100">
+                <h3 class="text-[13px] sm:text-[14px] text-[#274a82] font-bold line-clamp-2 leading-snug mt-0.5 mb-2 h-8 sm:h-10 overflow-hidden group-hover:text-[#e60012] transition-colors">
+                  {{ item.name }}
+                </h3>
+                <div class="mt-2">
+                  <div class="text-lg sm:text-2xl font-black text-gray-900 mb-0.5 leading-tight">
+                    {{ formatPrice(item.price) }} <span class="text-[9px] sm:text-[11px] font-semibold">FCFA</span>
                   </div>
+                  <span v-if="item.old_price" class="text-[10px] sm:text-[12px] text-[#e60012] line-through">
+                    {{ formatPrice(item.old_price) }} FCFA
+                  </span>
                 </div>
               </div>
             </NuxtLink>
           </UCarousel>
         </div>
 
+        <!-- Grille mobile -->
         <div class="sm:hidden grid grid-cols-2 gap-3">
-          <NuxtLink v-for="item in relatedProducts" :key="item.id" :to="`/products/${item.slug}`"
+          <NuxtLink
+            v-for="item in relatedProducts" :key="item.id"
+            :to="`/products/${item.slug}`"
             class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl">
             <div class="relative h-36 w-full overflow-hidden bg-[#fcfcfc]">
-              <div v-if="item.discount_percent && item.discount_percent > 0"
-                class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm">
-                -{{ item.discount_percent }}%
+              <div
+                v-if="discountPercent(item)"
+                class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">
+                {{ discountPercent(item) }}
               </div>
-              <img v-if="item.images?.[0]" :src="item.images[0]" :alt="item.name" class="w-full h-full object-contain p-2" />
-              <UIcon v-else name="i-heroicons-sparkles" class="absolute inset-0 m-auto w-10 h-10 opacity-10" />
+              <img
+                v-if="item.images?.[0]"
+                :src="item.images[0]"
+                :alt="item.name"
+                loading="lazy"
+                decoding="async"
+                width="150"
+                height="150"
+                class="w-full h-full object-contain p-2" />
+              <UIcon
+                v-else
+                name="i-heroicons-sparkles"
+                class="absolute inset-0 m-auto w-10 h-10 opacity-10" />
             </div>
             <div class="p-2 flex flex-col flex-1 border-t border-gray-50">
-              <h3 class="text-[11px] text-gray-600 font-medium line-clamp-2 h-[34px] leading-snug mb-2">{{ item.name }}</h3>
-              <div class="mt-auto flex items-center justify-between gap-1">
-                <div>
-                  <div class="text-sm font-black text-gray-900 leading-tight">{{ item.price.toLocaleString() }} <span class="text-[8px]">FCFA</span></div>
-                  <span v-if="item.old_price" class="text-[9px] text-gray-400 line-through">{{ item.old_price.toLocaleString() }} FCFA</span>
+              <h3 class="text-[11px] text-gray-600 font-medium line-clamp-2 h-[34px] leading-snug mb-2">
+                {{ item.name }}
+              </h3>
+              <div class="mt-auto">
+                <div class="text-sm font-black text-gray-900 leading-tight">
+                  {{ item.price.toLocaleString() }} <span class="text-[8px]">FCFA</span>
                 </div>
-                <button @click.prevent.stop="addToCartItem(item)"
-                  class="flex-shrink-0 w-7 h-7 rounded-full bg-[#274a82] hover:bg-[#e60012] flex items-center justify-center text-white transition-colors shadow-sm">
-                  <UIcon name="i-heroicons-shopping-cart" class="w-3.5 h-3.5" />
-                </button>
+                <span v-if="item.old_price" class="text-[9px] text-gray-400 line-through">
+                  {{ item.old_price.toLocaleString() }} FCFA
+                </span>
               </div>
             </div>
           </NuxtLink>
@@ -611,7 +922,7 @@ const formatPrice = (p: number) =>
     </template>
   </UContainer>
 
-  <!-- ══ MODAL AVIS ══════════════════════════════════════════════════════════ -->
+  <!-- MODAL AVIS -->
   <UModal v-model:open="showReviewModal">
     <template #content>
       <div class="overflow-hidden rounded-2xl bg-white">
@@ -620,9 +931,13 @@ const formatPrice = (p: number) =>
         <div class="px-6 py-5 bg-[#274a82] flex items-center justify-between">
           <div>
             <p class="text-xs text-white/50 font-bold tracking-widest">Votre avis</p>
-            <h2 class="text-base font-black text-white mt-0.5 line-clamp-1 max-w-[220px]">{{ product?.name }}</h2>
+            <h2 class="text-base font-black text-white mt-0.5 line-clamp-1 max-w-[220px]">
+              {{ product?.name }}
+            </h2>
           </div>
-          <button @click="showReviewModal = false"
+          <button
+            @click="showReviewModal = false"
+            aria-label="Fermer le modal"
             class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all flex-shrink-0">
             <UIcon name="i-heroicons-x-mark" class="w-4 h-4 text-white" />
           </button>
@@ -633,16 +948,23 @@ const formatPrice = (p: number) =>
           <!-- Étoiles -->
           <div>
             <p class="text-xs font-black text-gray-400 tracking-widest mb-3">Votre note</p>
-            <div class="flex items-center gap-1">
-              <button v-for="star in 5" :key="star"
+            <div class="flex items-center gap-1" role="radiogroup" aria-label="Note">
+              <button
+                v-for="star in 5" :key="star"
                 @click="reviewForm.rating = star"
                 @mouseenter="hoverRating = star"
                 @mouseleave="hoverRating = 0"
+                :aria-label="`${star} étoile${star > 1 ? 's' : ''}`"
+                :aria-pressed="reviewForm.rating === star"
                 class="p-0.5 transition-transform hover:scale-110 focus:outline-none">
                 <UIcon
-                  :name="star <= (hoverRating || reviewForm.rating) ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
+                  :name="star <= (hoverRating || reviewForm.rating)
+                    ? 'i-heroicons-star-solid'
+                    : 'i-heroicons-star'"
                   class="w-9 h-9 transition-colors"
-                  :class="star <= (hoverRating || reviewForm.rating) ? 'text-yellow-400' : 'text-gray-200'" />
+                  :class="star <= (hoverRating || reviewForm.rating)
+                    ? 'text-yellow-400'
+                    : 'text-gray-200'" />
               </button>
               <span class="ml-3 text-sm font-black text-gray-700 min-w-[80px]">
                 {{ ratingLabels[hoverRating || reviewForm.rating] }}
@@ -653,12 +975,18 @@ const formatPrice = (p: number) =>
           <!-- Commentaire -->
           <div>
             <p class="text-xs font-black text-gray-400 tracking-widest mb-2">Commentaire</p>
-            <textarea v-model="reviewForm.comment" :maxlength="500" rows="4"
+            <textarea
+              v-model="reviewForm.comment"
+              :maxlength="500"
+              rows="4"
               placeholder="Partagez votre expérience avec ce produit..."
+              aria-label="Votre commentaire"
               class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#274a82] focus:ring-2 focus:ring-[#274a82]/10 transition-all resize-none">
             </textarea>
             <div class="flex justify-between mt-1">
-              <span class="text-[10px]" :class="reviewForm.comment.trim() ? 'text-green-500' : 'text-red-400'">
+              <span
+                class="text-[10px]"
+                :class="reviewForm.comment.trim() ? 'text-green-500' : 'text-red-400'">
                 {{ reviewForm.comment.trim() ? '✓ Prêt à publier' : 'Le commentaire est requis' }}
               </span>
               <span class="text-[10px] text-gray-400">{{ reviewForm.comment.length }} / 500</span>
@@ -667,15 +995,19 @@ const formatPrice = (p: number) =>
 
           <!-- Actions -->
           <div class="flex gap-3 pt-1">
-            <button @click="showReviewModal = false"
+            <button
+              @click="showReviewModal = false"
               class="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all">
               Annuler
             </button>
-            <button @click="submitReview"
+            <button
+              @click="submitReview"
               :disabled="!reviewForm.comment.trim() || submittingReview"
               class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#274a82] hover:bg-[#e60012] text-white font-black text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-              <UIcon :name="submittingReview ? 'i-heroicons-arrow-path' : 'i-heroicons-paper-airplane'"
-                class="w-4 h-4" :class="submittingReview ? 'animate-spin' : ''" />
+              <UIcon
+                :name="submittingReview ? 'i-heroicons-arrow-path' : 'i-heroicons-paper-airplane'"
+                class="w-4 h-4"
+                :class="submittingReview ? 'animate-spin' : ''" />
               {{ submittingReview ? 'Envoi...' : "Publier l'avis" }}
             </button>
           </div>
@@ -691,6 +1023,7 @@ const formatPrice = (p: number) =>
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #274a82; border-radius: 10px; }
 .cursor-zoom-in { cursor: crosshair; }
 
+/* ✅ Marquee corrigé : duplication dans le v-for pour boucle infinie vraie */
 .animate-marquee-scroll {
   display: flex;
   animation: scroll-marquee 30s linear infinite;

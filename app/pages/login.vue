@@ -3,27 +3,31 @@ import { ref } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
 
-useHead({
-  title: 'BRC Market',
-  titleTemplate: (titleChunk) => titleChunk ? `${titleChunk} - Se connecter` : 'BRC Market',
-  link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }]
+// 1. Configuration dynamique de l'API
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
+
+useSeoMeta({
+  title:       'Se Connecter',
+  description: 'Connectez-vous à votre compte BRC Market pour suivre vos commandes et accéder à vos avantages.',
+  ogTitle:     'Se Connecter - BRC Market',
+  ogUrl:       'https://brcmarket.cm/login',
+  robots:      'noindex, nofollow',
 })
+useHead({ link: [{ rel: 'canonical', href: 'https://brcmarket.cm/login' }] })
 
 const toast    = useToast()
 const router   = useRouter()
 const route    = useRoute()
 
 // ── Persistance session ──────────────────────────────────────────────────
-// auth_token  : cookie HTTP (survit aux rechargements)
-// auth_user   : useState (état réactif global Nuxt, partagé entre composants)
-// auth_role   : cookie (accessible dans les middlewares SSR aussi)
 const token    = useCookie('auth_token', { maxAge: 60 * 60 * 24 * 7 }) // 7 jours
 const authRole = useCookie('auth_role',  { maxAge: 60 * 60 * 24 * 7 }) // 7 jours
 const authUser = useState<any>('auth_user', () => null)
 
 // ── Form state ────────────────────────────────────────────────────────────
-const email    = ref('')
-const password = ref('')
+const email        = ref('')
+const password     = ref('')
 const loading      = ref(false)
 const errors       = ref<Record<string, string[]>>({})
 const showPassword = ref(false)
@@ -33,7 +37,8 @@ const handleLogin = async () => {
   errors.value  = {}
 
   try {
-    const response = await axios.post('http://127.0.0.1:8000/api/auth/login', {
+    // Utilisation de la variable API au lieu de localhost
+    const response = await axios.post(`${API}/auth/login`, {
       email:    email.value,
       password: password.value,
     }, {
@@ -63,7 +68,6 @@ const handleLogin = async () => {
 
     // 4. Redirection après 800ms
     setTimeout(() => {
-      // Si un paramètre ?redirect= existe, y retourner
       const redirect = route.query.redirect as string | undefined
       if (redirect) {
         router.push(redirect)
@@ -71,8 +75,7 @@ const handleLogin = async () => {
         router.push('/admin')
       } else if (user.role === 'livreur') {
         router.push('/livreur/livraisons') 
-      }
-        else {
+      } else {
         router.push('/boutique')
       }
     }, 800)
@@ -105,8 +108,8 @@ const handleLogin = async () => {
 
     } else if (err.message === 'Network Error') {
       toast.add({
-        title:       'Serveur inaccessible',
-        description: 'Vérifiez que Laravel est démarré.',
+        title:       'Serveur injoignable',
+        description: 'Impossible de contacter BRC Market. Vérifiez votre connexion.',
         color:       'error',
         icon:        'i-heroicons-signal-slash',
       } as ToastProps)

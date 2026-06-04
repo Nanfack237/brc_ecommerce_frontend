@@ -1,355 +1,254 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-
-useHead({
-  title: 'Audit & Câblage Réseau',
-  titleTemplate: (t) => t ? `${t} - BRC Market` : 'BRC Market',
+const SEO_URL = 'https://brcmarket.cm/services/cablage-reseaux'
+useSeoMeta({
+  title:              'Câblage & Réseaux',
+  ogTitle:            'Service Câblage & Réseaux - BRC Market',
+  description:        'BRC Market assure l\'installation et la maintenance de vos infrastructures réseau au Cameroun. Câblage structuré, Wi-Fi, fibre optique à Douala et Yaoundé.',
+  ogDescription:      'Installation et maintenance de vos infrastructures réseau au Cameroun. Câblage structuré, Wi-Fi, fibre optique.',
+  ogImage:            'https://brcmarket.cm/images/og-image.png',
+  ogUrl:              SEO_URL,
+  twitterTitle:       'Câblage & Réseaux - BRC Market',
+  twitterDescription: 'Installation et maintenance réseau au Cameroun.',
+  twitterImage:       'https://brcmarket.cm/images/og-image.png',
 })
+useHead({ link: [{ rel: 'canonical', href: SEO_URL }] })
 
-const breadcrumbItems = [
-  { label: 'Accueil',  to: '/' },
-  { label: 'Services', to: '/services' },
-  { label: 'Audit & Câblage', to: '/services/audit', current: true },
+// ── Carousel ──
+const carouselIndex = ref(0)
+const carouselImages = [
+  { src: '/images/services/service_audit_cablage1.jpg', alt: 'Installation câblage réseau structuré' },
+  { src: '/images/services/service_audit_cablage4.jpg', alt: 'Armoire de brassage et switch réseau' },
+  { src: '/images/services/service_audit_cablage3.jpg', alt: 'Different port du switch' },
+  { src: '/images/services/service_audit_cablage.jpg', alt: 'Déploiement WiFi professionnel' },
 ]
+let carouselTimer: ReturnType<typeof setInterval> | null = null
+const startCarousel = () => {
+  carouselTimer = setInterval(() => { carouselIndex.value = (carouselIndex.value + 1) % carouselImages.length }, 4000)
+}
+const stopCarousel = () => { if (carouselTimer) clearInterval(carouselTimer) }
+const goTo = (i: number) => { carouselIndex.value = i; stopCarousel(); startCarousel() }
+const prev = () => goTo((carouselIndex.value - 1 + carouselImages.length) % carouselImages.length)
+const next = () => goTo((carouselIndex.value + 1) % carouselImages.length)
+onMounted(startCarousel)
+onUnmounted(stopCarousel)
 
-const services = [
-  {
-    icon: 'i-heroicons-magnifying-glass',
-    color: '#274a82',
-    bg: '#eef2fb',
-    title: 'Audit Réseau',
-    desc: "Analyse complète de votre infrastructure réseau existante. Cartographie, détection des goulots d'étranglement, rapport de recommandations.",
-    price: 'À partir de 100 000 FCFA',
-  },
-  {
-    icon: 'i-heroicons-wifi',
-    color: '#0369a1',
-    bg: '#e0f2fe',
-    title: 'Câblage Structuré Cat6/Cat6A',
-    desc: "Installation de câblage cuivre certifié Cat6 et Cat6A. Baies de brassage, patch panels, prises RJ45 encastrées.",
-    price: 'Sur devis (au mètre)',
-  },
-  {
-    icon: 'i-heroicons-light-bulb',
-    color: '#b45309',
-    bg: '#fef3c7',
-    title: 'Fibre Optique',
-    desc: "Déploiement fibre monomode et multimode. Soudure, raccordement, test de réflectométrie. Backbone d'entreprise.",
-    price: 'Sur devis',
-  },
-  {
-    icon: 'i-heroicons-server',
-    color: '#166534',
-    bg: '#dcfce7',
-    title: 'Baies & Armoires Réseau',
-    desc: "Installation et organisation des baies de brassage, switches, patch panels. Câblage propre et documenté.",
-    price: 'À partir de 80 000 FCFA',
-  },
-  {
-    icon: 'i-heroicons-signal',
-    color: '#6b21a8',
-    bg: '#f3e8ff',
-    title: 'Wi-Fi Entreprise',
-    desc: "Étude de couverture, installation de points d'accès professionnels (Ubiquiti, Cisco, TP-Link EAP). SSID, VLAN, portail captif.",
-    price: 'À partir de 120 000 FCFA',
-  },
-  {
-    icon: 'i-heroicons-document-check',
-    color: '#e60012',
-    bg: '#fde8ea',
-    title: 'Certification & Documentation',
-    desc: "Tests de certification des liens, rapport Fluke Networks, plans de câblage AutoCAD, DOE (Dossier des Ouvrages Exécutés).",
-    price: 'Inclus dans chaque chantier',
-  },
-]
-
-const standards = [
-  { name: 'ISO/IEC 11801', desc: 'Câblage générique'    },
-  { name: 'TIA-568',       desc: 'Câblage commercial'   },
-  { name: 'EN 50173',      desc: 'Norme européenne'     },
-  { name: 'Cat6A 10GbE',   desc: '10 Gigabit Ethernet'  },
-]
+const service = {
+  id: 'cablage',
+  tag: '03',
+  icon: 'i-heroicons-globe-alt',
+  title: 'Câblage & Réseaux',
+  subtitle: 'Connectivité haute performance',
+  color: '#274a82',
+  accent: '#e60012',
+  intro: 'Notre service Câblage et Réseaux constitue la base de votre connectivité. Nous concevons et installons des systèmes de câblage de haute qualité. Que ce soit pour un petit bureau ou une grande entreprise, nous assurons des connexions fiables et rapides.',
+  prestationsReseau: [
+    {
+      icon: 'i-heroicons-signal',
+      title: 'Câblage structuré',
+      desc: 'Installation câbles Cat5e / Cat6 / Cat6a, fibre optique, prises RJ45, goulottes et armoires de brassage.',
+    },
+    {
+      icon: 'i-heroicons-wifi',
+      title: 'Réseau WiFi',
+      desc: 'Déploiement de bornes WiFi professionnelles pour une couverture totale de vos locaux sans zones mortes.',
+    },
+    {
+      icon: 'i-heroicons-server',
+      title: 'Infrastructure réseau',
+      desc: 'Configuration switches, routeurs, VLAN, pare-feu et serveurs pour entreprises petites à grandes.',
+    },
+    {
+      icon: 'i-heroicons-arrow-path',
+      title: 'Maintenance & Audit',
+      desc: 'Diagnostic réseau, optimisation des performances, supervision et maintenance préventive de votre infrastructure.',
+    },
+  ],
+  typesClients: [
+    { label: 'Petits bureaux (1–10 postes)',        icon: 'i-heroicons-home' },
+    { label: 'PME & Entreprises moyennes',           icon: 'i-heroicons-building-office' },
+    { label: 'Grandes entreprises & Industries',     icon: 'i-heroicons-building-office-2' },
+    { label: 'Résidences & Immeubles',               icon: 'i-heroicons-home-modern' },
+  ],
+  garantie: 'Installations conformes aux normes — Garantie 12 mois',
+}
 
 const steps = [
-  {
-    num: '01',
-    icon: 'i-heroicons-magnifying-glass',
-    title: 'Étude de site',
-    desc: "Relevé des locaux, analyse des besoins, étude de faisabilité et chiffrage.",
-  },
-  {
-    num: '02',
-    icon: 'i-heroicons-document-text',
-    title: 'Conception',
-    desc: "Plans de câblage, schémas réseau, sélection du matériel et soumission.",
-  },
-  {
-    num: '03',
-    icon: 'i-heroicons-wrench',
-    title: 'Déploiement',
-    desc: "Installation des chemins de câbles, tirage, raccordements et étiquetage.",
-  },
-  {
-    num: '04',
-    icon: 'i-heroicons-check-badge',
-    title: 'Certification',
-    desc: "Tests Fluke, mesures de performance, rapport et remise de la documentation.",
-  },
+  { num: '01', title: 'Contact & Devis', desc: 'Appelez-nous ou écrivez-nous. Nous établissons un devis gratuit sous 24h.' },
+  { num: '02', title: 'Diagnostic / Audit', desc: 'Nos experts analysent votre besoin sur site ou à distance.' },
+  { num: '03', title: 'Intervention', desc: 'Installation ou réparation réalisée par nos techniciens certifiés.' },
+  { num: '04', title: 'Garantie & SAV', desc: 'Suivi, garantie et assistance après chaque intervention.' },
 ]
-
-const realizations = [
-  {
-    type: 'Bureau 50 postes',
-    detail: 'Câblage Cat6A + Wi-Fi Ubiquiti',
-    location: 'Yaoundé Centre',
-    icon: 'i-heroicons-building-office',
-  },
-  {
-    type: 'Hôtel 3 étoiles',
-    detail: '45 AP Wi-Fi + Fibre optique',
-    location: 'Bastos',
-    icon: 'i-heroicons-building-office-2',
-  },
-  {
-    type: 'Entrepôt logistique',
-    detail: 'Câblage industriel + switches PoE',
-    location: 'Douala PK 10',
-    icon: 'i-heroicons-building-storefront',
-  },
-  {
-    type: 'Banque — Agence',
-    detail: 'Câblage sécurisé + VLAN dédié',
-    location: 'Mvog-Ada',
-    icon: 'i-heroicons-banknotes',
-  },
-]
-
-const faq = ref([
-  {
-    q: "Quelle est la différence entre Cat5e, Cat6 et Cat6A ?",
-    a: "Le Cat5e supporte 1 Gbps jusqu'à 100m. Le Cat6 monte à 10 Gbps sur 55m avec moins d'interférences. Le Cat6A supporte 10 Gbps sur 100m complet. Nous recommandons Cat6A pour toute nouvelle installation.",
-    open: false,
-  },
-  {
-    q: "Combien de temps prend l'installation d'un câblage de bureau ?",
-    a: "Pour un bureau de 20 à 50 postes, comptez 2 à 5 jours de chantier. Les grands projets sont planifiés en phases pour ne pas perturber votre activité.",
-    open: false,
-  },
-  {
-    q: "Est-ce que vous intervenez pendant les week-ends ?",
-    a: "Oui, pour minimiser l'impact sur votre activité, nous pouvons planifier les phases critiques du chantier en dehors des heures de travail (soir, week-end).",
-    open: false,
-  },
-  {
-    q: "Fournissez-vous une garantie sur le câblage ?",
-    a: "Oui. Chaque installation est certifiée avec un testeur Fluke. Nous fournissons un rapport de certification complet et offrons une garantie de 15 ans sur le système de câblage.",
-    open: false,
-  },
-])
 </script>
 
 <template>
-  <div class="bg-white min-h-screen">
+  <div class="bg-[#f4f4f4] min-h-screen pb-20">
+    <div class="max-w-7xl mx-auto px-4">
 
-    <!-- HERO -->
-    <section class="relative overflow-hidden" style="background: linear-gradient(160deg, #1c2b4a 0%, #274a82 50%, #1a3d6e 100%);">
-      <!-- Lignes de câblage décoratives -->
-      <div class="absolute inset-0 pointer-events-none overflow-hidden opacity-15">
-        <svg class="w-full h-full" viewBox="0 0 800 400" fill="none" preserveAspectRatio="xMidYMid slice">
-          <path d="M0,100 Q200,80 400,120 Q600,160 800,100" stroke="white" stroke-width="1" fill="none"/>
-          <path d="M0,150 Q200,130 400,170 Q600,210 800,150" stroke="white" stroke-width="0.5" fill="none"/>
-          <path d="M0,200 Q200,180 400,220 Q600,260 800,200" stroke="white" stroke-width="0.5" fill="none"/>
-          <circle cx="200" cy="87"  r="4" fill="white"   opacity="0.6"/>
-          <circle cx="400" cy="120" r="4" fill="white"   opacity="0.6"/>
-          <circle cx="600" cy="160" r="4" fill="white"   opacity="0.6"/>
-          <circle cx="100" cy="150" r="3" fill="#e60012" opacity="0.8"/>
-          <circle cx="500" cy="175" r="3" fill="#e60012" opacity="0.8"/>
-          <circle cx="700" cy="155" r="3" fill="#e60012" opacity="0.8"/>
-        </svg>
+      <!-- ══════════ HERO ══════════ -->
+      <section class="relative h-[280px] md:h-[280px] flex items-center overflow-hidden mb-0">
+        <div class="absolute inset-0 bg-[#274a82]"></div>
+        
+        <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-[#e60012] via-red-400 to-[#e60012]"></div>
+        <div class="absolute right-0 top-0 w-[500px] h-[500px] rounded-full border border-white/[0.04] translate-x-1/3 -translate-y-1/3"></div>
+        <div class="absolute right-0 top-0 w-[300px] h-[300px] rounded-full border border-white/[0.06] translate-x-1/4 -translate-y-1/4"></div>
+
+        <div class="relative z-10 px-4 md:px-8 max-w-2xl">
+          
+          <h1 class="text-3xl md:text-5xl font-black text-white leading-tight tracking-tight mb-4">
+            Câblage & Réseaux
+          </h1>
+          <p class="text-white/80 text-sm md:text-base leading-relaxed max-w-xl">
+            Infrastructure réseau, WiFi professionnel et câblage structuré pour votre entreprise à <span class="text-white font-bold">Douala, Yaounde, Cameroun et dans tout l'Afrique</span>.
+          </p>
+        </div>
+      </section>
+
+      <!-- ══════════ BREADCRUMB ══════════ -->
+      <nav class="hidden sm:flex items-center gap-2 text-[13px] text-gray-500 font-medium py-4 border-b border-gray-200 mb-12">
+        <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
+        <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
+       
+        <span class="font-bold" :style="`color: ${service.color}`">Câblage & Réseaux</span>
+      </nav>
+
+      <!-- ══════════ HEADER + IMAGE ══════════ -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-sm overflow-hidden shadow-lg border border-gray-100 mb-10">
+        <!-- ── Carousel ── -->
+        <div class="relative h-64 lg:h-auto min-h-[280px] overflow-hidden bg-gray-200 order-2 lg:order-1 group">
+          <div class="absolute inset-0">
+            <transition-group name="carousel-fade">
+              <div v-for="(img, idx) in carouselImages" :key="idx" v-show="carouselIndex === idx" class="absolute inset-0">
+                <img :src="img.src" :alt="img.alt" class="w-full h-full object-cover"
+                  @error="($event.target as HTMLImageElement).parentElement!.querySelector('.carousel-placeholder')!.classList.remove('hidden')" />
+                <div class="carousel-placeholder hidden absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 gap-3">
+                  <UIcon :name="service.icon" class="w-14 h-14 opacity-20" :style="`color: ${service.color}`" />
+                  <p class="text-[11px] text-gray-400 font-semibold text-center px-4">{{ img.src }}</p>
+                </div>
+              </div>
+            </transition-group>
+          </div>
+          <div class="absolute bottom-0 left-0 w-full h-24 pointer-events-none z-10"
+            :style="`background: linear-gradient(to top, ${service.color}80, transparent)`"></div>
+          <button @click="prev" class="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100" aria-label="Image précédente">
+            <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
+          </button>
+          <button @click="next" class="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100" aria-label="Image suivante">
+            <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
+          </button>
+          <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
+            <button v-for="(_, idx) in carouselImages" :key="idx" @click="goTo(idx)"
+              class="h-1.5 rounded-full transition-all duration-300"
+              :class="carouselIndex === idx ? 'w-6 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'" />
+          </div>
+          <div class="absolute top-3 right-3 z-20 bg-black/40 backdrop-blur-sm text-white text-[11px] font-black px-2 py-1 rounded-sm">
+            {{ carouselIndex + 1 }} / {{ carouselImages.length }}
+          </div>
+        </div>
+        <div class="p-8 lg:p-10 bg-white order-1 lg:order-2 flex flex-col justify-center">
+          <h2 class="text-2xl md:text-3xl font-black text-gray-900 tracking-tight mb-1">{{ service.title }}</h2>
+          <p class="text-sm font-bold mb-4" :style="`color: ${service.color}`">{{ service.subtitle }}</p>
+          <p class="text-[14px] text-gray-600 leading-[1.8] mb-6">{{ service.intro }}</p>
+          <div class="flex items-center gap-2 p-3 rounded-sm text-[12px] font-bold"
+            :style="`background: ${service.color}10; color: ${service.color}`">
+            <UIcon name="i-heroicons-shield-check" class="w-4 h-4 flex-shrink-0" />
+            {{ service.garantie }}
+          </div>
+        </div>
       </div>
 
-      <UContainer class="relative py-14 md:py-20">
-        <nav class="flex items-center gap-2 text-[12px] mb-8 text-white/50 font-medium overflow-x-auto">
-          <template v-for="(item, index) in breadcrumbItems" :key="index">
-            <NuxtLink :to="item.to" class="hover:text-white transition-colors whitespace-nowrap"
-              :class="item.current ? 'text-white font-bold pointer-events-none' : ''">
-              {{ item.label }}
-            </NuxtLink>
-            <span v-if="index < breadcrumbItems.length - 1" class="text-white/30">›</span>
-          </template>
-        </nav>
+      <!-- ══════════ PRESTATIONS RÉSEAU ══════════ -->
+      <div class="mb-5 text-center">
+        <p class="text-[14px] font-black tracking-widest mb-1" :style="`color: ${service.color}`">Nos prestations réseau</p>
+        <h3 class="text-xl font-black text-gray-900">Infrastructure & Connectivité</h3>
+      </div>
 
-        <div class="grid md:grid-cols-2 gap-12 items-center">
-          <div>
-            <div class="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-1.5 mb-5 border border-white/20">
-              <UIcon name="i-heroicons-wifi" class="w-4 h-4 text-white" />
-              <span class="text-white text-xs font-bold tracking-widest uppercase">Infrastructure Réseau</span>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+        <div v-for="(pr, pri) in service.prestationsReseau" :key="pri"
+          class="bg-white rounded-sm border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+          <div class="h-1" :style="`background: ${pri % 2 === 0 ? service.color : service.accent}`"></div>
+          <div class="p-6 flex gap-4">
+            <div class="w-11 h-11 rounded-sm flex items-center justify-center flex-shrink-0"
+              :style="`background: ${pri % 2 === 0 ? service.color : service.accent}15`">
+              <UIcon :name="pr.icon" class="w-5 h-5" :style="`color: ${pri % 2 === 0 ? service.color : service.accent}`" />
             </div>
-            <h1 class="text-3xl md:text-5xl font-black text-white leading-tight mb-4">
-              Audit &<br />
-              <span class="text-[#e60012]">Câblage</span><br />
-              <span class="text-white/60 text-2xl md:text-3xl font-bold">Réseau Structuré</span>
-            </h1>
-            <p class="text-white/70 text-base leading-relaxed mb-8 max-w-md">
-              Conception, déploiement et certification de vos infrastructures réseau. Cat6A, fibre optique, Wi-Fi entreprise. Normes internationales garanties.
-            </p>
-            <div class="flex flex-wrap gap-3">
-              <NuxtLink to="/contact"
-                class="flex items-center gap-2 px-6 py-3 bg-[#e60012] hover:bg-red-700 text-white font-bold rounded-xl text-sm shadow-lg transition-all hover:-translate-y-0.5">
-                <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
-                Demander un devis
-              </NuxtLink>
-              <a href="tel:+237000000000"
-                class="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-xl text-sm transition-all">
-                <UIcon name="i-heroicons-phone" class="w-4 h-4" />
-                Appeler
-              </a>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div v-for="stat in [
-              { val: '15 ans', label: 'Garantie câblage',      icon: 'i-heroicons-shield-check'  },
-              { val: '10 Gbps', label: 'Cat6A max',            icon: 'i-heroicons-bolt'           },
-              { val: 'Fluke',   label: 'Certification testeur', icon: 'i-heroicons-check-badge'   },
-              { val: '100%',    label: 'Chantiers documentés',  icon: 'i-heroicons-document-check'},
-            ]" :key="stat.label"
-              class="bg-white/10 border border-white/15 rounded-2xl p-4 backdrop-blur-sm">
-              <UIcon :name="stat.icon" class="w-5 h-5 text-white/50 mb-2" />
-              <p class="text-2xl font-black text-white leading-none">{{ stat.val }}</p>
-              <p class="text-white/50 text-[11px] font-medium mt-1 leading-tight">{{ stat.label }}</p>
+            <div>
+              <h4 class="text-[14px] font-black text-gray-900 mb-2 group-hover:text-[#1a6e3c] transition-colors">{{ pr.title }}</h4>
+              <p class="text-[12px] text-gray-500 leading-relaxed">{{ pr.desc }}</p>
             </div>
           </div>
         </div>
-      </UContainer>
-    </section>
+      </div>
 
-    <!-- SERVICES -->
-    <section class="py-14 bg-[#f4f4f4]">
-      <UContainer>
-        <div class="text-center mb-10">
-          <h2 class="text-2xl md:text-3xl font-black text-gray-900 mb-2">Nos Prestations</h2>
-          <p class="text-gray-500 text-sm max-w-lg mx-auto">De l'audit initial à la certification finale, nous prenons en charge l'intégralité de vos projets réseau.</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div v-for="svc in services" :key="svc.title"
-            class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg transition-all hover:-translate-y-1 group">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"
-              :style="{ backgroundColor: svc.bg }">
-              <UIcon :name="svc.icon" class="w-6 h-6" :style="{ color: svc.color }" />
+      <!-- ══════════ TYPES CLIENTS ══════════ -->
+      <div class="bg-white rounded-sm border border-gray-100 shadow-sm p-6 mb-10">
+        <p class="text-[14px] font-black text-gray-400 tracking-widest mb-5">Nous intervenons pour</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div v-for="(tc, tci) in service.typesClients" :key="tci"
+            class="flex flex-col items-center text-center gap-3 p-5 rounded-sm border border-gray-100 hover:shadow-md transition-all">
+            <div class="w-12 h-12 rounded-full flex items-center justify-center"
+              :style="`background: ${service.color}15`">
+              <UIcon :name="tc.icon" class="w-6 h-6" :style="`color: ${service.color}`" />
             </div>
-            <h3 class="font-black text-gray-900 text-base mb-2">{{ svc.title }}</h3>
-            <p class="text-gray-500 text-sm leading-relaxed mb-4">{{ svc.desc }}</p>
-            <span class="text-xs font-black px-3 py-1 rounded-full" :style="{ backgroundColor: svc.bg, color: svc.color }">
-              {{ svc.price }}
-            </span>
+            <span class="text-[12px] font-bold text-gray-700">{{ tc.label }}</span>
           </div>
         </div>
-      </UContainer>
-    </section>
+      </div>
 
-    <!-- PROCESSUS -->
-    <section class="py-14 bg-white">
-      <UContainer>
-        <div class="text-center mb-10">
-          <h2 class="text-2xl md:text-3xl font-black text-gray-900 mb-2">Méthodologie Projet</h2>
-          <p class="text-gray-500 text-sm">Chaque projet est mené avec rigueur, de l'étude de site à la remise du DOE.</p>
-        </div>
-        <div class="relative">
-          <div class="hidden md:block absolute top-8 left-[12.5%] right-[12.5%] h-0.5 bg-gradient-to-r from-[#274a82] to-[#e60012] opacity-20"></div>
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div v-for="step in steps" :key="step.num" class="flex flex-col items-center text-center">
-              <div class="w-16 h-16 rounded-2xl bg-[#274a82] flex flex-col items-center justify-center mb-4 shadow-lg shadow-[#274a82]/20">
-                <UIcon :name="step.icon" class="w-6 h-6 text-white" />
-                <span class="text-[9px] font-black text-white/50 mt-0.5">{{ step.num }}</span>
-              </div>
-              <h3 class="font-black text-gray-900 mb-2 text-sm">{{ step.title }}</h3>
-              <p class="text-gray-500 text-xs leading-relaxed">{{ step.desc }}</p>
-            </div>
-          </div>
-        </div>
-      </UContainer>
-    </section>
-
-    <!-- RÉALISATIONS -->
-    <section class="py-14 bg-[#f4f4f4]">
-      <UContainer>
-        <div class="text-center mb-10">
-          <h2 class="text-2xl md:text-3xl font-black text-gray-900 mb-2">Réalisations Récentes</h2>
-          <p class="text-gray-500 text-sm">Quelques projets livrés avec succès à Yaoundé et Douala.</p>
+      <!-- ══════════ PROCESSUS ══════════ -->
+      <section class="mt-4 mb-10">
+        <div class="text-center mb-8">
+          <p class="text-[14px] font-black tracking-widest mb-1" :style="`color: ${service.color}`">Comment ça marche</p>
+          <h2 class="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Notre processus en 4 étapes</h2>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div v-for="real in realizations" :key="real.type"
-            class="bg-white rounded-2xl p-5 border border-gray-100 hover:shadow-lg transition-all hover:-translate-y-1">
-            <div class="w-10 h-10 rounded-xl bg-[#274a82]/10 flex items-center justify-center mb-3">
-              <UIcon :name="real.icon" class="w-5 h-5 text-[#274a82]" />
-            </div>
-            <h4 class="font-black text-gray-900 text-sm mb-1">{{ real.type }}</h4>
-            <p class="text-gray-500 text-xs mb-2 leading-snug">{{ real.detail }}</p>
-            <div class="flex items-center gap-1.5">
-              <UIcon name="i-heroicons-map-pin" class="w-3 h-3 text-[#e60012]" />
-              <span class="text-[11px] text-gray-400 font-medium">{{ real.location }}</span>
+          <div v-for="(step, si) in steps" :key="si"
+            class="relative bg-white rounded-sm border border-gray-100 shadow-sm px-5 py-6 overflow-hidden">
+            <span class="absolute -top-3 -right-2 text-[72px] font-black text-gray-100 leading-none select-none pointer-events-none">{{ step.num }}</span>
+            <div class="relative z-10">
+              <div class="w-8 h-8 rounded-full text-white text-[11px] font-black flex items-center justify-center mb-4" :style="`background: ${service.color}`">{{ step.num }}</div>
+              <h3 class="text-[14px] font-black text-gray-900 mb-2">{{ step.title }}</h3>
+              <p class="text-[12px] text-gray-500 leading-relaxed">{{ step.desc }}</p>
             </div>
           </div>
         </div>
-      </UContainer>
-    </section>
+      </section>
 
-    <!-- NORMES -->
-    <section class="py-10 bg-white border-y border-gray-100">
-      <UContainer>
-        <p class="text-center text-xs font-black text-gray-400 uppercase tracking-widest mb-5">Normes & standards respectés</p>
-        <div class="flex flex-wrap justify-center gap-3">
-          <div v-for="std in standards" :key="std.name"
-            class="flex flex-col items-center gap-1 bg-[#274a82]/5 border border-[#274a82]/15 rounded-xl px-5 py-3 hover:bg-[#274a82]/10 transition-colors cursor-default">
-            <span class="text-sm font-black text-[#274a82]">{{ std.name }}</span>
-            <span class="text-[10px] text-gray-500 font-medium">{{ std.desc }}</span>
-          </div>
-        </div>
-      </UContainer>
-    </section>
-
-    <!-- FAQ -->
-    <section class="py-14 bg-[#f4f4f4]">
-      <UContainer class="max-w-2xl">
-        <div class="text-center mb-10">
-          <h2 class="text-2xl md:text-3xl font-black text-gray-900 mb-2">Questions fréquentes</h2>
-        </div>
-        <div class="space-y-3">
-          <div v-for="(item, i) in faq" :key="i" class="bg-white border border-gray-100 rounded-2xl overflow-hidden">
-            <button @click="item.open = !item.open"
-              class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors gap-4">
-              <span class="font-bold text-gray-800 text-sm">{{ item.q }}</span>
-              <UIcon name="i-heroicons-chevron-down" class="w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200"
-                :class="item.open ? 'rotate-180 text-[#274a82]' : ''" />
-            </button>
-            <div v-if="item.open" class="px-5 pb-4">
-              <p class="text-gray-500 text-sm leading-relaxed">{{ item.a }}</p>
+      <!-- ══════════ CTA ══════════ -->
+      <section class="rounded-sm overflow-hidden border border-[#1a6e3c]/20 shadow-sm">
+        <div class=" bg-[#274a82] px-6 md:px-10 py-8 md:py-10 relative overflow-hidden">
+          <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="text-center md:text-left">
+              <h3 class="text-xl md:text-2xl font-black text-white mb-2">Besoin d'une infrastructure réseau ?</h3>
+              <p class="text-white/70 text-sm">Contactez-nous — devis gratuit, installation professionnelle.</p>
+              <div class="flex flex-wrap gap-4 mt-3 justify-center md:justify-start text-xs text-white/50 font-semibold">
+                <span class="flex items-center gap-1">
+                  <UIcon name="i-heroicons-map-pin" class="w-3.5 h-3.5 text-[#e60012]" />
+                  Akwa Douala, rue Castelnau
+                </span>
+                <span class="flex items-center gap-1">
+                  <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5 text-[#e60012]" />
+                  Lun–Sam : 8h15–16h45
+                </span>
+              </div>
+            </div>
+            <div class="flex gap-3 flex-shrink-0">
+              <a href="tel:+237689205751"
+                class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#e60012] hover:bg-red-700 text-white text-sm font-black rounded-sm transition-all shadow-lg">
+                <UIcon name="i-heroicons-device-phone-mobile" class="w-4 h-4" />
+              </a>
+              <a href="https://wa.me/237689205751"
+                class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white text-sm font-black rounded-sm transition-all shadow-lg">
+                <UIcon name="i-simple-icons-whatsapp" class="w-4 h-4" />
+              </a>
+              <NuxtLink to="/contact"
+                class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-black rounded-sm transition-all">
+                <UIcon name="i-heroicons-envelope" class="w-4 h-4" />
+              </NuxtLink>
             </div>
           </div>
         </div>
-      </UContainer>
-    </section>
+      </section>
 
-    <!-- CTA -->
-    <section class="py-12 bg-[#274a82]">
-      <UContainer class="text-center">
-        <h2 class="text-2xl md:text-3xl font-black text-white mb-3">Un projet réseau en tête ?</h2>
-        <p class="text-white/60 mb-7 text-sm max-w-md mx-auto">Étude de site gratuite, devis détaillé sous 48h. Intervention à Yaoundé, Douala et villes environnantes.</p>
-        <div class="flex flex-wrap gap-3 justify-center">
-          <NuxtLink to="/contact"
-            class="flex items-center gap-2 px-7 py-3.5 bg-[#e60012] hover:bg-red-700 text-white font-black rounded-xl text-sm shadow-lg transition-all">
-            <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
-            Demander un devis
-          </NuxtLink>
-          <a href="tel:+237000000000"
-            class="flex items-center gap-2 px-7 py-3.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-xl text-sm transition-all">
-            <UIcon name="i-heroicons-phone" class="w-4 h-4" />
-            Appeler
-          </a>
-        </div>
-      </UContainer>
-    </section>
-
+    </div>
   </div>
 </template>

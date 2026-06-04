@@ -2,11 +2,21 @@
 <script setup lang="ts">
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
+import { onClickOutside } from '@vueuse/core'
+
+const notifRef   = ref<HTMLElement | null>(null)
+const userMenuRef = ref<HTMLElement | null>(null)
+
+onClickOutside(notifRef,    () => showNotifs.value  = false)
+onClickOutside(userMenuRef, () => showUserMenu.value = false)
 
 const router = useRouter()
 const toast  = useToast()
 const token  = useCookie('auth_token')
 const route  = useRoute()
+
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
 
 const user = useState<any>('auth_user', () => null)
 const mobileOpen = useState<boolean>('admin_sidebar_open', () => false)
@@ -14,7 +24,8 @@ const mobileOpen = useState<boolean>('admin_sidebar_open', () => false)
 onMounted(async () => {
   if (!user.value && token.value) {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/auth/me', {
+      // Utilisation de la variable API au lieu de 127.0.0.1
+      const res = await axios.get(`${API}/auth/me`, {
         headers: { Authorization: `Bearer ${token.value}` }
       })
       user.value = res.data
@@ -68,15 +79,19 @@ const showUserMenu = ref(false)
 
 const handleLogout = async () => {
   try {
-    await axios.post('http://127.0.0.1:8000/api/auth/logout', {}, {
+    // Utilisation de la variable API ici aussi
+    await axios.post(`${API}/auth/logout`, {}, {
       headers: { Authorization: `Bearer ${token.value}` }
     })
   } catch {}
+  
   token.value = null
   user.value  = null
   toast.add({
-    title: 'Déconnecté', description: 'À bientôt !',
-    color: 'success', icon: 'i-heroicons-check-circle',
+    title: 'Déconnecté', 
+    description: 'À bientôt !',
+    color: 'success', 
+    icon: 'i-heroicons-check-circle',
   } as ToastProps)
   router.push('/login')
 }
@@ -91,7 +106,7 @@ const handleLogout = async () => {
 
         <!-- Desktop: logo -->
         <NuxtLink to="/admin" class="hidden lg:flex items-center gap-2 flex-shrink-0">
-          <img src="/brclogo.png" class="h-10 w-14 object-contain" />
+          <img src="/images/logos/brclogo.png" class="h-10 w-14 object-contain" />
           <span class="font-bold text-base text-[#274a82]">BRC Market</span>
         </NuxtLink>
 
@@ -107,7 +122,7 @@ const handleLogout = async () => {
             <UIcon name="i-heroicons-bars-3" class="w-5 h-5 text-gray-700" />
           </button>
           <NuxtLink to="/admin" class="flex items-center gap-2">
-            <img src="/brclogo.png" class="h-10 w-14 object-contain" />
+            <img src="/images/logos/brclogo.png" class="h-10 w-14 object-contain" />
             <span class="font-bold text-sm text-[#274a82]">BRC Market</span>
           </NuxtLink>
           <div class="w-px h-4 bg-gray-200 mx-1" />
@@ -118,65 +133,6 @@ const handleLogout = async () => {
 
       <!-- ── Right : actions ── -->
       <div class="flex items-center gap-2">
-
-        <!-- View site -->
-        <!-- <NuxtLink
-          to="/"
-          class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-[#274a82] transition"
-        >
-          <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3.5 h-3.5" />
-          Voir le site
-        </NuxtLink> -->
-
-        <!-- Notifications -->
-        <!-- <div class="relative">
-          <button
-            @click="showNotifs = !showNotifs; showUserMenu = false"
-            class="relative w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-[#274a82] transition"
-          >
-            <UIcon name="i-heroicons-bell" class="w-5 h-5" />
-            <span
-              v-if="unreadCount > 0"
-              class="absolute top-1.5 right-1.5 w-4 h-4 bg-[#e60012] text-white text-[9px] font-black rounded-full flex items-center justify-center"
-            >
-              {{ unreadCount }}
-            </span>
-          </button> -->
-
-          <!-- Notif dropdown -->
-          <!-- <Transition enter-active-class="transition ease-out duration-150" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
-            <div
-              v-if="showNotifs"
-              v-click-outside="() => showNotifs = false"
-              class="absolute right-0 top-11 w-80 bg-white rounded-2xl border border-gray-100 shadow-xl z-50 overflow-hidden"
-            >
-              <div class="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-                <p class="text-sm font-black text-gray-900">Notifications</p>
-                <button @click="markAllRead" class="text-xs text-[#274a82] font-semibold hover:underline">
-                  Tout marquer lu
-                </button>
-              </div>
-
-              <div class="divide-y divide-gray-50 max-h-72 overflow-y-auto">
-                <div
-                  v-for="notif in notifications" :key="notif.id"
-                  class="flex items-start gap-3 px-4 py-3 transition"
-                  :class="notif.read ? 'bg-white' : 'bg-blue-50/40'"
-                >
-                  <div class="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <UIcon :name="notif.icon" class="w-4 h-4" :class="notif.color" />
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm text-gray-800 font-medium leading-snug">{{ notif.text }}</p>
-                    <p class="text-xs text-gray-400 mt-0.5">{{ notif.time }}</p>
-                  </div>
-                  <div v-if="!notif.read" class="w-2 h-2 rounded-full bg-[#274a82] flex-shrink-0 mt-1.5" />
-                </div>
-              </div>
-
-            </div>
-          </Transition> -->
-        <!-- </div> -->
 
         <!-- User menu -->
         <div class="relative">

@@ -2,10 +2,13 @@
 import { computed } from 'vue'
 import useCart from '@/composables/useCart'
 
-useHead({
-  title: 'Mon Panier',
-  titleTemplate: (t) => t ? `${t} - BRC Market` : 'BRC Market',
+useSeoMeta({
+  title:   'Mon Panier',
+  ogTitle: 'Mon Panier - BRC Market',
+  ogUrl:   'https://brcmarket.cm/cart',
+  robots:  'noindex, nofollow',
 })
+useHead({ link: [{ rel: 'canonical', href: 'https://brcmarket.cm/cart' }] })
 
 const { cartItems, removeFromCart, updateQuantity, clearCart } = useCart()
 

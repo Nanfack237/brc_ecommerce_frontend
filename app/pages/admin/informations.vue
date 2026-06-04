@@ -1,22 +1,31 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue'
+import axios from 'axios'
+import type { ToastProps } from '@nuxt/ui'
+
+// 1. Protection de la route
 const { requireUserOrAdmin } = useAuth()
 requireUserOrAdmin()
 
-import { ref } from 'vue'
-import axios from 'axios'
-import type { ToastProps } from '@nuxt/ui'
+// 2. Configuration dynamique de l'API
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
 
 useHead({ title: 'BRC Market - Admin Informations' })
 
 const toast = useToast()
 const token = useCookie('auth_token')
 
+// État de l'utilisateur
+const user = useState<any>('auth_user', () => null)
+
+// Initialisation du formulaire avec les données de l'utilisateur connecté
 const form = ref({
-  first_name: 'Sophie',
-  last_name:  'Ekwalla',
-  email:      'sophie@brcmarket.cm',
-  phone:      '+237 690 000 006',
-  birthdate:  '1990-03-15',
+  first_name: user.value?.first_name || '',
+  last_name:  user.value?.last_name || '',
+  email:      user.value?.email || '',
+  phone:      user.value?.phone || '',
+  birthdate:  user.value?.birthdate || '',
 })
 
 const loadingInfo     = ref(false)
@@ -30,48 +39,87 @@ const passwords = ref({
   password_confirmation: '',
 })
 
-const user = useState<any>('auth_user', () => null)
-
 const initials = computed(() => {
   if (!user.value) return '?'
   return `${user.value.first_name?.[0] ?? ''}${user.value.last_name?.[0] ?? ''}`.toUpperCase()
 })
 
+// Sauvegarde des informations personnelles
 const saveProfile = async () => {
   loadingInfo.value = true
   errorsInfo.value  = {}
   try {
-    await axios.put('http://127.0.0.1:8000/api/profile', form.value, {
+    // Utilisation de la variable API
+    const res = await axios.put(`${API}/profile`, form.value, {
       headers: { Authorization: `Bearer ${token.value}`, Accept: 'application/json' }
     })
-    toast.add({ title: 'Profil mis à jour !', description: 'Vos informations ont été enregistrées.', color: 'success', icon: 'i-heroicons-check-circle' } as ToastProps)
+    
+    // Mettre à jour l'état global de l'utilisateur avec les nouvelles données
+    user.value = { ...user.value, ...form.value }
+    
+    toast.add({ 
+      title: 'Profil mis à jour !', 
+      description: 'Vos informations ont été enregistrées.', 
+      color: 'success', 
+      icon: 'i-heroicons-check-circle' 
+    } as ToastProps)
   } catch (err: any) {
     if (err.response?.status === 422) {
       errorsInfo.value = err.response.data.errors ?? {}
-      toast.add({ title: 'Erreur de validation', description: 'Vérifiez les champs.', color: 'error', icon: 'i-heroicons-exclamation-triangle' } as ToastProps)
+      toast.add({ 
+        title: 'Erreur de validation', 
+        description: 'Vérifiez les champs.', 
+        color: 'error', 
+        icon: 'i-heroicons-exclamation-triangle' 
+      } as ToastProps)
     } else {
-      toast.add({ title: 'Erreur', description: 'Impossible de sauvegarder.', color: 'error', icon: 'i-heroicons-x-circle' } as ToastProps)
+      toast.add({ 
+        title: 'Erreur', 
+        description: 'Impossible de sauvegarder.', 
+        color: 'error', 
+        icon: 'i-heroicons-x-circle' 
+      } as ToastProps)
     }
   } finally {
     loadingInfo.value = false
   }
 }
 
+// Changement de mot de passe
 const changePassword = async () => {
   loadingPassword.value = true
   errorsPassword.value  = {}
   try {
-    await axios.put('http://127.0.0.1:8000/api/profile/password', passwords.value, {
+    // Utilisation de la variable API
+    await axios.put(`${API}/profile/password`, passwords.value, {
       headers: { Authorization: `Bearer ${token.value}`, Accept: 'application/json' }
     })
-    toast.add({ title: 'Mot de passe changé !', description: 'Votre mot de passe a été mis à jour.', color: 'success', icon: 'i-heroicons-check-circle' } as ToastProps)
+    
+    toast.add({ 
+      title: 'Mot de passe changé !', 
+      description: 'Votre mot de passe a été mis à jour.', 
+      color: 'success', 
+      icon: 'i-heroicons-check-circle' 
+    } as ToastProps)
+    
+    // Réinitialiser le formulaire de mot de passe
     passwords.value = { current_password: '', password: '', password_confirmation: '' }
   } catch (err: any) {
     if (err.response?.status === 422) {
       errorsPassword.value = err.response.data.errors ?? {}
-      toast.add({ title: 'Erreur', description: Object.values(errorsPassword.value)[0]?.[0] ?? 'Vérifiez les champs.', color: 'error', icon: 'i-heroicons-exclamation-triangle' } as ToastProps)
+      toast.add({ 
+        title: 'Erreur', 
+        description: Object.values(errorsPassword.value)[0]?.[0] ?? 'Vérifiez les champs.', 
+        color: 'error', 
+        icon: 'i-heroicons-exclamation-triangle' 
+      } as ToastProps)
     } else {
-      toast.add({ title: 'Erreur', description: err.response?.data?.message ?? 'Une erreur est survenue.', color: 'error', icon: 'i-heroicons-x-circle' } as ToastProps)
+      toast.add({ 
+        title: 'Erreur', 
+        description: err.response?.data?.message ?? 'Une erreur est survenue.', 
+        color: 'error', 
+        icon: 'i-heroicons-x-circle' 
+      } as ToastProps)
     }
   } finally {
     loadingPassword.value = false

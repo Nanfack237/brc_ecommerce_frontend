@@ -1,4 +1,3 @@
-<!-- components/LivreurSidebar.vue -->
 <script setup lang="ts">
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
@@ -8,24 +7,29 @@ const router = useRouter()
 const toast  = useToast()
 const token  = useCookie('auth_token')
 
+// Configuration dynamique de l'API
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
+
 const user = useState<any>('auth_user', () => null)
 
-// Shared with DelivererHeader — burger button opens this
+// Partagé avec DelivererHeader — le bouton burger ouvre ceci
 const mobileOpen = useState<boolean>('deliverer_sidebar_open', () => false)
 
-// Auto-close on route change
+// Fermeture automatique au changement de route
 watch(() => route.path, () => { mobileOpen.value = false })
 
 // ── Nouvelles commandes assignées ─────────────────────────────────────────
 const newOrdersCount = useState<number>('livreur_new_orders', () => 0)
 
-// localStorage n'existe que côté client — initialisé dans onMounted
+// localStorage n'existe que côté client
 const lastSeenCount = ref<number>(0)
 
 const fetchNewOrders = async () => {
   if (!token.value) return
   try {
-    const { data } = await axios.get('http://127.0.0.1:8000/api/livreur/stats', {
+    // Utilisation de la variable API
+    const { data } = await axios.get(`${API}/livreur/stats`, {
       headers: { Authorization: `Bearer ${token.value}` }
     })
     const active = (data.processing ?? 0) + (data.shipped ?? 0)
@@ -46,12 +50,15 @@ const clearBadge = () => {
 let pollingTimer: ReturnType<typeof setInterval>
 
 onMounted(async () => {
-  // Lire localStorage uniquement côté client dans onMounted
-  lastSeenCount.value = parseInt(localStorage.getItem('livreur_last_seen') ?? '0')
+  // Lire localStorage uniquement côté client
+  if (process.client) {
+    lastSeenCount.value = parseInt(localStorage.getItem('livreur_last_seen') ?? '0')
+  }
 
   if (!user.value && token.value) {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/auth/me', {
+      // Utilisation de la variable API pour le profil
+      const res = await axios.get(`${API}/auth/me`, {
         headers: { Authorization: `Bearer ${token.value}` }
       })
       user.value = res.data
@@ -61,10 +68,13 @@ onMounted(async () => {
   }
 
   await fetchNewOrders()
+  // Vérification toutes les 30 secondes pour les nouveaux colis à livrer
   pollingTimer = setInterval(fetchNewOrders, 30_000)
 })
 
-onUnmounted(() => clearInterval(pollingTimer))
+onUnmounted(() => {
+  if (pollingTimer) clearInterval(pollingTimer)
+})
 
 const fullName = computed(() =>
   user.value ? `${user.value.first_name} ${user.value.last_name}` : '...'
@@ -80,26 +90,36 @@ const links = [
   { label: 'Historique',     icon: 'i-heroicons-clock', to: '/livreur/historique', badge: false },
 ]
 
-const isActive = (to: string) => route.path === to
+const isActive = (to: string) => {
+  if (!route?.path) return false
+  return route.path === to || route.path.startsWith(to + '/')
+}
 
-const handleLinkClick = (link: typeof links[number]) => {
+const handleLinkClick = (link: any) => {
   if (link.badge) clearBadge()
 }
 
 const handleLogout = async () => {
   try {
-    await axios.post('http://127.0.0.1:8000/api/auth/logout', {}, {
+    // Utilisation de la variable API pour logout
+    await axios.post(`${API}/auth/logout`, {}, {
       headers: { Authorization: `Bearer ${token.value}` }
     })
   } catch {}
+  
   token.value      = null
   user.value       = null
   mobileOpen.value = false
+  
   if (process.client) localStorage.removeItem('livreur_last_seen')
+  
   toast.add({
-    title: 'Déconnecté', description: 'À bientôt sur BRC Market !',
-    color: 'success', icon: 'i-heroicons-check-circle',
+    title: 'Déconnecté', 
+    description: 'À bientôt sur BRC Market !',
+    color: 'success', 
+    icon: 'i-heroicons-check-circle',
   } as ToastProps)
+  
   router.push('/login')
 }
 </script>

@@ -7,6 +7,10 @@ export const useAuth = () => {
   const authUser = useState<any>('auth_user', () => null)
   const router   = useRouter()
 
+  // ── Configuration dynamique de l'API ─────────────────────────────────────
+  const config = useRuntimeConfig()
+  const API    = config.public.apiBase
+
   // ── Helpers ──────────────────────────────────────────────────────────────
   const isLoggedIn = computed(() => !!token.value)
   const isAdmin    = computed(() => ['admin', 'user'].includes(authRole.value ?? ''))
@@ -37,33 +41,34 @@ export const useAuth = () => {
   }
   
   const requireUserOrAdmin = (redirectTo = '/') => {
-  if (!token.value) {
-    router.push(`/login?redirect=${useRoute().fullPath}`)
-    return false
+    if (!token.value) {
+      router.push(`/login?redirect=${useRoute().fullPath}`)
+      return false
+    }
+    
+    // Vérifie si c'est un admin ou un user
+    if (!['admin', 'user'].includes(authRole.value ?? '')) {
+      router.push(redirectTo) // client → redirection accueil
+      return false
+    }
+    
+    return true
   }
-  
-  // Vérifie si c'est un admin ou un user
-  if (!['admin', 'user'].includes(authRole.value ?? '')) {
-    router.push(redirectTo) // client → redirection accueil
-    return false
-  }
-  
-  return true
-}
 
   // ── Logout (axios) ───────────────────────────────────────────────────────
   const logout = async () => {
     try {
+      // Utilisation de la variable API au lieu de localhost
       await axios.post(
-        'http://127.0.0.1:8000/api/auth/logout',
+        `${API}/auth/logout`,
         {},
         { headers: { Authorization: `Bearer ${token.value}` } }
       )
     } catch {
-      // token déjà expiré côté serveur, on continue quand même
+      // Si le token est déjà expiré côté serveur, on ignore l'erreur
     }
 
-    // Vider le cookie, le rôle et l'état user
+    // Nettoyage complet des cookies et de l'état
     token.value    = null
     authRole.value = null
     authUser.value = null

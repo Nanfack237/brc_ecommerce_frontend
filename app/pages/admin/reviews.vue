@@ -314,33 +314,37 @@ onMounted(() => fetchReviews())
     </div>
 
     <!-- Pagination -->
-    <div v-if="!loading && meta.last_page > 1" class="flex items-center justify-between pt-2">
-      <p class="text-xs text-gray-400">
-        <span class="font-bold text-gray-600">{{ meta.from }}–{{ meta.to }}</span>
-        sur {{ meta.total }} avis
+    <div v-if="!loading && meta.last_page > 1"
+      class="flex items-center justify-between px-5 py-4 border-t border-gray-100 bg-white rounded-b-2xl">
+      <p class="text-xs text-gray-400 font-medium">
+        Page <span class="font-black text-gray-700">{{ meta.current_page }}</span> /
+        <span class="font-black text-gray-700">{{ meta.last_page }}</span>
+        · <span class="font-black text-gray-700">{{ meta.total }}</span> avis
       </p>
 
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-2">
         <button @click="goToPage(meta.current_page - 1)" :disabled="meta.current_page === 1"
-          class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+          class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
           <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
         </button>
 
         <template v-for="(page, i) in pageNumbers" :key="i">
-          <span v-if="page === '...'" class="w-8 h-8 flex items-center justify-center text-xs text-gray-400">…</span>
+          <span v-if="page === '...'"
+            class="w-8 h-8 flex items-center justify-center text-xs text-gray-300">…</span>
           <button v-else @click="goToPage(page as number)"
-            class="w-8 h-8 rounded-lg text-xs font-bold transition-all"
-            :class="page === meta.current_page ? 'bg-[#274a82] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'">
+            class="w-8 h-8 rounded-lg text-xs font-black transition-all"
+            :class="page === meta.current_page
+              ? 'bg-[#274a82] text-white'
+              : 'border border-gray-200 text-gray-500 hover:bg-gray-50'">
             {{ page }}
           </button>
         </template>
 
         <button @click="goToPage(meta.current_page + 1)" :disabled="meta.current_page === meta.last_page"
-          class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+          class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
           <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
         </button>
       </div>
     </div>
-
   </div>
 </template>

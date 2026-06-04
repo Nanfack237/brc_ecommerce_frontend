@@ -84,12 +84,12 @@ export const useCategories = () => {
       // Lien "Voir tout" vers la catégorie parente
       links.push({ label: 'Voir tout', to: `/categories/${cat.slug}` })
 
-      // Sous-catégories → /categories/{parent.slug}/{child.slug}
+      // Sous-catégories → /categories/{child.slug}
       if (cat.children?.length) {
         cat.children.forEach(child => {
           links.push({
             label: child.name,
-            to:    `/categories/${cat.slug}/${child.slug}`,
+            to:    `/categories/${child.slug}`,
           })
         })
       }

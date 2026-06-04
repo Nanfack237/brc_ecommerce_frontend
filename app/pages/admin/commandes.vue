@@ -12,6 +12,10 @@ const toast  = useToast()
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
 
+const currentPage = ref(1)
+const totalPages  = ref(1)
+const totalOrders = ref(0)
+
 const UIcon = resolveComponent('UIcon')
 
 const authHeaders = computed(() => ({
@@ -334,7 +338,7 @@ const printBordereau = (order: Order) => {
 
   <div class="header">
     <div style="display:flex;align-items:center;gap:14px">
-      <img src="/brclogo.png" alt="BRC Market" class="logo" />
+      <img src="/images/logos/brclogo.png" alt="BRC Market" class="logo" />
       <div class="title-block">
         <h1>Bordereau de livraison</h1>
         <p>Imprimé le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
@@ -397,7 +401,6 @@ const printBordereau = (order: Order) => {
   setTimeout(() => { win.print() }, 400)
 }
 
-// ── Facture A4 Pro ─────────────────────────────────────────────────────────────
 const printFacture = (order: Order) => {
   const clientName_ = order.user
     ? `${order.user.first_name} ${order.user.last_name}`
@@ -417,16 +420,23 @@ const printFacture = (order: Order) => {
   `).join('')
 
   const paymentMethodLabel =
-    order.payment_method === 'mobile_money' ? 'Mobile Money' :
+    order.payment_method === 'mobile_money'     ? 'Mobile Money' :
     order.payment_method === 'cash_on_delivery' ? 'Paiement à la livraison' :
     order.payment_method
 
   const statusLabel =
-    order.status === 'pending' ? 'En attente' :
-    order.status === 'processing' ? 'En cours' :
-    order.status === 'shipped' ? 'Expédiée' :
-    order.status === 'delivered' ? 'Livrée' :
-    order.status === 'cancelled' ? 'Annulée' : order.status
+    order.status === 'pending'    ? 'En attente' :
+    order.status === 'processing' ? 'En cours'   :
+    order.status === 'shipped'    ? 'Expédiée'   :
+    order.status === 'delivered'  ? 'Livrée'     :
+    order.status === 'cancelled'  ? 'Annulée'    : order.status
+
+  const isPaid     = order.payment_status === 'paid'
+  const isUnpaid   = order.payment_status === 'unpaid'
+  const isRefunded = order.payment_status === 'refunded'
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('fr-CM', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(n).replace('XAF', 'FCFA')
 
   const html = `<!DOCTYPE html>
 <html>
@@ -437,55 +447,56 @@ const printFacture = (order: Order) => {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; font-size: 12px; color: #1f2937; background: white; padding: 40px 48px; max-width: 794px; margin: auto; }
 
-    /* ── Header ── */
     .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 36px; }
     .logo { height: 60px; object-fit: contain; }
-    .company-info { text-align: right; }
+    .company-info { text-align: left; }
     .company-info h2 { font-size: 16px; font-weight: 900; color: #274a82; }
     .company-info p { font-size: 10px; color: #6b7280; margin-top: 2px; line-height: 1.6; }
 
-    /* ── Title bar ── */
     .title-bar { background: #274a82; color: white; border-radius: 8px; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
     .title-bar h1 { font-size: 18px; font-weight: 900; letter-spacing: .02em; }
     .title-bar .meta { text-align: right; }
     .title-bar .meta p { font-size: 11px; opacity: .8; }
     .title-bar .meta strong { font-size: 13px; opacity: 1; }
 
-    /* ── Info grid ── */
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
     .info-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 18px; }
     .info-card .label { font-size: 9px; font-weight: 900; color: #9ca3af; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
     .info-card .name { font-size: 14px; font-weight: 900; color: #111827; margin-bottom: 4px; }
     .info-card p { font-size: 11px; color: #6b7280; margin-bottom: 2px; }
 
-    /* ── Table ── */
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
     thead th { background: #f9fafb; border-top: 2px solid #274a82; border-bottom: 1px solid #e5e7eb; padding: 9px 12px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: #374151; }
     tbody td { padding: 9px 12px; border-bottom: 1px solid #f3f4f6; font-size: 11px; color: #374151; }
     tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover td { background: #f9fafb; }
 
-    /* ── Totals ── */
-    .bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-top: 8px; }
-    .payment-info { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; flex: 1; }
-    .payment-info .label { font-size: 9px; font-weight: 900; color: #9ca3af; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; }
-    .payment-info p { font-size: 11px; color: #374151; margin-bottom: 2px; }
+    .bottom { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-top: 8px; }
+    .left-bottom { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+
+    /* ── Garantie ── */
+    .garantie-box { border: 2px solid #274a82; border-radius: 8px; padding: 12px 16px; background: #f0f4ff; }
+    .garantie-box .label { font-size: 9px; font-weight: 900; color: #274a82; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; }
+    .garantie-box p { font-size: 10px; color: #374151; line-height: 1.6; }
+    .garantie-box .duration { font-size: 13px; font-weight: 900; color: #274a82; margin-bottom: 4px; }
+
     .totals-box { min-width: 240px; }
     .totals-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; color: #6b7280; }
     .totals-row span:last-child { color: #374151; }
     .totals-row.discount span { color: #16a34a; }
     .totals-row.grand-total { border-top: 2px solid #274a82; margin-top: 8px; padding-top: 10px; font-size: 16px; font-weight: 900; color: #274a82; }
 
-    /* ── Status badge ── */
     .status-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 900; }
     .status-delivered { background: #dcfce7; color: #166534; }
-    .status-pending { background: #fef9c3; color: #854d0e; }
-    .status-other { background: #dbeafe; color: #1d4ed8; }
+    .status-pending   { background: #fef9c3; color: #854d0e; }
+    .status-other     { background: #dbeafe; color: #1d4ed8; }
 
-    /* ── Footer ── */
-    .footer { margin-top: 36px; border-top: 1px solid #f3f4f6; padding-top: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .footer { margin-top: 28px; border-top: 1px solid #f3f4f6; padding-top: 14px; display: flex; justify-content: space-between; align-items: center; }
     .footer p { font-size: 9px; color: #d1d5db; }
     .footer .thanks { font-size: 12px; font-weight: 900; color: #274a82; }
+
+    .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
+    .sig { border-top: 1px dashed #d1d5db; padding-top: 8px; }
+    .sig p { font-size: 10px; color: #6b7280; }
 
     @media print { body { padding: 0; } }
   </style>
@@ -494,10 +505,11 @@ const printFacture = (order: Order) => {
 
   <!-- Header -->
   <div class="header">
-    <img src="/brclogo.png" alt="BRC Market" class="logo" />
+    <img src="/images/logos/brclogo.png" alt="BRC Market" class="logo" />
     <div class="company-info">
       <h2>BRC Market</h2>
-      <p>Douala,Yaoundé, Cameroun<br>businessrevcompany@gmail.com<br>+237 689205751</p>
+      <p>Douala, Yaoundé, Cameroun<br>businessrevcompany@gmail.com<br>+237 689205751</p>
+      <p class="niu">NIU : M032416656798Y</p>
     </div>
   </div>
 
@@ -510,8 +522,7 @@ const printFacture = (order: Order) => {
     <div class="meta">
       <p>Date d'émission</p>
       <strong>${new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>
-      <p style="margin-top:6px">Statut commande</p>
-      <strong>${statusLabel}</strong>
+     
     </div>
   </div>
 
@@ -529,11 +540,7 @@ const printFacture = (order: Order) => {
       <p><strong>N° :</strong> #${order.order_number}</p>
       <p><strong>Date :</strong> ${new Date(order.created_at).toLocaleDateString('fr-FR')}</p>
       <p><strong>Mode de paiement :</strong> ${paymentMethodLabel}</p>
-      <p><strong>Statut paiement :</strong>
-        <span class="status-badge ${order.payment_status === 'paid' ? 'status-delivered' : 'status-pending'}">
-          ${order.payment_status === 'paid' ? 'Payé' : order.payment_status === 'refunded' ? 'Remboursé' : 'Non payé'}
-        </span>
-      </p>
+      <p style="margin-top:10px;font-size:9px;font-weight:900;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;">Statut du paiement:</p>
     </div>
   </div>
 
@@ -544,34 +551,52 @@ const printFacture = (order: Order) => {
         <th style="width:32px;text-align:center">#</th>
         <th>Désignation</th>
         <th style="text-align:center;width:60px">Qté</th>
-        <th style="text-align:right;width:120px">Prix unit. HT</th>
-        <th style="text-align:right;width:130px">Total HT</th>
+        <th style="text-align:right;width:120px">Prix unit.</th>
+        <th style="text-align:right;width:130px">Total</th>
       </tr>
     </thead>
     <tbody>${itemsRows}</tbody>
   </table>
 
-  <!-- Bottom: paiement + totaux -->
+  <!-- Bottom -->
   <div class="bottom">
-    <div class="payment-info">
-      <p class="label">Informations de paiement</p>
-      <p><strong>Mode :</strong> ${paymentMethodLabel}</p>
-      ${order.payment_method === 'mobile_money' ? '<p><strong>Opérateur :</strong> MTN / Orange Money</p>' : ''}
-      <p style="margin-top:8px;font-size:10px;color:#9ca3af">Merci pour votre confiance !</p>
+    <div class="left-bottom">
+
+
+      <!-- Garantie -->
+      <div class="garantie-box">
+        <p class="label">Garantie </p>
+        <p class="duration">3 mois de garantie</p>
+        <p>Ce produit bénéficie d'une garantie de <strong>3 mois</strong> à compter de la date d'achat.
+        Tout défaut de fabrication constaté dans ce délai sera pris en charge gratuitement.
+        La garantie ne couvre pas les dommages liés à une mauvaise utilisation.</p>
+        <p style="margin-top:6px;font-size:9px;color:#6b7280">
+          Conservez cette facture comme preuve d'achat · BRC Market · +237 689205751
+        </p>
+      </div>
+
     </div>
+
+    <!-- Totaux -->
     <div class="totals-box">
-      <div class="totals-row"><span>Sous-total</span><span>${new Intl.NumberFormat('fr-CM', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(order.subtotal).replace('XAF', 'FCFA')}</span></div>
-      <div class="totals-row"><span>Frais de livraison</span><span>${(order.shipping_cost ?? 0) === 0 ? 'Gratuit' : new Intl.NumberFormat('fr-CM', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(order.shipping_cost).replace('XAF', 'FCFA')}</span></div>
-      ${(order.discount_amount ?? 0) > 0 ? `<div class="totals-row discount"><span>Réduction</span><span>- ${new Intl.NumberFormat('fr-CM', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(order.discount_amount).replace('XAF', 'FCFA')}</span></div>` : ''}
-      <div class="totals-row grand-total"><span>TOTAL TTC</span><span>${new Intl.NumberFormat('fr-CM', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(order.total).replace('XAF', 'FCFA')}</span></div>
+      <div class="totals-row"><span>Sous-total</span><span>${fmt(order.subtotal)}</span></div>
+      <div class="totals-row"><span>Frais de livraison</span><span>${(order.shipping_cost ?? 0) === 0 ? 'Gratuit' : fmt(order.shipping_cost)}</span></div>
+      ${(order.discount_amount ?? 0) > 0 ? `<div class="totals-row discount"><span>Réduction</span><span>- ${fmt(order.discount_amount)}</span></div>` : ''}
+      <div class="totals-row grand-total"><span>TOTAL TTC</span><span>${fmt(order.total)}</span></div>
     </div>
+  </div>
+
+  <!-- Signatures -->
+  <div class="signature-section">
+    <div class="sig"><p>Signature du client</p></div>
+    <div class="sig"><p>Cachet & Signature BRC Market</p></div>
   </div>
 
   <!-- Footer -->
   <div class="footer">
     <div>
       <p class="thanks">Merci pour votre achat chez BRC Market !</p>
-      <p style="margin-top:3px">Ce document tient lieu de facture · TVA non applicable</p>
+      <p style="margin-top:3px">Ce document tient lieu de facture · TVA non applicable · Garantie 3 mois</p>
     </div>
     <p>Généré le ${new Date().toLocaleString('fr-FR')}</p>
   </div>
@@ -743,19 +768,19 @@ const filteredOrders = computed(() => {
 })
 
 // ── API ────────────────────────────────────────────────────────────────────────
-const fetchOrders = async () => {
+const fetchOrders = async (page = 1) => {
   loading.value = true
   try {
     const { data } = await axios.get(`${API}/admin/orders`, {
       headers: authHeaders.value,
-      params:  { per_page: 200 },
+      params:  { per_page: 15, page },
     })
-    orders.value = data.data ?? data
+    orders.value  = data.data
+    currentPage.value = data.current_page
+    totalPages.value  = data.last_page
+    totalOrders.value = data.total
   } catch (e: any) {
-    const msg    = e?.response?.data?.message ?? e?.response?.statusText ?? e?.message ?? 'Erreur inconnue'
-    const status = e?.response?.status ? ` (${e.response.status})` : ''
-    console.error('[fetchOrders]', e?.response?.data ?? e?.message)
-    toast.add({ title: `Erreur de chargement${status}`, description: msg, color: 'error', icon: 'i-heroicons-exclamation-circle' })
+    toast.add({ title: `Erreur`, description: e?.response?.data?.message ?? 'Erreur', color: 'error' })
   } finally {
     loading.value = false
   }
@@ -771,7 +796,7 @@ const fetchLivreurs = async () => {
   } catch {}
 }
 
-onMounted(() => { fetchOrders(); fetchLivreurs() })
+onMounted(() => { fetchOrders(1); fetchLivreurs() })
 
 // ── Ouvrir détail ──────────────────────────────────────────────────────────────
 
@@ -837,6 +862,74 @@ const updatePaymentStatus = async () => {
   }
 }
 
+// ── WhatsApp → Livreur ────────────────────────────────────────────────────────
+const sendWhatsAppLivreur = (order: Order, liv: Livreur) => {
+  const raw = liv.phone ?? ''
+  if (!raw) return
+
+  const cleaned   = raw.replace(/[\s\-().+]/g, '')
+  const intlPhone =
+    cleaned.startsWith('237') ? cleaned :
+    cleaned.startsWith('0')   ? `237${cleaned.slice(1)}` :
+                                `237${cleaned}`
+
+  const clientName_ = order.user
+    ? `${order.user.first_name} ${order.user.last_name}`
+    : `${order.shipping_first_name} ${order.shipping_last_name}`
+
+  const clientPhone = order.user?.phone ?? order.shipping_phone ?? '—'
+  const adresse = [order.shipping_street, order.shipping_city].filter(Boolean).join(', ') || 'Non précisée'
+  const notes   = order.notes || 'Aucune'
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('fr-CM', {
+      style: 'currency', currency: 'XAF', maximumFractionDigits: 0,
+    }).format(n).replace('XAF', 'FCFA')
+
+  const itemsList = (order.items ?? [])
+    .map(i => `  • ${i.product?.name ?? i.product_name ?? 'Produit'} ×${i.quantity}`)
+    .join('\n')
+
+  const paymentLabel =
+    order.payment_method === 'mobile_money'     ? 'Mobile Money (déjà payé)'       :
+    order.payment_method === 'cash_on_delivery' ? 'À encaisser à la livraison' :
+    order.payment_method
+
+  const paymentStatus = order.payment_status === 'paid' ? 'Payé' : 'Non payé — à encaisser'
+
+  const message = `
+Salut ${liv.first_name} 
+
+Vous avez une nouvelle livraison à effectuer.
+
+━━━━━━━━━━━━━━━━
+*COMMANDE #${order.order_number}*
+
+${itemsList}
+
+━━━━━━━━━━━━━━━━
+*CLIENT*
+
+  • Nom     : ${clientName_}
+  • Tél     : ${clientPhone}
+  • Adresse : ${adresse}
+  • Notes   : ${notes}
+
+━━━━━━━━━━━━━━━━
+*PAIEMENT*
+
+  • Mode    : ${paymentLabel}
+  • Statut  : ${paymentStatus}
+  
+  • *TOTAL  : ${fmt(order.total)}*
+
+━━━━━━━━━━━━━━━━
+Merci et bonne livraison !
+*— BRC Market*`.trim()
+
+  window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`, '_blank')
+}
+
 // ── Assigner livreur ───────────────────────────────────────────────────────────
 const assignLivreur = async () => {
   if (!selectedOrder.value || !selectedLivId.value) return
@@ -862,9 +955,13 @@ const assignLivreur = async () => {
     selectedOrder.value.shipped_at         = new Date().toISOString()
     newStatus.value                        = 'processing'
     showAssign.value                       = false
+
+    // ✅ WhatsApp automatique au livreur
+    sendWhatsAppLivreur({ ...selectedOrder.value, items: selectedOrder.value.items }, liv)
+
     toast.add({
       title:       'Livreur assigné',
-      description: `#${selectedOrder.value.order_number} → ${liv.first_name} ${liv.last_name} · En cours`,
+      description: `#${selectedOrder.value.order_number} → ${liv.first_name} ${liv.last_name} · WhatsApp ouvert`,
       color: 'success', icon: 'i-heroicons-truck',
     })
   } catch (e: any) {
@@ -873,7 +970,6 @@ const assignLivreur = async () => {
     assigning.value = false
   }
 }
-
 // ── Colonnes UTable ────────────────────────────────────────────────────────────
 const columns: TableColumn<Order>[] = [
   {
@@ -1147,6 +1243,36 @@ const columns: TableColumn<Order>[] = [
           </div>
         </template>
       </UTable>
+      
+       <!-- ── Pagination ──────────────────────────────────────────────────── -->
+      <div v-if="totalPages > 1" class="flex items-center justify-between px-5 py-4 border-t border-gray-100 bg-white rounded-b-2xl">
+        <p class="text-xs text-gray-400 font-medium">
+          Page {{ currentPage }} / {{ totalPages }} · {{ totalOrders }} commande{{ totalOrders > 1 ? 's' : '' }}
+        </p>
+        <div class="flex items-center gap-2">
+          <button
+            @click="fetchOrders(currentPage - 1)"
+            :disabled="currentPage <= 1"
+            class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+            <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
+          </button>
+          <button
+            v-for="p in totalPages" :key="p"
+            @click="fetchOrders(p)"
+            class="w-8 h-8 rounded-lg text-xs font-black transition-all"
+            :class="p === currentPage
+              ? 'bg-[#274a82] text-white'
+              : 'border border-gray-200 text-gray-500 hover:bg-gray-50'">
+            {{ p }}
+          </button>
+          <button
+            @click="fetchOrders(currentPage + 1)"
+            :disabled="currentPage >= totalPages"
+            class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+            <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
     </div>
 
   </div>

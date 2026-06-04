@@ -7,13 +7,18 @@ const toast  = useToast()
 const token  = useCookie('auth_token')
 const route  = useRoute()
 
+// Configuration dynamique de l'API
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
+
 const user = useState<any>('auth_user', () => null)
 const mobileOpen = useState<boolean>('deliverer_sidebar_open', () => false)
 
 onMounted(async () => {
   if (!user.value && token.value) {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/auth/me', {
+      // Utilisation de la variable API au lieu de l'URL en dur
+      const res = await axios.get(`${API}/auth/me`, {
         headers: { Authorization: `Bearer ${token.value}` }
       })
       user.value = res.data
@@ -44,16 +49,22 @@ const showUserMenu = ref(false)
 
 const handleLogout = async () => {
   try {
-    await axios.post('http://127.0.0.1:8000/api/auth/logout', {}, {
+    // Utilisation de la variable API pour la déconnexion
+    await axios.post(`${API}/auth/logout`, {}, {
       headers: { Authorization: `Bearer ${token.value}` }
     })
   } catch {}
+  
   token.value = null
   user.value  = null
+  
   toast.add({
-    title: 'Déconnecté', description: 'À bientôt sur BRC Market !',
-    color: 'success', icon: 'i-heroicons-check-circle',
+    title: 'Déconnecté', 
+    description: 'À bientôt sur BRC Market !',
+    color: 'success', 
+    icon: 'i-heroicons-check-circle',
   } as ToastProps)
+  
   router.push('/login')
 }
 </script>
@@ -64,7 +75,7 @@ const handleLogout = async () => {
 
       <div class="flex items-center gap-3">
         <NuxtLink to="/livreur/livraisons" class="hidden lg:flex items-center gap-2 flex-shrink-0">
-          <img src="/brclogo.png" class="h-10 w-14 object-contain" />
+          <img src="/images/logos/brclogo.png" class="h-10 w-14 object-contain" />
           <span class="font-bold text-base text-[#274a82]">BRC Market</span>
         </NuxtLink>
 
@@ -78,7 +89,7 @@ const handleLogout = async () => {
             <UIcon name="i-heroicons-bars-3" class="w-5 h-5 text-gray-700" />
           </button>
           <NuxtLink to="/livreur/livraisons" class="flex items-center gap-2">
-            <img src="/brclogo.png" class="h-10 w-14 object-contain" />
+            <img src="/images/logos/brclogo.png" class="h-10 w-14 object-contain" />
             <span class="font-bold text-base text-[#274a82]">BRC Market</span>
           </NuxtLink>
           <div class="w-px h-4 bg-gray-200 mx-1" />

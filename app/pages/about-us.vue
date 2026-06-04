@@ -1,14 +1,18 @@
 <script setup lang="ts">
 
-  useHead({
-    title: 'BRC Market',
-    titleTemplate: (titleChunk) => {
-      return titleChunk ? `${titleChunk} - Apropos de Nous` : 'BRC Market';
-    },
-    link: [
-      { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
-    ]
-  })
+const SEO_URL = 'https://brcmarket.cm/about'
+useSeoMeta({
+  title:              'À Propos de Nous',
+  ogTitle:            'À Propos de BRC Market',
+  description:        'Découvrez BRC Market, votre spécialiste en informatique, réseaux, Electricite et sécurité électronique au Cameroun. Basés à Douala, nous livrons dans tout le pays.',
+  ogDescription:      'Découvrez BRC Market, votre spécialiste en informatique, réseaux et sécurité électronique au Cameroun. Basés à Douala, nous livrons dans tout le pays.',
+  ogImage:            'https://brcmarket.cm/images/og-image.png',
+  ogUrl:              SEO_URL,
+  twitterTitle:       'À Propos de BRC Market',
+  twitterDescription: 'Votre spécialiste en informatique et réseaux au Cameroun.',
+  twitterImage:       'https://brcmarket.cm/images/og-image.png',
+})
+useHead({ link: [{ rel: 'canonical', href: SEO_URL }] })
 
 </script>
 

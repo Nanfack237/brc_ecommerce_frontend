@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
 
-const { requireUserOrAdmin} = useAuth()
+const { requireUserOrAdmin } = useAuth()
 requireUserOrAdmin()
 
 useHead({
@@ -15,6 +15,8 @@ useHead({
 const toast  = useToast()
 const token  = useCookie('auth_token')
 const router = useRouter()
+const config = useRuntimeConfig()       // ← AJOUTER
+const API    = config.public.apiBase    // ← AJOUTER
 
 const notifications = ref({
   email_orders:     true,
@@ -32,7 +34,7 @@ const saveNotifications = () => {
 
 const logoutAll = async () => {
   try {
-    await axios.post('http://127.0.0.1:8000/api/auth/logout', {}, {
+    await axios.post(`${API}/auth/logout`, {}, {   // ← hardcode retiré
       headers: { Authorization: `Bearer ${token.value}` }
     })
   } catch {}
@@ -45,7 +47,7 @@ const deleteAccount = async () => {
   if (deleteConfirmText.value !== 'SUPPRIMER') return
   loadingDelete.value = true
   try {
-    await axios.delete('http://127.0.0.1:8000/api/profile', {
+    await axios.delete(`${API}/profile`, {         // ← hardcode retiré
       headers: { Authorization: `Bearer ${token.value}` }
     })
     token.value = null
@@ -63,17 +65,11 @@ const settingSections = [
   {
     title: 'Compte', icon: 'i-heroicons-user-circle',
     items: [
-      { label: 'Modifier mes informations', desc: 'Nom, email, téléphone', to: '/compte/informations', icon: 'i-heroicons-pencil-square' },
-      { label: 'Mes adresses',              desc: 'Adresses de livraison',  to: '/compte/adresses',    icon: 'i-heroicons-map-pin' },
+      { label: 'Modifier mes informations', desc: 'Nom, email, téléphone', to: '/admin/informations', icon: 'i-heroicons-pencil-square' },
+      // ← /compte/adresses retiré car page inexistante
     ]
   },
-  {
-    title: 'Activité', icon: 'i-heroicons-shopping-bag',
-    items: [
-      { label: 'Mes commandes', desc: 'Historique des achats', to: '/compte/commandes', icon: 'i-heroicons-shopping-bag' },
-      { label: 'Mes favoris',   desc: 'Produits sauvegardés',  to: '/compte/favoris',   icon: 'i-heroicons-heart' },
-    ]
-  },
+  
 ]
 </script>
 
@@ -84,8 +80,6 @@ const settingSections = [
       <div>
         <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
           <NuxtLink to="/" class="hover:text-[#274a82]">Accueil</NuxtLink>
-          <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
-          <NuxtLink to="/compte" class="hover:text-[#274a82]">Mon compte</NuxtLink>
           <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
           <span class="text-gray-600">Paramètres</span>
         </div>
@@ -124,29 +118,7 @@ const settingSections = [
           <UIcon name="i-heroicons-bell" class="w-4 h-4 text-[#274a82]" />
           <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Notifications</span>
         </div>
-        <div class="divide-y divide-gray-50">
-          <div class="flex items-center justify-between px-5 py-4">
-            <div>
-              <p class="text-sm font-semibold text-gray-800">Commandes</p>
-              <p class="text-xs text-gray-400">Confirmations et mises à jour de livraison</p>
-            </div>
-            <UToggle v-model="notifications.email_orders" color="primary" />
-          </div>
-          <div class="flex items-center justify-between px-5 py-4">
-            <div>
-              <p class="text-sm font-semibold text-gray-800">Promotions</p>
-              <p class="text-xs text-gray-400">Offres spéciales et réductions</p>
-            </div>
-            <UToggle v-model="notifications.email_promotions" color="primary" />
-          </div>
-          <div class="flex items-center justify-between px-5 py-4">
-            <div>
-              <p class="text-sm font-semibold text-gray-800">Newsletter</p>
-              <p class="text-xs text-gray-400">Actualités et nouveaux produits</p>
-            </div>
-            <UToggle v-model="notifications.email_newsletter" color="primary" />
-          </div>
-        </div>
+       
         <div class="px-5 py-4 bg-gray-50/50 border-t border-gray-100">
           <UButton size="sm" color="primary" variant="outline" icon="i-heroicons-check" @click="saveNotifications">
             Sauvegarder les préférences
@@ -169,7 +141,7 @@ const settingSections = [
             Déconnecter
           </UButton>
         </div>
-        <NuxtLink to="/compte/informations" class="flex items-center justify-between px-5 py-4 hover:bg-blue-50/50 group transition">
+        <NuxtLink to="/admin/informations" class="flex items-center justify-between px-5 py-4 hover:bg-blue-50/50 group transition">
           <div>
             <p class="text-sm font-semibold text-gray-800 group-hover:text-[#274a82] transition">Changer le mot de passe</p>
             <p class="text-xs text-gray-400">Modifier votre mot de passe actuel</p>

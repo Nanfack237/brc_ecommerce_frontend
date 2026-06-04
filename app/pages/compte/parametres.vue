@@ -1,9 +1,14 @@
 <script setup lang="ts">
-const { requireAuth } = useAuth()
-requireAuth()
 import { ref } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
+
+// 1. Protection et configuration
+const { requireAuth } = useAuth()
+requireAuth()
+
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
 
 useHead({
   title: 'BRC Market',
@@ -26,17 +31,31 @@ const deleteConfirmText = ref('')
 const loadingDelete     = ref(false)
 
 const saveNotifications = () => {
-  toast.add({ title: 'Préférences sauvegardées', description: 'Vos préférences de notifications ont été mises à jour.', color: 'success', icon: 'i-heroicons-check-circle' } as ToastProps)
+  // Optionnel : Tu pourras ajouter ici un appel API PUT `${API}/profile/notifications` plus tard
+  toast.add({ 
+    title: 'Préférences sauvegardées', 
+    description: 'Vos préférences de notifications ont été mises à jour.', 
+    color: 'success', 
+    icon: 'i-heroicons-check-circle' 
+  } as ToastProps)
 }
 
 const logoutAll = async () => {
   try {
-    await axios.post('http://127.0.0.1:8000/api/auth/logout', {}, {
+    // Utilisation de la variable API
+    await axios.post(`${API}/auth/logout`, {}, {
       headers: { Authorization: `Bearer ${token.value}` }
     })
   } catch {}
+  
   token.value = null
-  toast.add({ title: 'Déconnecté', description: 'Vous avez été déconnecté de tous les appareils.', color: 'success', icon: 'i-heroicons-check-circle' } as ToastProps)
+  toast.add({ 
+    title: 'Déconnecté', 
+    description: 'Vous avez été déconnecté de tous les appareils.', 
+    color: 'success', 
+    icon: 'i-heroicons-check-circle' 
+  } as ToastProps)
+  
   router.push('/login')
 }
 
@@ -44,14 +63,27 @@ const deleteAccount = async () => {
   if (deleteConfirmText.value !== 'SUPPRIMER') return
   loadingDelete.value = true
   try {
-    await axios.delete('http://127.0.0.1:8000/api/profile', {
+    // Utilisation de la variable API pour la suppression de compte
+    await axios.delete(`${API}/profile`, {
       headers: { Authorization: `Bearer ${token.value}` }
     })
+    
     token.value = null
-    toast.add({ title: 'Compte supprimé', description: 'Votre compte a été supprimé définitivement.', color: 'neutral', icon: 'i-heroicons-trash' } as ToastProps)
+    toast.add({ 
+      title: 'Compte supprimé', 
+      description: 'Votre compte a été supprimé définitivement.', 
+      color: 'neutral', 
+      icon: 'i-heroicons-trash' 
+    } as ToastProps)
+    
     router.push('/')
   } catch {
-    toast.add({ title: 'Erreur', description: 'Impossible de supprimer le compte.', color: 'error', icon: 'i-heroicons-x-circle' } as ToastProps)
+    toast.add({ 
+      title: 'Erreur', 
+      description: 'Impossible de supprimer le compte.', 
+      color: 'error', 
+      icon: 'i-heroicons-x-circle' 
+    } as ToastProps)
   } finally {
     loadingDelete.value   = false
     showDeleteModal.value = false

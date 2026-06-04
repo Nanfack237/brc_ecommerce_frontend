@@ -4,28 +4,49 @@ import useCart from '@/composables/useCart'
 import useWishlist from '~/composables/UseWishlist'
 
 const route  = useRoute()
+const router = useRouter()
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
 
-// ── Slug params ───────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// NORMALISATION SLUG
+// ══════════════════════════════════════════════════════════════════════════
+
+const normalizeSlugSegment = (seg: string) =>
+  seg.trim().toLowerCase().replace(/\/+$/, '').replace(/\/+/g, '')
+
+// ══════════════════════════════════════════════════════════════════════════
+// SLUG PARAMS — normalisés dès l'extraction
+// ══════════════════════════════════════════════════════════════════════════
+
 const slugParams = computed(() => {
   const s = route.params.slug
-  return Array.isArray(s) ? s : [s]
+  const arr = Array.isArray(s) ? s : [s]
+  // ✅ Nettoyage : trim, lowercase, suppression slashes parasites, filtrage vides
+  return arr.map(normalizeSlugSegment).filter(Boolean)
 })
+
 const parentSlug = computed(() => slugParams.value[0] ?? '')
 const childSlug  = computed(() => slugParams.value[1] ?? null)
-const activeSlug = computed(() => childSlug.value ?? parentSlug.value)
 
-// ── Format label ──────────────────────────────────────────────────────────────
+// ✅ activeSlug toujours propre, jamais vide ni avec trailing slash
+const activeSlug = computed(() => {
+  const slug = childSlug.value ?? parentSlug.value
+  return normalizeSlugSegment(slug ?? '')
+})
+
 const formatLabel = (text: string) => {
   if (!text) return ''
   return text.replace(/[_-]/g, ' ').split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 }
 
-const categoryName = computed(() => formatLabel(slugParams.value[slugParams.value.length - 1]))
+const categoryName = computed(() => formatLabel(slugParams.value[slugParams.value.length - 1] ?? ''))
 
-// ── Breadcrumb ────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// BREADCRUMB
+// ══════════════════════════════════════════════════════════════════════════
+
 const breadcrumbItems = computed(() => {
   const items: any[] = [{ label: 'Accueil', to: '/' }]
   let path = '/categories'
@@ -36,21 +57,24 @@ const breadcrumbItems = computed(() => {
   return items
 })
 
-// ── Info catégorie ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// INFO CATÉGORIE
+// ══════════════════════════════════════════════════════════════════════════
+
 interface CategoryInfo {
   id: number; name: string; slug: string; description: string | null; image: string | null
 }
-const categoryInfo    = ref<CategoryInfo | null>(null)
-const loadingCatInfo  = ref(false)
+const categoryInfo        = ref<CategoryInfo | null>(null)
+const loadingCatInfo      = ref(false)
 const categoryDisplayName = computed(() => categoryInfo.value?.name ?? categoryName.value)
 const categoryDesc        = computed(() => categoryInfo.value?.description ?? null)
 
 const fetchCategoryInfo = async () => {
+  if (!activeSlug.value) return
   loadingCatInfo.value = true
   try {
-    const res = await $fetch<any>(`${API}/categories/${activeSlug.value}`)
-    categoryInfo.value = res
-    initFilterGroups()
+    categoryInfo.value = await $fetch<CategoryInfo>(`${API}/categories/${activeSlug.value}`)
+    setSeo()
   } catch {
     categoryInfo.value = null
   } finally {
@@ -58,13 +82,91 @@ const fetchCategoryInfo = async () => {
   }
 }
 
-useHead({
-  title: categoryName.value,
-  titleTemplate: (t) => t ? `${t} - BRC Market` : 'BRC Market',
-  link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
-})
+// ══════════════════════════════════════════════════════════════════════════
+// SEO DYNAMIQUE
+// ══════════════════════════════════════════════════════════════════════════
+const setSeo = () => {
+  const name  = categoryInfo.value?.name ?? categoryName.value
+  const desc  = categoryInfo.value?.description
+    ?? `Découvrez tous nos produits ${name} au meilleur prix au Cameroun. Livraison rapide à Douala et Yaoundé.`
+  const image = categoryInfo.value?.image ?? 'https://brcmarket.cm/images/og-image.jpg'
+  const url   = `https://brcmarket.cm/categories/${activeSlug.value}`
+  const title = `${name} - BRC Market`
 
-// ── Filtres avancés ───────────────────────────────────────────────────────────
+  useSeoMeta({
+    title,
+    ogTitle:            title,
+    description:        desc.slice(0, 155),
+    ogDescription:      desc.slice(0, 155),
+    ogImage:            image,
+    ogUrl:              url,
+    twitterTitle:       title,
+    twitterDescription: desc.slice(0, 155),
+    twitterImage:       image,
+  })
+
+  useHead({
+    link: [{ rel: 'canonical', href: url }],
+    script: [{
+      type:      'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type':    'CollectionPage',
+        name,
+        description: desc.slice(0, 155),
+        url,
+        image,
+
+        // Breadcrumb
+        breadcrumb: {
+          '@type':         'BreadcrumbList',
+          itemListElement: breadcrumbItems.value.map((item, i) => ({
+            '@type':  'ListItem',
+            position: i + 1,
+            name:     item.label,
+            item:     `https://brcmarket.cm${item.to}`,
+          })),
+        },
+
+        // Liste des produits visibles — Google peut les afficher dans les résultats
+        ...(products.value.length > 0 ? {
+          mainEntity: {
+            '@type':           'ItemList',
+            numberOfItems:     meta.value.total,
+            itemListElement:   products.value.slice(0, 10).map((p, i) => ({
+              '@type':    'ListItem',
+              position:   i + 1,
+              url:        `https://brcmarket.cm/products/${p.slug}`,
+              name:       p.name,
+              item: {
+                '@type':      'Product',
+                name:         p.name,
+                url:          `https://brcmarket.cm/products/${p.slug}`,
+                image:        p.images?.[0] ?? undefined,
+                offers: {
+                  '@type':        'Offer',
+                  priceCurrency:  'XAF',
+                  price:          p.price,
+                  availability:   p.stock > 0
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+                  itemCondition:  'https://schema.org/NewCondition',
+                },
+              },
+            })),
+          },
+        } : {}),
+      }),
+    }],
+  })
+}
+
+useHead({ title: `${categoryName.value} - BRC Market` })
+
+// ══════════════════════════════════════════════════════════════════════════
+// FILTRES AVANCÉS
+// ══════════════════════════════════════════════════════════════════════════
+
 const ADVANCED_FILTER_SLUGS = ['ordinateurs', 'laptops', 'desktops', 'all-in-one', 'serveurs', 'workstations']
 
 const showAdvancedFilters = computed(() => {
@@ -74,12 +176,13 @@ const showAdvancedFilters = computed(() => {
   const catSlug       = categoryInfo.value?.slug ?? ''
   const parentCatSlug = (categoryInfo.value as any)?.parent?.slug ?? ''
   const apiMatch      = ADVANCED_FILTER_SLUGS.includes(catSlug) || ADVANCED_FILTER_SLUGS.includes(parentCatSlug)
-  const result = slugMatch || apiMatch
-  console.log('[filters] activeSlug:', activeSlug.value, '| parentSlug:', parentSlug.value, '| showAdvanced:', result)
-  return result
+  return slugMatch || apiMatch
 })
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// TYPES
+// ══════════════════════════════════════════════════════════════════════════
+
 interface Product {
   id:               number
   name:             string
@@ -98,29 +201,36 @@ interface PaginationMeta {
   current_page: number; last_page: number; per_page: number; total: number
 }
 
-// ── État ──────────────────────────────────────────────────────────────────────
-const products       = ref<Product[]>([])
-const recentProducts = ref<Product[]>([])
-const loadingRecent  = ref(false)
-const meta           = ref<PaginationMeta>({ current_page: 1, last_page: 1, per_page: 24, total: 0 })
-const loadingProds   = ref(false)
-const currentPage    = ref(1)
-const itemsPerPage   = 24
-const viewMode       = ref<'grid' | 'grid-small' | 'list' | 'list-compact'>('grid')
+// ══════════════════════════════════════════════════════════════════════════
+// ÉTAT
+// ══════════════════════════════════════════════════════════════════════════
+
+const products           = ref<Product[]>([])
+const recentProducts     = ref<Product[]>([])
+const promoProducts      = ref<Product[]>([])
+const loadingRecent      = ref(false)
+const loadingPromos      = ref(false)
+const meta               = ref<PaginationMeta>({ current_page: 1, last_page: 1, per_page: 24, total: 0 })
+const loadingProds       = ref(false)
+const currentPage        = ref(1)
+const itemsPerPage       = 24
+const viewMode           = ref<'grid' | 'grid-small' | 'list' | 'list-compact'>('grid')
 const isMobileFilterOpen = ref(false)
 
-// ── Filtres ───────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// FILTRES
+// ══════════════════════════════════════════════════════════════════════════
+
 const expandedGroups = ref<Record<string, boolean>>({})
 const toggleExpand   = (k: string) => { expandedGroups.value[k] = !expandedGroups.value[k] }
 
-// ── FIX prix max : 3 000 000 CFA ─────────────────────────────────────────────
 const PRICE_MAX_DEFAULT = 3000000
-const priceMax  = ref(PRICE_MAX_DEFAULT)
+const priceMax   = ref(PRICE_MAX_DEFAULT)
 const priceRange = ref([0, PRICE_MAX_DEFAULT])
 
-const filterGroups     = ref<Record<string, Record<string, number>>>({})
-const baseFilterGroups = ref<Record<string, Record<string, number>>>({})
-const appliedFilters   = ref<Record<string, string | null>>({})
+const filterGroups   = ref<Record<string, Record<string, number>>>({})
+const appliedFilters = ref<Record<string, string | null>>({})
+const loadingCounts  = ref(false)
 
 const activeFilterCount = computed(() => Object.values(appliedFilters.value).filter(Boolean).length)
 
@@ -133,123 +243,47 @@ const FIXED_FILTER_DEFS: Record<string, string[]> = {
   'Etat':       ['Neuf', 'Occasion'],
 }
 
-const initFilterGroups = () => {
-  if (!showAdvancedFilters.value) return
-  const groups: Record<string, Record<string, number>> = {}
-  groups['Marques'] = {}
-  Object.entries(FIXED_FILTER_DEFS).forEach(([label, opts]) => {
-    groups[label] = {}
-    opts.forEach(opt => { groups[label][opt] = 0 })
-  })
-  filterGroups.value     = groups
-  baseFilterGroups.value = {}
-  Object.keys(groups).forEach(k => { if (!(k in appliedFilters.value)) appliedFilters.value[k] = null })
+const buildCountParams = (): Record<string, any> => {
+  const p: Record<string, any> = {}
+  if (appliedFilters.value['Marques'])      p.brand     = appliedFilters.value['Marques']
+  if (priceRange.value[0] > 0)              p.min_price = priceRange.value[0]
+  if (priceRange.value[1] < priceMax.value) p.max_price = priceRange.value[1]
+  return p
 }
 
-// ── FIX matching : comparaison EXACTE uniquement ──────────────────────────────
-// L'ancien code utilisait .includes() ce qui faisait matcher '128gossd' dans '256gossd'
-// car les deux contiennent 'ssd'. On passe en égalité stricte normalisée.
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-
-const buildFiltersFromProducts = (prods: Product[], isFilteredFetch = false) => {
-  if (!showAdvancedFilters.value) {
-    filterGroups.value = {}
-    return
-  }
-
-  const extractVal = (rawVal: any): string => {
-    if (rawVal === null || rawVal === undefined) return ''
-    if (typeof rawVal === 'object')
-      return String(rawVal.value ?? rawVal.name ?? rawVal.label ?? rawVal.val ?? '')
-    return String(rawVal)
-  }
-
-  const groups: Record<string, Record<string, number>> = {}
-  groups['Marques'] = {}
-  Object.entries(FIXED_FILTER_DEFS).forEach(([label, opts]) => {
-    groups[label] = {}
-    opts.forEach(opt => { groups[label][opt] = 0 })
-  })
-
-  if (!prods.length) {
-    if (!isFilteredFetch) {
-      filterGroups.value     = groups
-      baseFilterGroups.value = groups
-    } else {
-      filterGroups.value = JSON.parse(JSON.stringify(baseFilterGroups.value || groups))
+const fetchFilterCounts = async () => {
+  if (!activeSlug.value || !showAdvancedFilters.value) return
+  loadingCounts.value = true
+  try {
+    const data = await $fetch<Record<string, Record<string, number>>>(
+      `${API}/categories/${activeSlug.value}/filter-counts`,
+      { params: buildCountParams() }
+    )
+    const groups: Record<string, Record<string, number>> = {}
+    if (data['Marques'] && Object.keys(data['Marques']).length > 0) {
+      groups['Marques'] = data['Marques']
     }
-    Object.keys(filterGroups.value).forEach(k => { if (!(k in appliedFilters.value)) appliedFilters.value[k] = null })
-    return
-  }
-
-  const productSpecsList: Array<{ brand: string | null; specPairs: Array<[string, string]> }> = []
-
-  prods.forEach(p => {
-    const seen = new Set<string>()
-    const specPairs: Array<[string, string]> = []
-
-    const add = (key: string, rawVal: any) => {
-      const val = extractVal(rawVal)
-      if (!val || val === '[object Object]') return
-      const label = key.charAt(0).toUpperCase() + key.slice(1)
-      const pairKey = label + '::' + val
-      if (seen.has(pairKey)) return
-      seen.add(pairKey)
-      specPairs.push([label, val])
-    }
-
-    const specs = (p as any).specs ?? (p as any).attributes ?? (p as any).specifications
-    if (specs) {
-      if (Array.isArray(specs)) {
-        specs.forEach((item: any) => {
-          if (!item || typeof item !== 'object') return
-          const key = item.name ?? item.key ?? item.attribute ?? item.label
-          const val = item.value ?? item.val
-          if (key) add(String(key), val)
-        })
-      } else if (typeof specs === 'object') {
-        Object.entries(specs).forEach(([k, v]) => add(k, v))
-      }
-    }
-    productSpecsList.push({ brand: p.brand ?? null, specPairs })
-  })
-
-  // Marques
-  productSpecsList.forEach(({ brand }) => {
-    if (brand) groups['Marques'][brand] = (groups['Marques'][brand] ?? 0) + 1
-  })
-
-  // ── FIX : matching EXACT normalisé (plus de .includes()) ─────────────────
-  Object.entries(FIXED_FILTER_DEFS).forEach(([filterLabel, options]) => {
-    options.forEach(opt => {
-      const normOpt = normalize(opt)
-      let count = 0
-      productSpecsList.forEach(({ specPairs }) => {
-        // On cherche une spec dont la clé correspond au filterLabel
-        // ET dont la valeur normalisée est EXACTEMENT égale à normOpt
-        const matches = specPairs.some(([specKey, specVal]) => {
-          const normKey = normalize(specKey)
-          const normVal = normalize(specVal)
-          const normLabel = normalize(filterLabel)
-          return normKey === normLabel && normVal === normOpt
-        })
-        if (matches) count++
-      })
-      groups[filterLabel][opt] = count
+    Object.entries(FIXED_FILTER_DEFS).forEach(([label, opts]) => {
+      groups[label] = {}
+      opts.forEach(opt => { groups[label][opt] = data[label]?.[opt] ?? 0 })
     })
-  })
-
-  if (!isFilteredFetch) {
-    filterGroups.value     = groups
-    baseFilterGroups.value = JSON.parse(JSON.stringify(groups))
-  } else {
-    filterGroups.value = JSON.parse(JSON.stringify(baseFilterGroups.value || groups))
+    filterGroups.value = groups
+    Object.keys(groups).forEach(k => {
+      if (!(k in appliedFilters.value)) appliedFilters.value[k] = null
+    })
+  } catch (e) {
+    console.error('Erreur filter-counts catégorie:', e)
+  } finally {
+    loadingCounts.value = false
   }
-
-  Object.keys(filterGroups.value).forEach(k => { if (!(k in appliedFilters.value)) appliedFilters.value[k] = null })
 }
 
-// ── Tri ───────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// TRI
+// ══════════════════════════════════════════════════════════════════════════
+
+const SORT_OPTIONS = ['Le plus récent', 'Par popularité', 'Par tarif croissant', 'Par tarif decroissant']
+
 const sortBy = ref('Le plus récent')
 const sortParam = computed(() => {
   switch (sortBy.value) {
@@ -260,15 +294,14 @@ const sortParam = computed(() => {
   }
 })
 
-// ── Fetch produits ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// FETCH PRODUITS
+// ══════════════════════════════════════════════════════════════════════════
+
 const fetchProducts = async (resetPage = false) => {
+  if (!activeSlug.value) return
   if (resetPage) currentPage.value = 1
   loadingProds.value = true
-
-  const hasActiveFilters = Object.values(appliedFilters.value).some(Boolean)
-    || priceRange.value[0] > 0
-    || priceRange.value[1] < priceMax.value
-
   try {
     const params: Record<string, any> = {
       page:     currentPage.value,
@@ -285,30 +318,27 @@ const fetchProducts = async (resetPage = false) => {
       params[paramKey] = v
     })
 
-    const res = await $fetch<any>(`${API}/categories/${activeSlug.value}/products`, { params })
+    const res  = await $fetch<any>(`${API}/categories/${activeSlug.value}/products`, { params })
     const list: Product[] = res.data ?? res
+
     products.value = list
+    setSeo()
     meta.value = {
-      current_page: res.meta?.current_page ?? currentPage.value,
-      last_page:    res.meta?.last_page    ?? Math.ceil((res.total ?? list.length) / itemsPerPage),
-      per_page:     res.meta?.per_page     ?? itemsPerPage,
-      total:        res.meta?.total        ?? res.total ?? list.length,
+      current_page: res.meta?.current_page ?? res.current_page ?? currentPage.value,
+      last_page:    res.meta?.last_page    ?? res.last_page    ?? Math.ceil((res.total ?? list.length) / itemsPerPage),
+      per_page:     res.meta?.per_page     ?? res.per_page     ?? itemsPerPage,
+      total:        res.meta?.total        ?? res.total        ?? list.length,
     }
-    if (currentPage.value === 1) {
-      buildFiltersFromProducts(list, hasActiveFilters)
-      if (!hasActiveFilters && list.length) {
-        const maxP = Math.max(...list.map(p => p.price))
-        // Prix max dynamique plafonné à PRICE_MAX_DEFAULT
-        priceMax.value = Math.min(
-          Math.ceil(maxP / 100000) * 100000 + 100000,
-          PRICE_MAX_DEFAULT
-        )
-        if (priceRange.value[1] === PRICE_MAX_DEFAULT) priceRange.value[1] = priceMax.value
-      }
+
+    if (currentPage.value === 1 && !activeFilterCount.value && list.length) {
+      const maxP = Math.max(...list.map(p => p.price))
+      priceMax.value = Math.min(Math.ceil(maxP / 100000) * 100000 + 100000, PRICE_MAX_DEFAULT)
+      if (priceRange.value[1] === PRICE_MAX_DEFAULT) priceRange.value[1] = priceMax.value
     }
   } catch (err: any) {
     console.error('[category] fetch error:', err?.message ?? err)
     products.value = []
+
   } finally {
     loadingProds.value = false
   }
@@ -319,61 +349,96 @@ const fetchRecentProducts = async () => {
   try {
     const data = await $fetch<any>(`${API}/products`, { params: { per_page: 5, sort: 'latest' } })
     recentProducts.value = data.data ?? []
-  } catch (err: any) {
-    console.error('[recentProducts] fetch error:', err?.message)
+  } catch {
     recentProducts.value = []
   } finally {
     loadingRecent.value = false
   }
 }
 
-// ── Sélectionner / désélectionner un filtre → fetch immédiat ─────────────────
+const fetchSidebarPromos = async () => {
+  loadingPromos.value = true
+  try {
+    const data = await $fetch<any>(`${API}/products`, { params: { per_page: 6, is_promoted: 1, sort: 'latest' } })
+    promoProducts.value = data.data ?? []
+  } catch {
+    promoProducts.value = []
+  } finally {
+    loadingPromos.value = false
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ACTIONS FILTRES
+// ══════════════════════════════════════════════════════════════════════════
+
 const selectFilter = (groupKey: string, opt: string) => {
   appliedFilters.value[groupKey] = appliedFilters.value[groupKey] === opt ? null : opt
-  currentPage.value = 1
   fetchProducts(true)
   isMobileFilterOpen.value = false
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// ── Watchers ──────────────────────────────────────────────────────────────────
+const resetFilters = () => {
+  Object.keys(appliedFilters.value).forEach(k => (appliedFilters.value[k] = null))
+  priceRange.value  = [0, priceMax.value]
+  currentPage.value = 1
+  fetchProducts(true)
+  fetchFilterCounts()
+}
+
+const setPage = (page: number) => {
+  currentPage.value = page
+  fetchProducts()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// INIT & WATCHERS
+// ══════════════════════════════════════════════════════════════════════════
+
 const loadPage = async () => {
-  products.value         = []
-  appliedFilters.value   = {}
-  priceRange.value       = [0, PRICE_MAX_DEFAULT]
-  priceMax.value         = PRICE_MAX_DEFAULT
-  currentPage.value      = 1
-  baseFilterGroups.value = {}
-  initFilterGroups()
+  products.value       = []
+  appliedFilters.value = {}
+  priceRange.value     = [0, PRICE_MAX_DEFAULT]
+  priceMax.value       = PRICE_MAX_DEFAULT
+  currentPage.value    = 1
+  filterGroups.value   = {}
   fetchCategoryInfo()
-  await fetchProducts()
+  fetchProducts()
+  fetchFilterCounts()
   fetchRecentProducts()
 }
 
-watch(() => route.params.slug, () => { loadPage() })
+// ✅ watch activeSlug avec immediate:true
+// — se déclenche dès le premier rendu, slug toujours propre grâce à normalizeSlugSegment
+watch(
+  activeSlug,
+  (slug) => {
+    if (!slug) return
+    loadPage()
+  },
+  { immediate: true }
+)
+
 watch(sortBy, () => fetchProducts(true))
-watch(currentPage, () => { fetchProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }) })
 
 let priceTimer: ReturnType<typeof setTimeout> | null = null
 watch(priceRange, () => {
   if (priceTimer) clearTimeout(priceTimer)
-  priceTimer = setTimeout(() => { fetchProducts(true) }, 400)
-})
+  priceTimer = setTimeout(() => {
+    fetchProducts(true)
+    fetchFilterCounts()
+  }, 400)
+}, { deep: true })
 
-// ── Reset ─────────────────────────────────────────────────────────────────────
-const resetFilters = () => {
-  Object.keys(appliedFilters.value).forEach(k => appliedFilters.value[k] = null)
-  priceRange.value = [0, priceMax.value]
-  currentPage.value = 1
-  fetchProducts(true)
-}
+// ══════════════════════════════════════════════════════════════════════════
+// HELPERS UI
+// ══════════════════════════════════════════════════════════════════════════
 
-const setPage = (page: number) => { currentPage.value = page; window.scrollTo({ top: 0, behavior: 'smooth' }) }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const formatPrice     = (p: number) => new Intl.NumberFormat('fr-CM', { maximumFractionDigits: 0 }).format(p)
-const isOutOfStock    = (p: Product) => p.status === 'out_of_stock' || p.stock === 0
-const goToProduit     = (p: Product) => p.slug ? `/products/${p.slug}` : `/products/${p.id}`
+const formatPrice  = (p: number) => new Intl.NumberFormat('fr-CM', { maximumFractionDigits: 0 }).format(p)
+const isOutOfStock = (p: Product) => p.status === 'out_of_stock' || p.stock === 0
+const goToProduit  = (p: Product) => p.slug ? `/products/${p.slug}` : `/products/${p.id}`
 
 const discountPercent = (p: Product) => {
   if (p.discount_percent) return `-${p.discount_percent}%`
@@ -382,8 +447,8 @@ const discountPercent = (p: Product) => {
   return null
 }
 
-const hoveredKeys = ref<Set<string>>(new Set())
-const setHover = (key: string, on: boolean) => {
+const hoveredKeys   = ref<Set<string>>(new Set())
+const setHover      = (key: string, on: boolean) => {
   const s = new Set(hoveredKeys.value)
   on ? s.add(key) : s.delete(key)
   hoveredKeys.value = s
@@ -393,119 +458,161 @@ const getImageHover = (p: Product) => p.images?.[1] ?? p.images?.[0] ?? '/images
 const imgSrc        = (p: Product, section: string) =>
   hoveredKeys.value.has(`${section}:${p.id}`) ? getImageHover(p) : getImage(p)
 
-// ── Panier & Wishlist ─────────────────────────────────────────────────────────
-const { addToCart: addToCartStore }            = useCart()
-const { isFav, toggleWishlist, initWishlist }  = useWishlist()
+// ══════════════════════════════════════════════════════════════════════════
+// PANIER & WISHLIST
+// ══════════════════════════════════════════════════════════════════════════
 
-const addToCart = (p: Product) => {
+const { addToCart: addToCartStore }           = useCart()
+const { isFav, toggleWishlist, initWishlist } = useWishlist()
+
+const addToCart     = (p: Product) => {
   if (isOutOfStock(p)) return
   addToCartStore({ id: p.id, slug: p.slug, name: p.name, price: p.price, image: getImage(p) })
 }
 const addToWishlist = (p: Product) => toggleWishlist(p.id, p.name)
 
+// ══════════════════════════════════════════════════════════════════════════
+// MOUNTED
+// ══════════════════════════════════════════════════════════════════════════
+
 onMounted(() => {
   initWishlist()
-  loadPage()
+  fetchSidebarPromos()
+  // loadPage() géré par watch(activeSlug, ..., { immediate: true })
 })
-
-// ── Promos & Services ─────────────────────────────────────────────────────────
-const promoFlyers = [
-  { image: '/images/offres/offre_special_dell_5510.png' },
-  { image: '/images/offres/offre_flash_all_in_one.png',},
- 
-]
-
-// const expandedServices = ref<Record<string, boolean>>({
-//   maintenance: false, imprimantes: false, integration: false, securite: false, support: false,
-// })
-// const toggleService = (k: string) => { expandedServices.value[k] = !expandedServices.value[k] }
-
-// const servicesList = [
-//   { key: 'maintenance', icon: 'i-heroicons-wrench-screwdriver', label: 'Maintenance & Réparation',
-//     links: [{ label: 'Laptops', to: '/services/maintenance/laptops' }, { label: 'Desktops', to: '/services/maintenance/desktops' }, { label: 'Serveurs', to: '/services/maintenance/serveurs' }] },
-//   { key: 'imprimantes', icon: 'i-heroicons-printer',            label: 'Imprimantes & Accessoires',
-//     links: [{ label: 'Toners & Encres', to: '/services/accessoires/toners' }, { label: 'Câblage & Réseau', to: '/services/accessoires/reseau' }, { label: 'Périphériques', to: '/services/accessoires/peripheriques' }] },
-//   { key: 'integration', icon: 'i-heroicons-server-stack',       label: 'Intégration IT',
-//     links: [{ label: 'Mise en réseau', to: '/services/integration/reseau' }, { label: 'Déploiement de parcs', to: '/services/integration/parcs' }, { label: 'Cloud & Serveurs', to: '/services/integration/cloud' }] },
-//   { key: 'securite',   icon: 'i-heroicons-shield-check',        label: 'Sécurité Informatique',
-//     links: [{ label: 'Vidéosurveillance', to: '/services/securite/cameras' }, { label: 'Solutions Antivirus', to: '/services/securite/antivirus' }, { label: "Contrôle d'accès", to: '/services/securite/controle-acces' }] },
-//   { key: 'support',    icon: 'i-heroicons-chat-bubble-left-right', label: 'Support Technique',
-//     links: [{ label: 'Assistance Hotline', to: '/contact' }, { label: 'Maintenance à distance', to: '/contact' }] },
-// ]
 </script>
 
 <template>
   <UContainer class="py-8 bg-white">
 
     <!-- BREADCRUMB -->
-    <nav class="hidden sm:flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2 overflow-x-auto">
+    <nav
+      aria-label="Fil d'Ariane"
+      class="hidden sm:flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2 overflow-x-auto">
       <template v-for="(item, index) in breadcrumbItems" :key="index">
-        <NuxtLink :to="item.to" class="flex items-center gap-1 transition-colors hover:text-[#e60012] whitespace-nowrap"
-          :class="item.current ? 'text-[#274a82] font-bold pointer-events-none' : ''">
-         
+        <NuxtLink
+          :to="item.to"
+          class="flex items-center gap-1 transition-colors hover:text-[#e60012] whitespace-nowrap"
+          :class="item.current ? 'text-[#274a82] font-bold pointer-events-none' : ''"
+          :aria-current="item.current ? 'page' : undefined">
           {{ item.label }}
         </NuxtLink>
-        <UIcon v-if="index < breadcrumbItems.length - 1" name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-300 flex-shrink-0" />
+        <UIcon
+          v-if="index < breadcrumbItems.length - 1"
+          name="i-heroicons-chevron-right"
+          class="w-3 h-3 text-gray-300 flex-shrink-0" />
       </template>
     </nav>
 
     <!-- BOUTON FILTRE MOBILE + TRI -->
     <div class="flex lg:hidden items-center justify-between mb-4 gap-3">
-      <button @click="isMobileFilterOpen = true"
+      <button
+        @click="isMobileFilterOpen = true"
+        aria-label="Ouvrir les filtres"
         class="flex items-center gap-2 px-4 py-2.5 bg-[#274a82] text-white rounded-sm text-sm font-bold shadow-sm">
         <UIcon name="i-heroicons-adjustments-horizontal" class="w-4 h-4" />
         Filtres
-        <span v-if="activeFilterCount > 0" class="bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">{{ activeFilterCount }}</span>
+        <span
+          v-if="activeFilterCount > 0"
+          class="bg-[#e60012] text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
+          {{ activeFilterCount }}
+        </span>
       </button>
-      <USelectMenu v-model="sortBy" :items="['Le plus récent','Par popularité','Par tarif croissant','Par tarif decroissant']" class="flex-1" />
+      <USelectMenu v-model="sortBy" :items="SORT_OPTIONS" class="flex-1" />
     </div>
 
-    <!-- ===== DRAWER FILTRE MOBILE ===== -->
+    <!-- DRAWER FILTRE MOBILE -->
     <Teleport to="body">
       <Transition name="overlay">
-        <div v-if="isMobileFilterOpen" class="fixed inset-0 bg-black/50 z-40 lg:hidden" @click="isMobileFilterOpen = false" />
+        <div
+          v-if="isMobileFilterOpen"
+          class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          @click="isMobileFilterOpen = false" />
       </Transition>
       <Transition name="slide-up">
-        <div v-if="isMobileFilterOpen" class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl lg:hidden flex flex-col" style="max-height: 90dvh;">
+        <div
+          v-if="isMobileFilterOpen"
+          class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl lg:hidden flex flex-col"
+          style="max-height: 90dvh;"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filtres">
           <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
             <div class="flex items-center gap-2">
               <UIcon name="i-heroicons-adjustments-horizontal" class="w-5 h-5 text-[#274a82]" />
               <span class="font-bold text-gray-900">Filtres</span>
-              <span v-if="activeFilterCount > 0" class="text-xs text-[#274a82] font-bold">({{ activeFilterCount }} actif{{ activeFilterCount > 1 ? 's' : '' }})</span>
+              <span v-if="activeFilterCount > 0" class="text-xs text-[#274a82] font-bold">
+                ({{ activeFilterCount }} actif{{ activeFilterCount > 1 ? 's' : '' }})
+              </span>
             </div>
             <div class="flex items-center gap-3">
-              <button @click="resetFilters" class="text-xs text-[#e60012] font-bold hover:underline">Tout effacer</button>
-              <button @click="isMobileFilterOpen = false" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
+              <button @click="resetFilters" class="text-xs text-[#e60012] font-bold hover:underline">
+                Tout effacer
+              </button>
+              <button
+                @click="isMobileFilterOpen = false"
+                aria-label="Fermer les filtres"
+                class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
                 <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
               </button>
             </div>
           </div>
+
           <div class="overflow-y-auto flex-1 px-4 py-3 space-y-1">
-            <template v-if="showAdvancedFilters">
+            <!-- Skeleton mobile -->
+            <template v-if="showAdvancedFilters && loadingCounts && Object.keys(filterGroups).length === 0">
+              <div v-for="n in 4" :key="n" class="border-b border-gray-50 pb-3">
+                <div class="h-3 bg-gray-100 rounded animate-pulse w-1/3 my-3"></div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <div v-for="m in 4" :key="m" class="h-9 bg-gray-50 rounded-sm animate-pulse"></div>
+                </div>
+              </div>
+            </template>
+
+            <template v-else-if="showAdvancedFilters">
               <div v-for="(options, key) in filterGroups" :key="key" class="border-b border-gray-50 pb-3">
-                <button @click="toggleExpand(key as string)" class="w-full flex items-center justify-between py-2">
+                <button
+                  @click="toggleExpand(key as string)"
+                  class="w-full flex items-center justify-between py-2"
+                  :aria-expanded="expandedGroups[key as string]">
                   <span class="text-sm font-bold text-gray-800">{{ key }}</span>
                   <div class="flex items-center gap-2">
-                    <span v-if="appliedFilters[key as string]" class="text-[10px] bg-[#274a82]/10 text-[#274a82] font-bold px-2 py-0.5 rounded-full">{{ appliedFilters[key as string] }}</span>
-                    <UIcon name="i-heroicons-chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="{ 'rotate-180': expandedGroups[key as string] }" />
+                    <span
+                      v-if="appliedFilters[key as string]"
+                      class="text-[10px] bg-[#274a82]/10 text-[#274a82] font-bold px-2 py-0.5 rounded-full">
+                      {{ appliedFilters[key as string] }}
+                    </span>
+                    <UIcon
+                      name="i-heroicons-chevron-down"
+                      class="w-4 h-4 text-gray-400 transition-transform"
+                      :class="{ 'rotate-180': expandedGroups[key as string] }" />
                   </div>
                 </button>
                 <div v-if="expandedGroups[key as string]" class="grid grid-cols-2 gap-1.5 pt-1">
                   <button
                     v-for="(count, opt) in options" :key="opt"
-                    @click="selectFilter(key as string, opt as string)"
-                    class="flex items-center gap-2 px-3 py-2 rounded-sm border cursor-pointer transition-all text-xs font-medium text-left"
+                    @click="count > 0 || appliedFilters[key as string] === opt
+                      ? selectFilter(key as string, opt as string) : null"
+                    :disabled="count === 0 && appliedFilters[key as string] !== opt"
+                    class="flex items-center gap-2 px-3 py-2 rounded-sm border transition-all text-xs font-medium text-left"
                     :class="appliedFilters[key as string] === opt
-                      ? 'border-[#274a82] bg-[#274a82]/5 text-[#274a82]'
-                      : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-300'"
-                  >
+                      ? 'border-[#274a82] bg-[#274a82]/5 text-[#274a82] cursor-pointer'
+                      : count === 0
+                        ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                        : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-300 cursor-pointer'">
                     <span class="flex-1">{{ opt }}</span>
-                    <span class="text-[10px] text-gray-400">({{ count }})</span>
-                    <UIcon v-if="appliedFilters[key as string] === opt" name="i-heroicons-check" class="w-3.5 h-3.5 text-[#274a82] flex-shrink-0" />
+                    <span class="text-[10px]" :class="count === 0 ? 'text-gray-300' : 'text-gray-400'">
+                      ({{ count }})
+                    </span>
+                    <UIcon
+                      v-if="appliedFilters[key as string] === opt"
+                      name="i-heroicons-check"
+                      class="w-3.5 h-3.5 text-[#274a82] flex-shrink-0" />
                   </button>
                 </div>
               </div>
             </template>
+
             <!-- Prix mobile -->
             <div class="pb-3">
               <p class="text-sm font-bold text-gray-800 py-2">Prix</p>
@@ -515,8 +622,12 @@ const promoFlyers = [
               </div>
             </div>
           </div>
+
           <div class="flex-shrink-0 px-4 py-4 border-t border-gray-100 bg-white">
-            <UButton @click="isMobileFilterOpen = false" color="error" block size="lg" class="rounded-sm font-bold">
+            <UButton
+              @click="isMobileFilterOpen = false"
+              color="error" block size="lg"
+              class="rounded-sm font-bold">
               Voir les résultats<span v-if="meta.total > 0"> ({{ meta.total }})</span>
             </UButton>
           </div>
@@ -524,14 +635,16 @@ const promoFlyers = [
       </Transition>
     </Teleport>
 
-    <!-- ===== LAYOUT PRINCIPAL ===== -->
+    <!-- LAYOUT PRINCIPAL -->
     <div class="grid grid-cols-12 gap-8">
 
       <!-- SIDEBAR DESKTOP -->
-      <aside class="hidden lg:block col-span-3 space-y-8 flex-shrink-0">
+      <aside class="hidden lg:block col-span-3 space-y-8 flex-shrink-0" aria-label="Filtres">
         <div class="flex items-center justify-between">
           <h2 class="text-2xl text-gray-800 my-1">Filtres</h2>
-          <button v-if="activeFilterCount > 0" @click="resetFilters"
+          <button
+            v-if="activeFilterCount > 0"
+            @click="resetFilters"
             class="text-xs text-[#e60012] font-bold hover:underline">
             Tout effacer
           </button>
@@ -539,27 +652,51 @@ const promoFlyers = [
         <hr class="border-[#e60012] -mt-6" />
 
         <template v-if="showAdvancedFilters">
-          <div v-for="(options, key) in filterGroups" :key="key" class="border-b border-gray-100 pb-4">
-            <h3 class="text-[14px] font-extrabold text-gray-500 tracking-widest mb-2.5">{{ key }}</h3>
-            <div class="flex flex-wrap gap-1.5">
-              <template v-for="(count, opt, index) in options" :key="opt">
-                <button
-                  v-if="index < 6 || expandedGroups[key as string]"
-                  @click="selectFilter(key as string, opt as string)"
-                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all select-none cursor-pointer"
-                  :class="appliedFilters[key as string] === opt
-                    ? 'bg-[#274a82] border-[#274a82] text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-[#274a82] hover:text-[#274a82]'"
-                >
-                  {{ opt }} <span class="opacity-60 text-[10px]">({{ count }})</span>
-                </button>
-              </template>
+          <!-- Skeleton desktop -->
+          <template v-if="loadingCounts && Object.keys(filterGroups).length === 0">
+            <div v-for="n in 5" :key="n" class="border-b border-gray-100 pb-4 space-y-2">
+              <div class="h-3 bg-gray-100 rounded animate-pulse w-1/3"></div>
+              <div class="flex flex-wrap gap-1.5">
+                <div v-for="m in 4" :key="m" class="h-7 bg-gray-50 rounded-full animate-pulse w-20"></div>
+              </div>
             </div>
-            <button v-if="Object.keys(options).length > 6" @click="toggleExpand(key as string)"
-              class="text-[11px] text-[#274a82] font-bold mt-2 hover:text-[#e60012] transition-colors">
-              {{ expandedGroups[key as string] ? '− Voir moins' : '+ Voir plus' }}
-            </button>
-          </div>
+          </template>
+
+          <template v-else>
+            <div v-for="(options, key) in filterGroups" :key="key" class="border-b border-gray-100 pb-4">
+              <h3 class="text-[14px] font-extrabold text-gray-500 tracking-widest mb-2.5">{{ key }}</h3>
+              <div class="flex flex-wrap gap-1.5">
+                <template v-for="(count, opt, index) in options" :key="opt">
+                  <button
+                    v-if="index < 6 || expandedGroups[key as string]"
+                    @click="count > 0 || appliedFilters[key as string] === opt
+                      ? selectFilter(key as string, opt as string) : null"
+                    :disabled="count === 0 && appliedFilters[key as string] !== opt"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all select-none"
+                    :class="appliedFilters[key as string] === opt
+                      ? 'bg-[#274a82] border-[#274a82] text-white shadow-sm cursor-pointer'
+                      : count === 0
+                        ? 'bg-white border-gray-100 text-gray-300 cursor-not-allowed'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-[#274a82] hover:text-[#274a82] cursor-pointer'">
+                    {{ opt }}
+                    <span
+                      class="text-[10px]"
+                      :class="appliedFilters[key as string] === opt
+                        ? 'opacity-70'
+                        : count === 0 ? 'text-gray-200' : 'opacity-60'">
+                      ({{ count }})
+                    </span>
+                  </button>
+                </template>
+              </div>
+              <button
+                v-if="Object.keys(options).length > 6"
+                @click="toggleExpand(key as string)"
+                class="text-[11px] text-[#274a82] font-bold mt-2 hover:text-[#e60012] transition-colors">
+                {{ expandedGroups[key as string] ? '− Voir moins' : '+ Voir plus' }}
+              </button>
+            </div>
+          </template>
         </template>
 
         <!-- Prix desktop -->
@@ -579,51 +716,89 @@ const promoFlyers = [
           </UButton>
         </div>
 
-        <!-- Nos Promos -->
+        <!-- Sidebar promos carousel -->
         <div>
-          <h3 class="text-sm font-bold text-gray-900 tracking-wider border-b border-[#e60012] mb-4">Nos Promos</h3>
-          <UCarousel v-slot="{ item }" :items="promoFlyers" arrows dots :autoplay="{ delay: 2000 }"
-            class="relative h-full rounded-sm overflow-hidden shadow-sm" :prev="{ variant: 'solid' }" :next="{ variant: 'solid' }" :ui="{ prev: 'sm:start-2', next: 'sm:end-2' }">
-            <div class="relative overflow-hidden aspect-[4/5]">
-              <img :src="item.image" class="w-full h-full object-cover" draggable="false" />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none"></div>
-            </div>
-          </UCarousel>
-        </div>
+          <div class="flex items-center justify-between border-b border-[#e60012] mb-4">
+            <h3 class="text-sm font-bold text-gray-900 tracking-wider pb-1">En Promotion</h3>
+            <NuxtLink
+              to="/boutique?promo=1"
+              class="text-[11px] font-black text-[#274a82] hover:text-[#e60012] flex items-center gap-0.5 transition-colors group pb-1">
+              Voir plus
+              <UIcon name="i-heroicons-arrow-right" class="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </NuxtLink>
+          </div>
 
-        <!-- Nos Meilleur Produits -->
-        <div>
-          <h3 class="text-sm font-bold text-gray-900 tracking-wider border-b border-[#e60012] mb-4">Nos Meilleur Produits</h3>
-          <UCarousel v-slot="{ item }" :items="promoFlyers" arrows dots :autoplay="{ delay: 3000 }"
-            class="relative h-full rounded-sm overflow-hidden shadow-sm" :prev="{ variant: 'solid' }" :next="{ variant: 'solid' }" :ui="{ prev: 'sm:start-2', next: 'sm:end-2' }">
-            <div class="relative overflow-hidden aspect-[4/5]">
-              <img :src="item.image" class="w-full h-full object-cover" draggable="false" />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none"></div>
-            </div>
-          </UCarousel>
-        </div>
-
-        <!-- Nos Expertises -->
-        <!-- <div>
-          <h3 class="text-[11px] font-extrabold text-gray-500 uppercase tracking-widest mb-3">Nos Expertises</h3>
-          <div class="rounded-sm border border-gray-100 overflow-hidden divide-y divide-gray-100">
-            <div v-for="service in servicesList" :key="service.key">
-              <button @click="toggleService(service.key)"
-                class="w-full flex items-center justify-between px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors group">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-sm bg-gray-50 flex items-center justify-center flex-shrink-0">
-                    <UIcon :name="service.icon" class="w-3.5 h-3.5" :class="service.color" />
-                  </div>
-                  <span class="text-[12px] font-bold text-gray-800 text-left leading-tight">{{ service.label }}</span>
-                </div>
-                <UIcon name="i-heroicons-chevron-right" class="w-3.5 h-3.5 text-gray-300 transition-transform duration-200 flex-shrink-0" :class="expandedServices[service.key] ? 'rotate-90' : ''" />
-              </button>
-              <div v-show="expandedServices[service.key]" class="bg-gray-50/50 border-t border-gray-50 px-10 py-2 space-y-2">
-                <NuxtLink v-for="link in service.links" :key="link.label" :to="link.to" class="block text-[12px] text-gray-600 hover:text-[#e60012] transition-colors">{{ link.label }}</NuxtLink>
+          <div v-if="loadingPromos" class="space-y-2">
+            <div v-for="n in 3" :key="n" class="flex gap-2 animate-pulse">
+              <div class="w-16 h-16 bg-gray-100 rounded-sm flex-shrink-0"></div>
+              <div class="flex-1 space-y-1.5 py-1">
+                <div class="h-2.5 bg-gray-100 rounded w-full"></div>
+                <div class="h-3 bg-gray-100 rounded w-2/3"></div>
               </div>
             </div>
           </div>
-        </div> -->
+
+          <div
+            v-else-if="promoProducts.length === 0"
+            class="flex flex-col items-center justify-center py-6 text-gray-300">
+            <UIcon name="i-heroicons-sparkles" class="w-8 h-8 mb-1" />
+            <p class="text-xs font-medium text-gray-400">Aucune promo disponible</p>
+          </div>
+
+          <UCarousel
+            v-else v-slot="{ item: p }"
+            :items="promoProducts"
+            arrows dots
+            :autoplay="{ delay: 3000 }"
+            class="relative rounded-sm overflow-hidden"
+            :prev="{ variant: 'solid', size: 'xs' }"
+            :next="{ variant: 'solid', size: 'xs' }">
+            <NuxtLink
+              :to="goToProduit(p)"
+              class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-lg w-full">
+              <div
+                class="relative h-44 w-full overflow-hidden flex items-center justify-center"
+                @mouseenter="setHover(`sidebar-promo:${p.id}`, true)"
+                @mouseleave="setHover(`sidebar-promo:${p.id}`, false)">
+                <div
+                  v-if="discountPercent(p)"
+                  class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm">
+                  {{ discountPercent(p) }}
+                </div>
+                <div
+                  v-if="isOutOfStock(p)"
+                  class="absolute top-2 right-2 z-10 bg-gray-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm">
+                  Rupture
+                </div>
+                <img
+                  :src="imgSrc(p, 'sidebar-promo')"
+                  :alt="p.name"
+                  loading="lazy"
+                  decoding="async"
+                  width="180"
+                  height="180"
+                  class="absolute inset-0 w-full h-full object-contain p-3 transition-all duration-500 group-hover:scale-105" />
+              </div>
+              <div class="p-2 flex flex-col gap-1 border-t border-gray-100">
+                <span class="text-[10px] text-gray-400 font-bold tracking-widest truncate">
+                  {{ p.category?.name ?? '' }}
+                </span>
+                <h4
+                  class="text-[12px] text-[#274a82] font-bold line-clamp-2 leading-snug group-hover:text-[#e60012] transition-colors min-h-[32px]">
+                  {{ p.name }}
+                </h4>
+                <div class="flex items-end gap-2 mt-1">
+                  <span class="text-sm font-black text-gray-900 leading-tight">
+                    {{ formatPrice(p.price) }} <span class="text-[9px] font-medium">FCFA</span>
+                  </span>
+                  <span v-if="p.old_price" class="text-[10px] text-[#e60012] line-through leading-tight">
+                    {{ formatPrice(p.old_price) }} FCFA
+                  </span>
+                </div>
+              </div>
+            </NuxtLink>
+          </UCarousel>
+        </div>
       </aside>
 
       <!-- MAIN -->
@@ -631,24 +806,53 @@ const promoFlyers = [
         <h1 class="text-2xl font-medium text-gray-700 tracking-tighter pb-2">{{ categoryDisplayName }}</h1>
         <p v-if="categoryDesc" class="text-sm text-gray-500 mb-4 leading-relaxed">{{ categoryDesc }}</p>
 
-        <!-- Barre tri/affichage -->
-        <div class="flex flex-wrap items-center justify-between mb-6 bg-[#f8f8f8] p-2 rounded-xl border border-gray-200 gap-4">
-          <div class="flex items-center gap-3 ml-2">
-            <button @click="viewMode = 'grid'"         :class="viewMode === 'grid'         ? 'text-black' : 'text-gray-300'"><UIcon name="i-heroicons-squares-2x2-solid"       class="w-6 h-6" /></button>
-            <button @click="viewMode = 'grid-small'"   :class="viewMode === 'grid-small'   ? 'text-black' : 'text-gray-300'"><UIcon name="i-heroicons-squares-plus-solid"       class="w-6 h-6" /></button>
-            <button @click="viewMode = 'list'"         :class="viewMode === 'list'         ? 'text-black' : 'text-gray-300'"><UIcon name="i-heroicons-bars-3-bottom-left-solid" class="w-6 h-6" /></button>
-            <button @click="viewMode = 'list-compact'" :class="viewMode === 'list-compact' ? 'text-black' : 'text-gray-300'"><UIcon name="i-heroicons-list-bullet-solid"        class="w-6 h-6" /></button>
+        <!-- Barre tri / affichage -->
+        <div
+          class="flex flex-wrap items-center justify-between mb-6 bg-[#f8f8f8] p-2 rounded-xl border border-gray-200 gap-4">
+          <div class="flex items-center gap-3 ml-2" role="group" aria-label="Mode d'affichage">
+            <button
+              @click="viewMode = 'grid'"
+              :aria-pressed="viewMode === 'grid'"
+              aria-label="Grille normale"
+              :class="viewMode === 'grid' ? 'text-black' : 'text-gray-300'">
+              <UIcon name="i-heroicons-squares-2x2-solid" class="w-6 h-6" />
+            </button>
+            <button
+              @click="viewMode = 'grid-small'"
+              :aria-pressed="viewMode === 'grid-small'"
+              aria-label="Petite grille"
+              :class="viewMode === 'grid-small' ? 'text-black' : 'text-gray-300'">
+              <UIcon name="i-heroicons-squares-plus-solid" class="w-6 h-6" />
+            </button>
+            <button
+              @click="viewMode = 'list'"
+              :aria-pressed="viewMode === 'list'"
+              aria-label="Liste"
+              :class="viewMode === 'list' ? 'text-black' : 'text-gray-300'">
+              <UIcon name="i-heroicons-bars-3-bottom-left-solid" class="w-6 h-6" />
+            </button>
+            <button
+              @click="viewMode = 'list-compact'"
+              :aria-pressed="viewMode === 'list-compact'"
+              aria-label="Liste compacte"
+              :class="viewMode === 'list-compact' ? 'text-black' : 'text-gray-300'">
+              <UIcon name="i-heroicons-list-bullet-solid" class="w-6 h-6" />
+            </button>
           </div>
           <div class="flex items-center gap-4">
             <span class="hidden sm:block text-[13px] text-gray-500 font-medium">
               <span v-if="loadingProds">Chargement...</span>
               <template v-else>
-                Affichage de <span class="text-gray-900 font-bold">{{ ((currentPage - 1) * itemsPerPage) + 1 }}</span>–<span class="text-gray-900 font-bold">{{ Math.min(currentPage * itemsPerPage, meta.total) }}</span> sur <span class="text-gray-900 font-bold">{{ meta.total }}</span> résultats
+                Affichage de
+                <span class="text-gray-900 font-bold">{{ ((meta.current_page - 1) * meta.per_page) + 1 }}</span>–<span
+                  class="text-gray-900 font-bold">
+                  {{ Math.min(meta.current_page * meta.per_page, meta.total) }}
+                </span>
+                sur <span class="text-gray-900 font-bold">{{ meta.total }}</span> résultats
               </template>
             </span>
             <div class="hidden lg:block">
-              <USelectMenu v-model="sortBy" :items="['Le plus récent','Par popularité','Par tarif croissant','Par tarif decroissant']"
-                class="min-w-48" :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200' }" />
+              <USelectMenu v-model="sortBy" :items="SORT_OPTIONS" class="min-w-48" />
             </div>
           </div>
         </div>
@@ -656,10 +860,14 @@ const promoFlyers = [
         <!-- Filtres actifs (chips) -->
         <div v-if="activeFilterCount > 0" class="flex flex-wrap gap-2 mb-4">
           <template v-for="(val, key) in appliedFilters" :key="key">
-            <span v-if="val"
+            <span
+              v-if="val"
               class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#274a82]/10 text-[#274a82] text-xs font-bold">
               {{ key }} : {{ val }}
-              <button @click="selectFilter(key as string, val as string)" class="hover:text-[#e60012] transition-colors">
+              <button
+                @click="selectFilter(key as string, val as string)"
+                :aria-label="`Supprimer le filtre ${key}`"
+                class="hover:text-[#e60012] transition-colors">
                 <UIcon name="i-heroicons-x-mark" class="w-3.5 h-3.5" />
               </button>
             </span>
@@ -678,97 +886,143 @@ const promoFlyers = [
         </div>
 
         <!-- Aucun résultat -->
-        <div v-else-if="products.length === 0" class="flex flex-col items-center justify-center py-24 text-gray-400">
+        <div
+          v-else-if="products.length === 0"
+          class="flex flex-col items-center justify-center py-24 text-gray-400">
           <UIcon name="i-heroicons-face-frown" class="w-12 h-12 mb-3 text-gray-300" />
           <p class="text-base font-semibold text-gray-500">Aucun produit trouvé</p>
-          <UButton @click="resetFilters" variant="outline" color="gray" class="mt-4 font-bold" size="sm">Réinitialiser les filtres</UButton>
+          <UButton
+            @click="resetFilters"
+            variant="outline"
+            color="gray"
+            class="mt-4 font-bold"
+            size="sm">
+            Réinitialiser les filtres
+          </UButton>
         </div>
 
-        <!-- ═══ GRILLE PRODUITS ═══ -->
-        <div v-else :class="{
-          'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3': viewMode === 'grid',
-          'grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2': viewMode === 'grid-small',
-          'flex flex-col gap-3': viewMode === 'list',
-          'flex flex-col gap-1': viewMode === 'list-compact',
-        }">
+        <!-- GRILLE PRODUITS -->
+        <div
+          v-else
+          :class="{
+            'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3': viewMode === 'grid',
+            'grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2': viewMode === 'grid-small',
+            'flex flex-col gap-3': viewMode === 'list',
+            'flex flex-col gap-1': viewMode === 'list-compact',
+          }">
           <NuxtLink
             v-for="p in products" :key="p.id"
             :to="goToProduit(p)"
             :class="viewMode.startsWith('grid')
               ? 'group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl'
-              : 'group relative rounded-sm bg-white border border-gray-100 flex flex-row items-center gap-3 p-3 transition-all hover:shadow-md'"
-          >
-            <div :class="{
-              'relative w-full h-44 sm:h-52': viewMode === 'grid',
-              'relative w-full h-32 sm:h-40': viewMode === 'grid-small',
-              'relative h-28 w-28 sm:h-36 sm:w-36 flex-shrink-0': viewMode === 'list',
-              'relative h-16 w-16 flex-shrink-0': viewMode === 'list-compact',
-            }" class="overflow-hidden flex items-center justify-center bg-[#fcfcfc] rounded-sm"
+              : 'group relative rounded-sm bg-white border border-gray-100 flex flex-row items-center gap-3 p-3 transition-all hover:shadow-md'">
+            <div
+              :class="{
+                'relative w-full h-44 sm:h-52': viewMode === 'grid',
+                'relative w-full h-32 sm:h-40': viewMode === 'grid-small',
+                'relative h-28 w-28 sm:h-36 sm:w-36 flex-shrink-0': viewMode === 'list',
+                'relative h-16 w-16 flex-shrink-0': viewMode === 'list-compact',
+              }"
+              class="overflow-hidden flex items-center justify-center bg-[#fcfcfc] rounded-sm"
               @mouseenter="setHover(`grid:${p.id}`, true)"
               @mouseleave="setHover(`grid:${p.id}`, false)">
+              <div
+                v-if="discountPercent(p)"
+                class="absolute bottom-2 left-2 bg-[#e60012] text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">
+                {{ discountPercent(p) }}
+              </div>
+              <div
+                v-if="isOutOfStock(p)"
+                class="absolute top-2 left-2 bg-gray-500 text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">
+                Rupture
+              </div>
+              <div
+                v-else-if="p.stock > 0 && p.stock <= 5"
+                class="absolute top-2 left-2 bg-orange-500 text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">
+                Plus que {{ p.stock }}
+              </div>
 
-              <div v-if="discountPercent(p)" class="absolute bottom-2 left-2 bg-[#e60012] text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">{{ discountPercent(p) }}</div>
-              <div v-if="isOutOfStock(p)" class="absolute top-2 left-2 bg-gray-500 text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">Rupture</div>
-              <div v-else-if="(p as any).stock > 0 && (p as any).stock <= 5" class="absolute top-2 left-2 bg-orange-500 text-white text-[9px] font-black px-2 py-0.5 rounded-sm z-10">Plus que {{ (p as any).stock }}</div>
-
-              <div v-if="viewMode.startsWith('grid')" class="hidden sm:flex absolute right-[-50px] group-hover:right-3 top-3 flex-col gap-2 z-30 transition-all duration-300">
-                <button @click.prevent.stop="addToWishlist(p)"
+              <div
+                v-if="viewMode.startsWith('grid')"
+                class="hidden sm:flex absolute right-[-50px] group-hover:right-3 top-3 flex-col gap-2 z-30 transition-all duration-300">
+                <button
+                  @click.prevent.stop="addToWishlist(p)"
+                  :aria-label="isFav(p.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
                   class="w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center transition-colors"
-                  :class="isFav(p.id) ? 'bg-[#e60012] text-[#e60012]' : 'text-gray-400 hover:bg-[#e60012] hover:text-white'">
-                  <UIcon :name="isFav(p.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'" class="w-4 h-4" />
-                </button>
-                
-              </div>
-
-              <img :src="imgSrc(p, 'grid')" class="absolute inset-0 w-full h-full object-contain p-2 transition-opacity duration-300" :alt="p.name" />
-
-              <div v-if="viewMode.startsWith('grid')" class="hidden sm:block absolute bottom-[-100%] group-hover:bottom-0 left-0 w-full transition-all duration-300 z-20">
-                <button @click.prevent.stop="addToCart(p)" :disabled="isOutOfStock(p)"
-                  class="w-full flex items-center justify-center gap-2 bg-[#274a82] hover:bg-[#e60012] text-white font-bold text-[12px] py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                  <UIcon name="i-heroicons-shopping-cart" class="w-4 h-4" />
-                  {{ isOutOfStock(p) ? 'Rupture de stock' : 'Ajouter au Panier' }}
+                  :class="isFav(p.id)
+                    ? 'bg-[#e60012] text-[#e60012]'
+                    : 'text-gray-400 hover:bg-[#e60012] hover:text-white'">
+                  <UIcon
+                    :name="isFav(p.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
+                    class="w-4 h-4" />
                 </button>
               </div>
+
+              <img
+                :src="imgSrc(p, 'grid')"
+                :alt="p.name"
+                loading="lazy"
+                decoding="async"
+                width="200"
+                height="200"
+                class="absolute inset-0 w-full h-full object-contain p-2 transition-opacity duration-300" />
             </div>
 
-            <div class="flex flex-col flex-1 min-w-0" :class="viewMode.startsWith('grid') ? 'p-2 sm:p-3' : ''">
-              <span class="text-[10px] sm:text-[11px] text-gray-400 font-bold tracking-widest truncate">{{ (p as any).category?.name ?? '' }}</span>
-              <h3 class="font-bold leading-snug group-hover:text-[#e60012] transition-colors truncate sm:whitespace-normal"
+            <div
+              class="flex flex-col flex-1 min-w-0 border-t border-gray-100"
+              :class="viewMode.startsWith('grid') ? 'p-2 sm:p-3' : ''">
+              <span class="text-[10px] sm:text-[11px] text-gray-400 font-bold tracking-widest truncate">
+                {{ p.category?.name ?? '' }}
+              </span>
+              <h3
+                class="font-bold leading-snug group-hover:text-[#e60012] transition-colors overflow-hidden"
                 :class="{
-                  'text-[13px] sm:text-[14px] text-[#274a82] line-clamp-2 mt-0.5 mb-2 h-8 sm:h-10': viewMode === 'grid',
+                  'text-[13px] sm:text-[14px] text-[#274a82] line-clamp-2 mt-0.5 mb-2': viewMode === 'grid',
                   'text-[11px] text-[#274a82] line-clamp-1 mt-0.5 mb-1': viewMode === 'grid-small',
                   'text-[13px] sm:text-sm text-gray-800 line-clamp-2 mt-0.5 mb-2': viewMode === 'list',
                   'text-[12px] text-gray-800 line-clamp-1': viewMode === 'list-compact',
-                }">{{ p.name }}</h3>
+                }">
+                {{ p.name }}
+              </h3>
 
               <div class="mt-auto flex items-center justify-between gap-2">
                 <div class="min-w-0">
-                  <div v-if="p.old_price && viewMode !== 'list-compact'" class="text-[10px] sm:text-[11px] text-[#e60012] line-through leading-tight">{{ formatPrice(p.old_price) }} FCFA</div>
-                  <div class="font-black text-gray-900 leading-tight whitespace-nowrap"
-                    :class="viewMode === 'list-compact' ? 'text-xs' : viewMode === 'grid-small' ? 'text-sm' : 'text-base sm:text-lg'">
+                  <div
+                    v-if="p.old_price && viewMode !== 'list-compact'"
+                    class="text-[10px] sm:text-[11px] text-[#e60012] line-through leading-tight">
+                    {{ formatPrice(p.old_price) }} FCFA
+                  </div>
+                  <div
+                    class="font-black text-gray-900 leading-tight whitespace-nowrap"
+                    :class="viewMode === 'list-compact'
+                      ? 'text-xs'
+                      : viewMode === 'grid-small' ? 'text-sm' : 'text-base sm:text-lg'">
                     {{ formatPrice(p.price) }} <span class="text-[9px] font-medium">FCFA</span>
                   </div>
                 </div>
 
-                <div v-if="viewMode.startsWith('list')" class="hidden sm:flex items-center gap-1.5 flex-shrink-0">
-                  <button @click.prevent.stop="addToWishlist(p)"
+                <div
+                  v-if="viewMode.startsWith('list')"
+                  class="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    @click.prevent.stop="addToWishlist(p)"
+                    :aria-label="isFav(p.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
                     class="w-8 h-8 rounded-full border flex items-center justify-center transition-colors"
-                    :class="isFav(p.id) ? 'border-[#e60012] text-[#e60012] bg-red-50' : 'border-gray-200 text-gray-400 hover:text-[#e60012] hover:border-[#e60012]'">
-                    <UIcon :name="isFav(p.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'" class="w-4 h-4" />
+                    :class="isFav(p.id)
+                      ? 'border-[#e60012] text-[#e60012] bg-red-50'
+                      : 'border-gray-200 text-gray-400 hover:text-[#e60012] hover:border-[#e60012]'">
+                    <UIcon
+                      :name="isFav(p.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
+                      class="w-4 h-4" />
                   </button>
-                  
-                  <button @click.prevent.stop="addToCart(p)" :disabled="isOutOfStock(p)"
+                  <button
+                    @click.prevent.stop="addToCart(p)"
+                    :disabled="isOutOfStock(p)"
                     class="flex items-center gap-1.5 px-3 py-2 rounded-full bg-[#274a82] hover:bg-[#e60012] text-white text-[11px] font-bold transition-colors disabled:opacity-40">
                     <UIcon name="i-heroicons-shopping-cart" class="w-3.5 h-3.5" />
                     <span class="hidden md:inline">Ajouter</span>
                   </button>
                 </div>
-
-                <button @click.prevent.stop="addToCart(p)" :disabled="isOutOfStock(p)"
-                  class="sm:hidden flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md active:scale-90 transition-all disabled:opacity-40"
-                  :class="isOutOfStock(p) ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#274a82] hover:bg-[#e60012]'">
-                  <UIcon name="i-heroicons-shopping-cart" class="w-4 h-4" />
-                </button>
               </div>
             </div>
           </NuxtLink>
@@ -776,19 +1030,121 @@ const promoFlyers = [
 
         <!-- Pagination -->
         <div v-if="meta.last_page > 1" class="flex justify-center pt-6 mb-12">
-          <UPagination v-model:page="currentPage" :items-per-page="meta.per_page" :total="meta.total" show-edges @update:page="setPage" />
+          <UPagination
+            v-model:page="currentPage"
+            :items-per-page="meta.per_page"
+            :total="meta.total"
+            show-edges
+            @update:page="setPage" />
         </div>
 
-        <!-- ═══ PRODUITS RÉCENTS ═══ -->
-        <section v-if="recentProducts.length > 0" class="py-8">
-          <div class="flex items-center justify-between border-b border-gray-200 mb-6">
-            <h2 class="text-xl font-bold text-gray-800 pb-2 border-b-2 border-[#e60012] mb-[-1px] tracking-tight">Produits Récents</h2>
-            <NuxtLink to="/nouveautes" class="text-[13px] font-black text-[#274a82] hover:text-[#e60012] flex items-center gap-1 transition-colors group">
-              Voir plus <UIcon name="i-heroicons-arrow-right" class="group-hover:translate-x-1 transition-transform" />
+        <!-- PROMOS MOBILE -->
+        <section class="lg:hidden py-8" aria-label="Promotions">
+          <div class="flex items-center justify-between border-b border-[#e60012] mb-4">
+            <h2 class="text-xl font-bold text-gray-800 pb-2 border-b-2 border-[#e60012] mb-[-1px] tracking-tight">
+              En Promotion
+            </h2>
+            <NuxtLink
+              to="/boutique?promo=1"
+              class="text-[13px] font-black text-[#274a82] hover:text-[#e60012] flex items-center gap-1 transition-colors group pb-2">
+              Voir plus
+              <UIcon name="i-heroicons-arrow-right" class="group-hover:translate-x-1 transition-transform" />
             </NuxtLink>
           </div>
 
-          <div v-if="loadingRecent" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+          <div v-if="loadingPromos" class="space-y-2">
+            <div v-for="n in 3" :key="n" class="flex gap-2 animate-pulse">
+              <div class="w-16 h-16 bg-gray-100 rounded-sm flex-shrink-0"></div>
+              <div class="flex-1 space-y-1.5 py-1">
+                <div class="h-2.5 bg-gray-100 rounded w-full"></div>
+                <div class="h-3 bg-gray-100 rounded w-2/3"></div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-else-if="promoProducts.length === 0"
+            class="flex flex-col items-center justify-center py-6 text-gray-300">
+            <UIcon name="i-heroicons-sparkles" class="w-8 h-8 mb-1" />
+            <p class="text-xs font-medium text-gray-400">Aucune promo disponible</p>
+          </div>
+
+          <UCarousel
+            v-else v-slot="{ item: p }"
+            :items="promoProducts"
+            arrows dots
+            :autoplay="{ delay: 3000 }"
+            class="relative rounded-sm overflow-hidden"
+            :prev="{ variant: 'solid', size: 'xs' }"
+            :next="{ variant: 'solid', size: 'xs' }">
+            <NuxtLink
+              :to="goToProduit(p)"
+              class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-lg w-full">
+              <div
+                class="relative h-56 w-full overflow-hidden flex items-center justify-center"
+                @mouseenter="setHover(`mobile-promo:${p.id}`, true)"
+                @mouseleave="setHover(`mobile-promo:${p.id}`, false)">
+                <div
+                  v-if="discountPercent(p)"
+                  class="absolute top-2 left-2 z-10 bg-[#e60012] text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm">
+                  {{ discountPercent(p) }}
+                </div>
+                <div
+                  v-if="isOutOfStock(p)"
+                  class="absolute top-2 right-2 z-10 bg-gray-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm">
+                  Rupture
+                </div>
+                <img
+                  :src="imgSrc(p, 'mobile-promo')"
+                  :alt="p.name"
+                  loading="lazy"
+                  decoding="async"
+                  width="300"
+                  height="300"
+                  class="absolute inset-0 w-full h-full object-contain p-3 transition-all duration-500 group-hover:scale-105" />
+              </div>
+              <div class="p-3 flex flex-col gap-1 border-t border-gray-100">
+                <span class="text-[10px] text-gray-400 font-bold tracking-widest truncate">
+                  {{ p.category?.name ?? '' }}
+                </span>
+                <h4
+                  class="text-[13px] text-[#274a82] font-bold line-clamp-2 leading-snug group-hover:text-[#e60012] transition-colors min-h-[36px]">
+                  {{ p.name }}
+                </h4>
+                <div class="flex items-end gap-2 mt-1">
+                  <span class="text-base font-black text-gray-900 leading-tight">
+                    {{ formatPrice(p.price) }} <span class="text-[9px] font-medium">FCFA</span>
+                  </span>
+                  <span v-if="p.old_price" class="text-[11px] text-[#e60012] line-through leading-tight">
+                    {{ formatPrice(p.old_price) }} FCFA
+                  </span>
+                </div>
+              </div>
+            </NuxtLink>
+          </UCarousel>
+        </section>
+
+        <!-- PRODUITS RÉCENTS desktop -->
+        <section
+          v-if="recentProducts.length > 0"
+          class="hidden lg:block py-8"
+          aria-label="Produits récents">
+          <div class="flex items-center justify-between border-b border-gray-200 mb-6">
+            <h2
+              class="text-xl font-bold text-gray-800 pb-2 border-b-2 border-[#e60012] mb-[-1px] tracking-tight">
+              Produits Récents
+            </h2>
+            <NuxtLink
+              to="/nouveautes"
+              class="text-[13px] font-black text-[#274a82] hover:text-[#e60012] flex items-center gap-1 transition-colors group">
+              Voir plus
+              <UIcon name="i-heroicons-arrow-right" class="group-hover:translate-x-1 transition-transform" />
+            </NuxtLink>
+          </div>
+
+          <div
+            v-if="loadingRecent"
+            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
             <div v-for="n in 5" :key="n" class="bg-gray-50 rounded-sm animate-pulse">
               <div class="h-40 sm:h-48 bg-gray-100 rounded-sm"></div>
               <div class="p-2 space-y-2">
@@ -798,95 +1154,70 @@ const promoFlyers = [
             </div>
           </div>
 
-          <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+          <div
+            v-else
+            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
             <NuxtLink
               v-for="p in recentProducts" :key="'recent-' + p.id"
               :to="goToProduit(p)"
-              class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl"
-            >
-              <div class="relative h-40 sm:h-48 w-full overflow-hidden flex items-center justify-center bg-[#fcfcfc]"
+              class="group relative rounded-sm bg-white border border-gray-100 flex flex-col transition-all duration-300 hover:shadow-xl">
+              <div
+                class="relative h-40 sm:h-48 w-full overflow-hidden flex items-center justify-center bg-[#fcfcfc]"
                 @mouseenter="setHover(`recent:${p.id}`, true)"
                 @mouseleave="setHover(`recent:${p.id}`, false)">
-                <div class="hidden sm:flex absolute right-[-50px] group-hover:right-3 top-3 flex-col gap-2 z-30 transition-all duration-300">
-                 <button
+                <div
+                  class="hidden sm:flex absolute right-[-50px] group-hover:right-3 top-3 flex-col gap-2 z-30 transition-all duration-300">
+                  <button
                     @click.prevent.stop="addToWishlist(p)"
+                    :aria-label="isFav(p.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
                     class="w-8 h-8 shadow-md rounded-full flex items-center justify-center transition-colors"
                     :class="isFav(p.id)
                       ? 'bg-white text-[#e60012]'
-                      : 'bg-white text-gray-400 hover:text-white hover:bg-[#e60012]'"
-                  >
-                    <UIcon :name="isFav(p.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'" class="w-4 h-4" />
+                      : 'bg-white text-gray-400 hover:text-white hover:bg-[#e60012]'">
+                    <UIcon
+                      :name="isFav(p.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
+                      class="w-4 h-4" />
                   </button>
                 </div>
-                <div class="hidden sm:block absolute bottom-[-100%] group-hover:bottom-0 left-0 w-full transition-all duration-300 z-20">
-                  <button @click.prevent.stop="addToCart(p)" :disabled="isOutOfStock(p)"
-                    class="w-full flex items-center justify-center gap-2 bg-[#274a82] hover:bg-[#e60012] text-white font-bold text-[12px] py-2.5 transition-colors disabled:opacity-50">
-                    <UIcon name="i-heroicons-shopping-cart" class="w-4 h-4" />
-                    Ajouter au Panier
-                  </button>
-                </div>
-                <img :src="imgSrc(p, 'recent')" class="w-full h-full object-contain p-2 transition-opacity duration-300" :alt="p.name" />
+                <img
+                  :src="imgSrc(p, 'recent')"
+                  :alt="p.name"
+                  loading="lazy"
+                  decoding="async"
+                  width="200"
+                  height="200"
+                  class="w-full h-full object-contain p-2 transition-opacity duration-300" />
               </div>
-
               <div class="p-2 flex flex-col flex-1 border-t border-gray-50">
-                <h3 class="text-[12px] sm:text-[13px] text-gray-700 font-semibold mb-2 line-clamp-2 h-9 leading-snug group-hover:text-[#e60012]">{{ p.name }}</h3>
+                <h3
+                  class="text-[12px] sm:text-[13px] text-gray-700 font-semibold mb-2 line-clamp-2 leading-snug group-hover:text-[#e60012]">
+                  {{ p.name }}
+                </h3>
                 <div class="mt-auto flex items-end justify-between gap-2">
                   <div>
-                    <div class="text-sm sm:text-base font-black text-gray-900 leading-tight">{{ formatPrice(p.price) }} <span class="text-[9px]">FCFA</span></div>
-                    <span v-if="p.old_price" class="text-[10px] text-gray-400 line-through">{{ formatPrice(p.old_price) }} FCFA</span>
+                    <div class="text-sm sm:text-base font-black text-gray-900 leading-tight">
+                      {{ formatPrice(p.price) }} <span class="text-[9px]">FCFA</span>
+                    </div>
+                    <span v-if="p.old_price" class="text-[10px] text-gray-400 line-through">
+                      {{ formatPrice(p.old_price) }} FCFA
+                    </span>
                   </div>
-                  <div v-if="discountPercent(p)" class="hidden sm:block bg-[#e60012] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm flex-shrink-0">{{ discountPercent(p) }}</div>
-                  <button @click.prevent.stop="addToCart(p)" :disabled="isOutOfStock(p)"
-                    class="sm:hidden flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md active:scale-90 transition-all disabled:opacity-40"
-                    :class="isOutOfStock(p) ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#274a82] hover:bg-[#e60012]'">
-                    <UIcon name="i-heroicons-shopping-cart" class="w-4 h-4" />
-                  </button>
+                  <div
+                    v-if="discountPercent(p)"
+                    class="hidden sm:block bg-[#e60012] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm flex-shrink-0">
+                    {{ discountPercent(p) }}
+                  </div>
                 </div>
               </div>
             </NuxtLink>
           </div>
         </section>
-
-        <!-- MOBILE ONLY -->
-        <div class="lg:hidden mt-10 space-y-8">
-          <div>
-            <h3 class="text-base font-bold text-gray-900 border-b-2 border-[#e60012] pb-1 mb-4 inline-block">Nos Promos</h3>
-            <UCarousel v-slot="{ item }" :items="promoFlyers" arrows dots :autoplay="{ delay: 2000 }" class="relative rounded-sm overflow-hidden shadow-sm" :prev="{ variant: 'solid' }" :next="{ variant: 'solid' }">
-              <div class="relative overflow-hidden aspect-[16/7]"><img :src="item.image" class="w-full h-full object-cover" draggable="false" /><div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none"></div></div>
-            </UCarousel>
-          </div>
-          <div>
-            <h3 class="text-base font-bold text-gray-900 border-b-2 border-[#e60012] pb-1 mb-4 inline-block">Nos Meilleur Produits</h3>
-            <UCarousel v-slot="{ item }" :items="promoFlyers" arrows dots :autoplay="{ delay: 3000 }" class="relative rounded-sm overflow-hidden shadow-sm" :prev="{ variant: 'solid' }" :next="{ variant: 'solid' }">
-              <div class="relative overflow-hidden aspect-[16/7]"><img :src="item.image" class="w-full h-full object-cover" draggable="false" /><div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none"></div></div>
-            </UCarousel>
-          </div>
-          <!-- <div>
-            <h3 class="text-base font-bold text-gray-900 border-b-2 border-[#e60012] pb-1 mb-4 inline-block">Nos Expertises</h3>
-            <div class="space-y-2">
-              <div v-for="service in servicesList" :key="service.key" class="border border-gray-100 rounded-sm bg-white overflow-hidden">
-                <button @click="toggleService(service.key)" class="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
-                  <div class="flex items-center gap-3">
-                    <UIcon :name="service.icon" class="w-4 h-4 text-[#274a82]" />
-                    <span class="text-[13px] font-bold text-gray-800 tracking-tight text-left">{{ service.label }}</span>
-                  </div>
-                  <UIcon name="i-heroicons-chevron-down" class="w-4 h-4 transition-transform duration-300" :class="expandedServices[service.key] ? 'rotate-180' : ''" />
-                </button>
-                <div v-show="expandedServices[service.key]" class="bg-gray-50/50 border-t border-gray-50 px-10 py-2 space-y-2">
-                  <NuxtLink v-for="link in service.links" :key="link.label" :to="link.to" class="block text-[12px] text-gray-600 hover:text-[#e60012] transition-colors">{{ link.label }}</NuxtLink>
-                </div>
-              </div>
-            </div>
-          </div> -->
-        </div>
-
       </main>
     </div>
   </UContainer>
 </template>
 
 <style scoped>
-:deep(.u-checkbox-label) { font-size: 11px; color: #666; font-weight: 500; cursor: pointer; }
 .overlay-enter-active, .overlay-leave-active { transition: opacity 0.25s ease; }
 .overlay-enter-from, .overlay-leave-to { opacity: 0; }
 .slide-up-enter-active, .slide-up-leave-active { transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1); }

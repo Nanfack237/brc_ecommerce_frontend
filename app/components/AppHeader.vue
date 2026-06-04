@@ -11,7 +11,7 @@ const showLocaleDropdown = ref(false)
 
 const languages = [
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
-  { code: 'en', label: 'English',  flag: '🇬🇧' },
+  // { code: 'en', label: 'English',  flag: '🇬🇧' },
 ]
 
 const currentLang = computed(() => languages.find(l => l.code === locale.value) ?? languages[0])
@@ -137,12 +137,11 @@ const handleSearch = () => {
   router.push(`/boutique?q=${encodeURIComponent(q)}`)
   searchQuery.value    = ''
   searchResults.value  = []
-  desktopFocused.value = false
+  searchFocused.value  = false
   mobileFocused.value  = false
 }
 
 const onKeydown = (e: KeyboardEvent) => {
-  if (!showDropdown.value) return
   if (e.key === 'ArrowDown') {
     e.preventDefault()
     selectedIndex.value = Math.min(selectedIndex.value + 1, searchResults.value.length - 1)
@@ -199,12 +198,14 @@ const accountLinks = [
 
 const servicesData = [
   { label: 'Maintenance Et Réparation', links: [
-    { label: 'Ordinateur et Assistance',        to: '/services/Maintenance-support'          },
+    { label: 'Ordinateur et Assistance', to: '/services/maintenance-support' },
   ]},
   { label: 'Sécurité & Réseau', links: [
-    { label: 'Vidéo Surveillance', to: '/services/videosurveillance' },
-    { label: 'Audit & Câblage',    to: '/services/audit-cablage'     },
-    { label: 'Sécurité IT',        to: '/services/securite-it'       },
+    { label: 'Securite Electronique', to: '/services/securite-electronique' },
+    { label: 'Audit & Câblage',       to: '/services/audit-cablage'         },
+  ]},
+  { label: 'Electrique', links: [
+    { label: 'Electricité et Energie', to: '/services/electricite-energie' },
   ]},
 ]
 
@@ -223,23 +224,23 @@ onUnmounted(() => {
   <UHeader v-model:open="isMenuOpen" class="py-6 h-24">
 
     <template #title>
-      <div class="flex items-center gap-2">
-        <img src="/brclogo.png" class="h-10 w-14 md:h-13 md:w-18 object-contain" />
-        <NuxtLink to="/" class="flex mb-1 md:mb-3 items-center gap-1 font-bold text-base md:text-lg text-[#274a82]">
-          BRC Market
-        </NuxtLink>
-      </div>
+      <NuxtLink to="/" class="flex items-center gap-2 shrink-0">
+        <img src="/images/logos/brclogo.png" class="h-10 w-14 object-contain" />
+        <span class="font-bold text-base md:text-lg text-[#274a82] whitespace-nowrap">BRC Market</span>
+      </NuxtLink>
     </template>
 
     <!-- ── NAV DESKTOP ── -->
-    <div class="hidden md:flex items-center space-x-2">
+    <!-- FIX: changé hidden md:flex en hidden lg:flex pour éviter le chevauchement avec le logo -->
+    <div class="hidden lg:flex items-center space-x-2">
       <UButton variant="ghost" :class="route.path === '/' ? 'text-red-600 font-bold' : 'text-gray-700'" to="/">Accueil</UButton>
       <UButton variant="ghost" :class="route.path.startsWith('/boutique') ? 'text-red-600 font-bold' : 'text-gray-700'" to="/boutique">Boutique</UButton>
 
       <UPopover mode="hover">
         <UButton variant="ghost" :class="route.path.startsWith('/categories') ? 'text-red-600 font-bold' : 'text-gray-700'" trailing-icon="i-lucide-chevron-down">Catégorie</UButton>
         <template #content>
-          <div class="p-6 bg-white shadow-xl rounded-lg w-[700px]">
+          <!-- FIX: ajout de max-h-[80vh] overflow-y-auto pour que le dropdown scroll si les catégories dépassent l'écran -->
+          <div class="p-6 bg-white shadow-xl rounded-lg w-[900px] max-h-[90vh] overflow-y-auto" style="max-width: calc(100vw - 2rem);">
             <div v-if="loadingCats" class="grid grid-cols-3 gap-6">
               <div v-for="n in 6" :key="n" class="space-y-2">
                 <div class="h-4 bg-gray-100 rounded animate-pulse w-3/4"></div>
@@ -252,7 +253,7 @@ onUnmounted(() => {
               <p class="text-sm text-red-500 font-medium">Impossible de charger les catégories</p>
               <button @click="fetchCategories" class="text-xs text-[#274a82] font-bold hover:underline mt-1">Réessayer</button>
             </div>
-            <div v-else class="grid grid-cols-3 gap-4">
+            <div v-else class="grid grid-cols-4 gap-4">
               <div v-for="cat in categoriesData" :key="cat.slug">
                 <NuxtLink :to="`/categories/${cat.slug}`"
                   class="block font-bold mb-2 border-b-2 border-red-500 text-[14px] text-gray-900 hover:text-red-600 transition-colors pb-1">
@@ -264,27 +265,23 @@ onUnmounted(() => {
                       {{ link.label }}
                     </NuxtLink>
                   </li>
-                  
                 </ul>
-                
               </div>
               <div>
-              <NuxtLink
-                to="/boutique?promo=1"
-                class="block font-bold mb-2 border-b-2 border-red-500 text-[14px] text-gray-900 hover:text-red-600 transition-colors pb-1"
-              >
-                Nos promos
-              </NuxtLink>
-
-              <ul class="space-y-1">
-                <li>
-                  <NuxtLink to="/boutique?promo=1" class="text-sm text-gray-600 hover:text-red-600 transition-colors">
-                    Tous les produits en promo
-                  </NuxtLink>
-                </li>
-                
-              </ul>
-            </div>
+                <NuxtLink
+                  to="/boutique?promo=1"
+                  class="block font-bold mb-2 border-b-2 border-red-500 text-[14px] text-gray-900 hover:text-red-600 transition-colors pb-1"
+                >
+                  Nos promos
+                </NuxtLink>
+                <ul class="space-y-1">
+                  <li>
+                    <NuxtLink to="/boutique?promo=1" class="text-sm text-gray-600 hover:text-red-600 transition-colors">
+                      Tous les produits en promo
+                    </NuxtLink>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </template>
@@ -313,7 +310,7 @@ onUnmounted(() => {
     <template #right>
 
       <!-- ══ SEARCH DESKTOP ══ -->
-      <div ref="searchWrapperRef" class="relative mr-3 hidden md:block">
+      <div ref="searchWrapperRef" class="relative mr-3 hidden lg:block">
         <div
           class="flex items-center gap-2 border rounded-xl px-3 py-1.5 transition-all duration-300 bg-white"
           :class="searchFocused
@@ -364,7 +361,7 @@ onUnmounted(() => {
             </div>
             <template v-else-if="searchResults.length > 0">
               <div class="px-4 pt-3 pb-1 flex items-center justify-between">
-                <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <span class="text-xs font-black text-gray-400 tracking-widest">
                   {{ searchResults.length }} résultat{{ searchResults.length > 1 ? 's' : '' }}
                 </span>
                 <button @click="handleSearch" class="text-[10px] font-black text-[#274a82] hover:text-[#e60012] transition-colors flex items-center gap-1">
@@ -449,7 +446,8 @@ onUnmounted(() => {
       </div>
 
       <!-- ── User menu DESKTOP ── -->
-      <div class="hidden md:flex items-center ml-1 gap-3">
+      <!-- FIX: changé hidden md:flex en hidden lg:flex -->
+      <div class="hidden lg:flex items-center ml-1 gap-3">
         <UPopover v-if="!isLoggedIn" mode="hover" placement="bottom-end">
           <button class="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
             <UIcon name="i-heroicons-user-circle" class="w-6 h-6 text-gray-500" />
@@ -479,7 +477,6 @@ onUnmounted(() => {
                 <div class="min-w-0">
                   <p class="text-sm font-black text-gray-900 truncate">{{ authUser?.first_name }} {{ authUser?.last_name }}</p>
                   <p class="text-[11px] text-gray-400 truncate">{{ authUser?.email }}</p>
-                  <!-- Badge rôle -->
                   <span class="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold"
                     :class="isAdmin ? 'bg-[#274a82]/10 text-[#274a82]' : isLivreur ? 'bg-[#e07b39]/10 text-[#e07b39]' : 'bg-gray-100 text-gray-500'">
                     <UIcon :name="isAdmin ? 'i-heroicons-shield-check' : isLivreur ? 'i-heroicons-truck' : 'i-heroicons-user'" class="w-3 h-3" />
@@ -488,7 +485,6 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <!-- Liens compte (uniquement si pas livreur) -->
               <template v-if="!isLivreur">
                 <NuxtLink v-for="link in accountLinks" :key="link.to" :to="link.to"
                   class="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 hover:text-[#274a82] text-sm font-medium text-gray-700 transition-colors">
@@ -496,12 +492,10 @@ onUnmounted(() => {
                 </NuxtLink>
               </template>
 
-              <!-- ── Back Office / Espace Livreur ── -->
               <template v-if="hasBackOffice && backOfficeLink">
                 <div class="border-t border-gray-100 my-1" />
                 <NuxtLink :to="backOfficeLink.to"
-                  class="flex items-center gap-3 px-4 py-2.5 hover:bg-[#274a82]/5 text-sm font-black transition-colors"
-                  :class="isAdmin ? 'text-[#274a82]' : 'text-[#274a82]'">
+                  class="flex items-center gap-3 px-4 py-2.5 hover:bg-[#274a82]/5 text-sm font-black transition-colors text-[#274a82]">
                   <UIcon :name="backOfficeLink.icon" class="w-4 h-4" />
                   {{ backOfficeLink.label }}
                   <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3 h-3 ml-auto opacity-50" />
@@ -524,7 +518,7 @@ onUnmounted(() => {
 
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
           <div class="flex items-center gap-2">
-            <img src="/brclogo.png" class="h-8 w-auto object-contain" />
+            <img src="/images/logos/brclogo.png" class="h-8 w-auto object-contain" />
             <span class="font-bold text-[#274a82]">BRC Market</span>
           </div>
           <button @click="isMenuOpen = false" class="flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 transition-colors">
@@ -545,6 +539,7 @@ onUnmounted(() => {
               placeholder="Rechercher un produit..."
               class="flex-1 text-sm bg-transparent outline-none text-gray-800 placeholder-gray-400"
               @focus="mobileFocused = true"
+              @keydown="onKeydown"
               @keyup.enter="handleSearch"
             />
             <button v-if="searchQuery.length > 0"
@@ -570,7 +565,7 @@ onUnmounted(() => {
           </div>
           <template v-else-if="searchResults.length > 0">
             <div class="px-5 py-2.5 flex items-center justify-between border-b border-gray-100 flex-shrink-0 bg-gray-50/50">
-              <span class="text-[11px] font-black text-gray-400 uppercase tracking-widest">
+              <span class="text-xs font-black text-gray-400 tracking-widest">
                 {{ searchResults.length }} résultat{{ searchResults.length > 1 ? 's' : '' }}
               </span>
               <button @click="handleSearch" class="text-[11px] font-black text-[#274a82] flex items-center gap-1 hover:text-[#e60012] transition-colors">
@@ -720,7 +715,6 @@ onUnmounted(() => {
             <Transition name="dropdown">
               <div v-if="showMobileUserMenu" class="mt-2 rounded-xl border border-gray-100 overflow-hidden shadow-sm">
 
-                <!-- Liens compte (masqués pour le livreur) -->
                 <template v-if="!isLivreur">
                   <NuxtLink v-for="link in accountLinks" :key="link.to" :to="link.to"
                     @click="isMenuOpen = false; showMobileUserMenu = false"
@@ -732,17 +726,13 @@ onUnmounted(() => {
                   </NuxtLink>
                 </template>
 
-                <!-- ── Back Office / Espace Livreur ── -->
                 <template v-if="hasBackOffice && backOfficeLink">
                   <div class="h-px bg-gray-100" />
                   <NuxtLink :to="backOfficeLink.to"
                     @click="isMenuOpen = false; showMobileUserMenu = false"
-                    class="flex items-center gap-3 px-4 py-3 text-sm font-black transition-colors"
-                    :class="isAdmin ? 'text-[#274a82] hover:bg-[#274a82]/5' : 'text-[#274a82] hover:bg-[#e07b39]/5'">
-                    <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                      :class="isAdmin ? 'bg-[#274a82]/10' : 'bg-[#e07b39]/10'">
-                      <UIcon :name="backOfficeLink.icon" class="w-3.5 h-3.5"
-                        :class="isAdmin ? 'text-[#274a82]' : 'text-[#274a82]'" />
+                    class="flex items-center gap-3 px-4 py-3 text-sm font-black text-[#274a82] transition-colors hover:bg-[#274a82]/5">
+                    <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#274a82]/10">
+                      <UIcon :name="backOfficeLink.icon" class="w-3.5 h-3.5 text-[#274a82]" />
                     </div>
                     {{ backOfficeLink.label }}
                     <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-3.5 h-3.5 ml-auto opacity-40" />

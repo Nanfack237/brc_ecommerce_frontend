@@ -40,6 +40,12 @@ const updatingRole  = ref(false)
 const updatingBlock = ref(false)
 const newRole       = ref('')
 
+// Pagination
+const currentPage = ref(1)
+const totalPages  = ref(1)
+const totalUsers  = ref(0)
+const perPage     = 20
+
 // Modal création
 const showCreate   = ref(false)
 const creating     = ref(false)
@@ -48,8 +54,6 @@ const createErrors = ref<Record<string, string[]>>({})
 const showPassword = ref(false)
 
 // ── Config des rôles ───────────────────────────────────────────────────────────
-// Rôles en base : 'client' | 'livreur' | 'user' | 'admin' | 'super_admin'
-// Cette page affiche : client, livreur, user — admin et super_admin sont exclus
 const roleConfig: Record<string, { label: string; bg: string; text: string; icon: string }> = {
   client:      { label: 'Client',              bg: '#f1f5f9', text: '#475569', icon: 'i-heroicons-user'             },
   livreur:     { label: 'Livreur',             bg: '#eff6ff', text: '#1d4ed8', icon: 'i-heroicons-truck'            },
@@ -58,15 +62,11 @@ const roleConfig: Record<string, { label: string; bg: string; text: string; icon
   super_admin: { label: 'Super Admin',         bg: '#fff1f2', text: '#be123c', icon: 'i-heroicons-star'             },
 }
 
-// Création : 2 types seulement
-// Création : livreur ou utilisateur système (role 'user' en base)
 const roleOptionsCreate = [
   { value: 'livreur', label: 'Livreur',            icon: 'i-heroicons-truck',            desc: 'Peut gérer et livrer les commandes' },
   { value: 'user',    label: 'Utilisateur système', icon: 'i-heroicons-computer-desktop', desc: 'Accès backoffice avec droits limités' },
 ]
 
-// Changement de rôle : livreur <-> utilisateur système uniquement
-// Changement de rôle : livreur <-> utilisateur système (user)
 const roleOptionsChange = [
   { value: 'livreur', label: 'Livreur',             icon: 'i-heroicons-truck'            },
   { value: 'user',    label: 'Utilisateur système',  icon: 'i-heroicons-computer-desktop' },
@@ -91,12 +91,29 @@ const avatarColor  = (u: User) => {
   return avatarColors[Math.abs(hash) % avatarColors.length]
 }
 
+// ── Stats (sur les données de la page courante) ────────────────────────────────
+const stats = computed(() => ({
+  total:    totalUsers.value,
+  clients:  users.value.filter(u => u.role === 'client').length,
+  livreurs: users.value.filter(u => u.role === 'livreur').length,
+  systeme:  users.value.filter(u => u.role === 'user').length,
+  bloques:  users.value.filter(u => u.is_blocked).length,
+}))
+
 // ── Fetch ──────────────────────────────────────────────────────────────────────
-const fetchUsers = async () => {
+const fetchUsers = async (page = 1) => {
   loading.value = true
   try {
-    const { data } = await axios.get(`${API}/admin/users`, { headers: authHeaders.value, params: { per_page: 200 } })
-    users.value = data.data ?? data
+    const params: Record<string, any> = { per_page: perPage, page }
+    if (activeFilter.value === 'blocked')          params.blocked = 1
+    else if (activeFilter.value !== 'all')         params.role    = activeFilter.value
+    if (searchQuery.value.trim())                  params.search  = searchQuery.value.trim()
+
+    const { data } = await axios.get(`${API}/admin/users`, { headers: authHeaders.value, params: { per_page: 20, page } })
+    users.value       = data.data ?? data
+    currentPage.value = data.current_page ?? 1
+    totalPages.value  = data.last_page    ?? 1
+    totalUsers.value  = data.total        ?? users.value.length
   } catch {
     toast.add({ title: 'Erreur de chargement', color: 'error', icon: 'i-heroicons-exclamation-circle' })
   } finally {
@@ -104,31 +121,38 @@ const fetchUsers = async () => {
   }
 }
 
-// ── Stats : client + livreur + user (on exclut admin et super_admin) ────────
-const stats = computed(() => {
-  const visible = users.value.filter(u => u.role === 'client' || u.role === 'livreur' || u.role === 'user')
-  return {
-    total:    visible.length,
-    clients:  visible.filter(u => u.role === 'client').length,
-    livreurs: visible.filter(u => u.role === 'livreur').length,
-    systeme:  visible.filter(u => u.role === 'user').length,
-    bloques:  visible.filter(u => u.is_blocked).length,
-  }
+let searchTimer: ReturnType<typeof setTimeout>
+const onSearch = () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => fetchUsers(1), 400)
+}
+
+const onFilterChange = (key: string) => {
+  activeFilter.value = key
+  fetchUsers(1)
+}
+
+const goToPage = (page: number) => {
+  if (page < 1 || page > totalPages.value) return
+  fetchUsers(page)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// ── Numéros de page avec ellipsis ─────────────────────────────────────────────
+const pageNumbers = computed(() => {
+  const total = totalPages.value
+  const cur   = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | '...')[] = [1]
+  if (cur > 3) pages.push('...')
+  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i)
+  if (cur < total - 2) pages.push('...')
+  pages.push(total)
+  return pages
 })
 
-// ── Liste filtrée : client, livreur, user — admin et super_admin exclus ──────
-const filteredUsers = computed(() => {
-  let list = users.value.filter(u => u.role === 'client' || u.role === 'livreur' || u.role === 'user')
-  if (activeFilter.value === 'blocked')      list = list.filter(u => u.is_blocked)
-  else if (activeFilter.value !== 'all')     list = list.filter(u => u.role === activeFilter.value)
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
-    list = list.filter(u =>
-      `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-    )
-  }
-  return list
-})
+// ── Filtré localement (pour l'affichage uniquement, les vraies données viennent du serveur) ─
+const filteredUsers = computed(() => users.value)
 
 // ── Ouvrir détail ──────────────────────────────────────────────────────────────
 const openDetail = (user: User) => {
@@ -199,6 +223,7 @@ const createUser = async () => {
   try {
     const { data } = await axios.post(`${API}/admin/users`, createForm.value, { headers: authHeaders.value })
     users.value.unshift(data.user)
+    totalUsers.value++
     showCreate.value = false
     resetCreateForm()
     toast.add({
@@ -226,13 +251,11 @@ await fetchUsers()
       <div>
         <h1 class="text-2xl font-black text-gray-900">Gestion des comptes</h1>
         <p class="text-sm text-gray-400 mt-0.5">
-          {{ stats.clients }} client{{ stats.clients !== 1 ? 's' : '' }} ·
-          {{ stats.livreurs }} livreur{{ stats.livreurs !== 1 ? 's' : '' }} ·
-          {{ stats.systeme }} utilisateur{{ stats.systeme !== 1 ? 's' : '' }} système
+          {{ totalUsers }} compte{{ totalUsers !== 1 ? 's' : '' }} au total
         </p>
       </div>
       <button @click="showCreate = true"
-        class="flex items-center gap-2 px-4 py-1.5 bg-[#e60012] hover:bg-[#e60012] text-white text-sm  rounded-sm transition-all shadow-sm">
+        class="flex items-center gap-2 px-4 py-1.5 bg-[#e60012] hover:bg-[#e60012] text-white text-sm rounded-sm transition-all shadow-sm">
         <UIcon name="i-heroicons-user-plus" class="w-4 h-4" />
         Créer un compte
       </button>
@@ -242,14 +265,14 @@ await fetchUsers()
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
         <p class="text-xs font-bold text-gray-400 tracking-wider">Total</p>
-        <p class="text-2xl font-black text-gray-900 mt-1">{{ stats.total }}</p>
+        <p class="text-2xl font-black text-gray-900 mt-1">{{ totalUsers }}</p>
       </div>
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
         <div class="flex items-center gap-2 mb-1">
           <div class="w-5 h-5 rounded-md bg-[#f1f5f9] flex items-center justify-center">
             <UIcon name="i-heroicons-user" class="w-3 h-3 text-slate-500" />
           </div>
-          <p class="text-xs font-bold text-gray-400  tracking-wider">Clients</p>
+          <p class="text-xs font-bold text-gray-400 tracking-wider">Clients</p>
         </div>
         <p class="text-2xl font-black text-slate-600">{{ stats.clients }}</p>
       </div>
@@ -276,29 +299,27 @@ await fetchUsers()
     <!-- ── Filtres + Recherche ────────────────────────────────────────────── -->
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex gap-2 flex-wrap">
-        <button v-for="f in filters" :key="f.key" @click="activeFilter = f.key"
+        <button v-for="f in filters" :key="f.key" @click="onFilterChange(f.key)"
           class="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
           :class="activeFilter === f.key
             ? 'bg-[#274a82] text-white shadow-sm'
             : 'bg-white border border-gray-200 text-gray-500 hover:border-[#274a82] hover:text-[#274a82]'">
           {{ f.label }}
-          <span v-if="f.key !== 'all'" class="ml-1 opacity-60 text-[10px]">
-            {{ f.key === 'client' ? stats.clients : f.key === 'livreur' ? stats.livreurs : f.key === 'user' ? stats.systeme : stats.bloques }}
-          </span>
         </button>
       </div>
-      <UInput v-model="searchQuery" icon="i-heroicons-magnifying-glass"
+      <UInput v-model="searchQuery" @input="onSearch"
+        icon="i-heroicons-magnifying-glass"
         placeholder="Rechercher par nom, email..." size="sm" class="w-64" />
     </div>
 
-    <!-- ── Table style Google ─────────────────────────────────────────────── -->
+    <!-- ── Table ──────────────────────────────────────────────────────────── -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
-      <!-- En-tête de section -->
+      <!-- En-tête -->
       <div class="px-5 py-3 border-b border-gray-100 bg-gray-50/60 flex items-center gap-2">
         <UIcon name="i-heroicons-users" class="w-4 h-4 text-gray-400" />
-        <p class="text-xs font-black text-gray-500 uppercase tracking-wider">
-          {{ filteredUsers.length }} compte{{ filteredUsers.length !== 1 ? 's' : '' }}
+        <p class="text-[14px] font-black text-gray-500 tracking-wider">
+          {{ filteredUsers.length }} compte{{ filteredUsers.length !== 1 ? 's' : '' }} affichés
         </p>
         <span class="ml-auto text-[10px] text-gray-400 italic hidden sm:block">
           Les clients s'inscrivent eux-mêmes · lecture seule
@@ -319,13 +340,13 @@ await fetchUsers()
         </div>
         <p class="text-gray-400 text-sm font-medium">Aucun compte trouvé</p>
         <button v-if="searchQuery || activeFilter !== 'all'"
-          @click="searchQuery = ''; activeFilter = 'all'"
+          @click="searchQuery = ''; onFilterChange('all')"
           class="text-xs text-[#274a82] font-bold hover:underline">
           Effacer les filtres
         </button>
       </div>
 
-      <!-- Rows style Google -->
+      <!-- Rows -->
       <div v-else class="divide-y divide-gray-50">
         <div v-for="user in filteredUsers" :key="user.id"
           class="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/60 transition-colors group cursor-default">
@@ -367,7 +388,7 @@ await fetchUsers()
             </div>
           </div>
 
-          <!-- Actions (visibles au hover) -->
+          <!-- Actions (hover) -->
           <div class="flex items-center gap-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
             <button @click="openDetail(user)"
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-[#274a82] hover:text-white hover:border-[#274a82] text-gray-600 text-xs font-bold transition-all">
@@ -390,6 +411,40 @@ await fetchUsers()
             <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
           </button>
 
+        </div>
+      </div>
+
+      <!-- ── Pagination ──────────────────────────────────────────────────── -->
+      <div v-if="!loading && totalPages > 1"
+        class="flex items-center justify-between px-5 py-4 border-t border-gray-100 bg-white rounded-b-2xl">
+        <p class="text-xs text-gray-400 font-medium">
+          Page <span class="font-black text-gray-700">{{ currentPage }}</span> /
+          <span class="font-black text-gray-700">{{ totalPages }}</span>
+          · <span class="font-black text-gray-700">{{ totalUsers }}</span>
+          compte{{ totalUsers !== 1 ? 's' : '' }}
+        </p>
+        <div class="flex items-center gap-2">
+          <button @click="goToPage(currentPage - 1)" :disabled="currentPage <= 1"
+            class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+            <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
+          </button>
+
+          <template v-for="(page, i) in pageNumbers" :key="i">
+            <span v-if="page === '...'"
+              class="w-8 h-8 flex items-center justify-center text-xs text-gray-300">…</span>
+            <button v-else @click="goToPage(page as number)"
+              class="w-8 h-8 rounded-lg text-xs font-black transition-all"
+              :class="page === currentPage
+                ? 'bg-[#274a82] text-white'
+                : 'border border-gray-200 text-gray-500 hover:bg-gray-50'">
+              {{ page }}
+            </button>
+          </template>
+
+          <button @click="goToPage(currentPage + 1)" :disabled="currentPage >= totalPages"
+            class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+            <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -446,7 +501,7 @@ await fetchUsers()
           </div>
         </div>
 
-        <!-- Changer rôle — uniquement pour livreurs et utilisateurs système -->
+        <!-- Changer rôle -->
         <div v-if="selectedUser.role !== 'client'" class="px-6 pb-4">
           <p class="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Changer le rôle</p>
           <div class="grid grid-cols-2 gap-2 mb-3">
@@ -467,7 +522,7 @@ await fetchUsers()
           </button>
         </div>
 
-        <!-- Info pour les clients — lecture seule -->
+        <!-- Lecture seule pour clients -->
         <div v-else class="px-6 pb-4">
           <div class="flex items-start gap-3 p-4 bg-slate-50 border border-slate-100 rounded-xl">
             <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
@@ -512,7 +567,7 @@ await fetchUsers()
 
         <div class="px-6 py-5 space-y-5">
 
-          <!-- Type de compte — 2 cartes cliquables -->
+          <!-- Type de compte -->
           <div>
             <p class="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Type de compte</p>
             <div class="grid grid-cols-2 gap-3">
@@ -523,12 +578,10 @@ await fetchUsers()
                 :class="createForm.role === opt.value
                   ? 'border-[#274a82] bg-[#274a82]/5'
                   : 'border-gray-100 hover:border-gray-300 bg-gray-50'">
-                <!-- Checkmark actif -->
                 <div v-if="createForm.role === opt.value"
                   class="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-[#274a82] flex items-center justify-center">
                   <UIcon name="i-heroicons-check" class="w-2.5 h-2.5 text-white" />
                 </div>
-                <!-- Icône colorée -->
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
                   :style="{ backgroundColor: roleConfig[opt.value].bg }">
                   <UIcon :name="opt.icon" class="w-4 h-4" :style="{ color: roleConfig[opt.value].text }" />
@@ -603,7 +656,7 @@ await fetchUsers()
         </div>
 
         <!-- Footer -->
-        <div class="px-6 pb-6 flex gap-3  border-gray-100 py-2">
+        <div class="px-6 pb-6 flex gap-3 border-gray-100 py-2">
           <button @click="showCreate = false; resetCreateForm()"
             class="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all">
             Annuler

@@ -5,13 +5,12 @@ import axios from 'axios'
 import AdminSideBar from './components/admin/AdminSideBar.vue'
 
 useHead({
-  title: 'BRC Market',
   titleTemplate: (titleChunk) => {
-    return titleChunk ? `${titleChunk} - Accueil` : 'BRC Market'
+    return titleChunk ? `${titleChunk}` : 'BRC Market'
   },
   link: [
-    { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
-  ]
+    { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+  ],
 })
 
 const loading = ref(false)
@@ -25,12 +24,14 @@ router.afterEach(() => { setTimeout(() => { loading.value = false }, 400) })
 const isAdminPage   = computed(() => route.path.startsWith('/admin'))
 const isComptePage  = computed(() => route.path.startsWith('/compte'))
 const isLivreurPage = computed(() => route.path.startsWith('/livreur'))
+const isHomePage    = computed(() => route.path === '/')
 
 // ── Auth ─────────────────────────────────────────────────────────────────
 const { token, isAdmin, user } = useAuth()
 const isLivreur = computed(() => user.value?.role === 'livreur')
 
 // ── Son nouvelle commande ────────────────────────────────────────────────
+// Polling toutes les 5 secondes pour une réactivité quasi-immédiate
 const config      = useRuntimeConfig()
 const API         = config.public.apiBase
 const lastOrderId = ref<number | null>(null)
@@ -55,6 +56,7 @@ const checkNewOrders = async () => {
     const latestId = orders?.[0]?.id ?? null
     if (latestId === null) return
     if (lastOrderId.value === null) {
+      // Premier chargement : on mémorise sans jouer le son
       lastOrderId.value = latestId
     } else if (latestId > lastOrderId.value) {
       lastOrderId.value = latestId
@@ -65,8 +67,8 @@ const checkNewOrders = async () => {
 
 const startPolling = () => {
   if (pollingTimer) return
-  checkNewOrders()
-  pollingTimer = setInterval(checkNewOrders, 30_000)
+  checkNewOrders()                                    // vérification immédiate
+  pollingTimer = setInterval(checkNewOrders, 5_000)   // puis toutes les 5 s
 }
 
 const stopPolling = () => {
@@ -80,15 +82,24 @@ onMounted(() => {
     ([adminVal, tok]) => {
       if (adminVal && tok) startPolling()
       else                 stopPolling()
-    }
+    },
   )
 })
 
-// ── PWA Install ──────────────────────────────────────────────────────────
+// ── PWA Install Banner ───────────────────────────────────────────────────
+const isStandaloneMode = () => {
+  if (typeof window === 'undefined') return false
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true
+  )
+}
+
 let deferredPrompt: any = null
 
-const showBanner = ref(false)
-const dismissed  = ref(false)
+const showBanner       = ref(false)
+const dismissed        = ref(false)
+const alreadyInstalled = ref(false)
 
 let autoTimer:  ReturnType<typeof setTimeout> | null = null
 let closeTimer: ReturnType<typeof setTimeout> | null = null
@@ -98,19 +109,22 @@ const clearTimers = () => {
   if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
 }
 
-const isStandalone = () => {
-  if (typeof window === 'undefined') return false
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true
-  )
-}
-
 const isMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
 const isIOS    = () => /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
 
+const checkAlreadyInstalled = async (): Promise<boolean> => {
+  if (localStorage.getItem('pwa_installed') === 'true') return true
+  if ('getInstalledRelatedApps' in navigator) {
+    try {
+      const apps = await (navigator as any).getInstalledRelatedApps()
+      if (apps.length > 0) return true
+    } catch {}
+  }
+  return false
+}
+
 const openBanner = () => {
-  if (dismissed.value || isStandalone()) return
+  if (dismissed.value || isStandaloneMode() || alreadyInstalled.value) return
   showBanner.value = true
   closeTimer = setTimeout(() => { showBanner.value = false }, 10_000)
 }
@@ -122,12 +136,15 @@ const closeBanner = (ignore = false) => {
 }
 
 const handleInstall = async () => {
-  // ── Desktop ou Android avec prompt capturé → installation directe ────
   if (deferredPrompt) {
     try {
       deferredPrompt.prompt()
       const { outcome } = await deferredPrompt.userChoice
       deferredPrompt = null
+      if (outcome === 'accepted') {
+        localStorage.setItem('pwa_installed', 'true')
+        alreadyInstalled.value = true
+      }
       closeBanner()
       return
     } catch {
@@ -135,58 +152,58 @@ const handleInstall = async () => {
     }
   }
 
-  // ── Desktop sans prompt (déjà installé ou navigateur non supporté) ───
   if (!isMobile()) {
     closeBanner()
-    // Sur desktop, si pas de prompt → l'app est soit déjà installée,
-    // soit le navigateur ne supporte pas (Firefox, Safari desktop).
-    // On informe simplement l'utilisateur.
     alert(
       'Installation non disponible.\n\n' +
-      'Assurez-vous d\'utiliser Chrome ou Edge sur votre ordinateur.\n' +
-      'Si c\'est déjà le cas, l\'application est peut-être déjà installée.'
+      "Assurez-vous d'utiliser Chrome ou Edge sur votre ordinateur.\n" +
+      "Si c'est déjà le cas, l'application est peut-être déjà installée.",
     )
     return
   }
 
-  // ── iOS Safari → guide étape par étape ──────────────────────────────
   if (isIOS()) {
     closeBanner()
     alert(
       'Sur iPhone / iPad :\n\n' +
-      '1. Appuyez sur le bouton Partager ↑ en bas de Safari\n' +
-      '2. Choisissez « Sur l\'écran d\'accueil »\n' +
-      '3. Appuyez sur « Ajouter »'
+      "1. Appuyez sur le bouton Partager ↑ en bas de Safari\n" +
+      "2. Choisissez « Sur l'écran d'accueil »\n" +
+      "3. Appuyez sur « Ajouter »",
     )
     return
   }
 
-  // ── Android sans prompt capturé ──────────────────────────────────────
   closeBanner()
   alert(
     'Sur Android :\n\n' +
     '1. Appuyez sur le menu ⋮ en haut à droite de Chrome\n' +
-    '2. Choisissez « Installer l\'application »\n' +
-    '3. Confirmez en appuyant sur « Installer »'
+    "2. Choisissez « Installer l'application »\n" +
+    "3. Confirmez en appuyant sur « Installer »",
   )
 }
 
-onMounted(() => {
-  if (isStandalone()) return
+onMounted(async () => {
+  if (isStandaloneMode()) return  // PWA installée → pas de bannière
 
-  // Capture du prompt natif — fonctionne sur Chrome/Edge desktop et Android Chrome
+  alreadyInstalled.value = await checkAlreadyInstalled()
+  if (alreadyInstalled.value) return
+
   window.addEventListener('beforeinstallprompt', (e: Event) => {
     e.preventDefault()
     deferredPrompt = e
+    alreadyInstalled.value = false
   })
 
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null
+    localStorage.setItem('pwa_installed', 'true')
+    alreadyInstalled.value = true
     closeBanner()
   })
 
-  // Affiche la bannière après 3s dans tous les cas
-  autoTimer = setTimeout(() => openBanner(), 3_000)
+  if (isHomePage.value) {
+    autoTimer = setTimeout(() => openBanner(), 3_000)
+  }
 })
 
 onUnmounted(() => {
@@ -254,11 +271,9 @@ onUnmounted(() => {
       <ChatBot />
     </template>
 
-    <!-- ══════════════════════════════════════════════════════════════════ -->
-    <!-- ── PWA Install Banner — slide depuis la gauche ───────────────── -->
-    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ── PWA Install Banner — visible uniquement sur la page d'accueil ── -->
     <Transition name="pwa-slide">
-      <div v-if="showBanner" class="pwa-banner">
+      <div v-if="showBanner && isHomePage" class="pwa-banner">
 
         <div class="pwa-progress">
           <div class="pwa-progress-bar" />

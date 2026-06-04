@@ -47,7 +47,10 @@ const navGroups = [
   },
 ]
 
-const isActive = (to: string) => route.path === to
+const isActive = (to: string) => {
+  if (!route?.path) return false
+  return route.path === to || route.path.startsWith(to + '/')
+}
 </script>
 
 <template>
@@ -83,7 +86,7 @@ const isActive = (to: string) => route.path === to
         <div class="bg-[#274a82] px-5 pt-8 pb-6 flex-shrink-0">
           <div class="flex items-center justify-between mb-5">
             <span class="text-white font-black text-sm tracking-tight">
-              MON <span class="text-[#e60012]">COMPTE</span>
+              Mon <span class="text-[#e60012]">Compte</span>
             </span>
             <button
               @click="isMobileOpen = false"

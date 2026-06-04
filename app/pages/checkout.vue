@@ -1,20 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from '#app'
 import axios from 'axios'
 import useCart from '@/composables/useCart'
 
-useHead({
-  title: 'Checkout',
-  titleTemplate: (t) => t ? `${t} - BRC Market` : 'BRC Market',
-  link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }]
+useSeoMeta({
+  title:   'Finaliser ma Commande',
+  ogTitle: 'Finaliser ma Commande - BRC Market',
+  ogUrl:   'https://brcmarket.cm/checkout',
+  robots:  'noindex, nofollow',
 })
-
-// ── Guard auth ────────────────────────────────────────────────────────────────
-const authToken  = useCookie('auth_token')
-const authRole   = useCookie('auth_role')
-const isLoggedIn = computed(() => !!authToken.value && !!authRole.value)
-
+useHead({ link: [{ rel: 'canonical', href: 'https://brcmarket.cm/checkout' }] })
 
 const toast  = useToast()
 const config = useRuntimeConfig()
@@ -33,32 +29,32 @@ const playOrderSound = () => {
 // ── Tunnel ────────────────────────────────────────────────────────────────────
 const currentStep = ref(1)
 const steps = [
-  { id: 1, title: 'Adresse',  desc: 'Vos coordonnées',   icon: 'i-heroicons-map-pin'     },
-  { id: 2, title: 'Methode', desc: 'Mode de règlement',  icon: 'i-heroicons-credit-card' },
-  { id: 3, title: 'Finisaliser', desc: 'Finalisation par Mail',  icon: 'i-heroicons-mail' },
+  { id: 1, title: 'Adresse',    desc: 'Vos coordonnées',      icon: 'i-heroicons-map-pin'     },
+  { id: 2, title: 'Methode',    desc: 'Mode de règlement',    icon: 'i-heroicons-credit-card' },
+  { id: 3, title: 'Finaliser',  desc: 'Finalisation par Mail', icon: 'i-heroicons-mail'        },
 ]
 
 // ── Pays ──────────────────────────────────────────────────────────────────────
 const countryCodes = [
-  { flag: '🇨🇲', code: '+237', name: 'Cameroun'      },
-  { flag: '🇧🇯', code: '+229', name: 'Bénin'         },
-  { flag: '🇧🇫', code: '+226', name: 'Burkina Faso'  },
-  { flag: '🇨🇬', code: '+242', name: 'Congo'         },
-  { flag: '🇨🇩', code: '+243', name: 'RD Congo'      },
-  { flag: '🇨🇮', code: '+225', name: "Côte d'Ivoire" },
-  { flag: '🇬🇦', code: '+241', name: 'Gabon'         },
-  { flag: '🇬🇭', code: '+233', name: 'Ghana'         },
-  { flag: '🇬🇳', code: '+224', name: 'Guinée'        },
-  { flag: '🇰🇪', code: '+254', name: 'Kenya'         },
-  { flag: '🇲🇦', code: '+212', name: 'Maroc'         },
-  { flag: '🇲🇱', code: '+223', name: 'Mali'          },
-  { flag: '🇳🇪', code: '+227', name: 'Niger'         },
-  { flag: '🇳🇬', code: '+234', name: 'Nigéria'       },
-  { flag: '🇸🇳', code: '+221', name: 'Sénégal'       },
-  { flag: '🇹🇩', code: '+235', name: 'Tchad'         },
-  { flag: '🇹🇬', code: '+228', name: 'Togo'          },
-  { flag: '🇹🇳', code: '+216', name: 'Tunisie'       },
-  { flag: '🇿🇦', code: '+27',  name: 'Afrique du Sud'},
+  { flag: '🇨🇲', code: '+237', name: 'Cameroun'       },
+  { flag: '🇧🇯', code: '+229', name: 'Bénin'          },
+  { flag: '🇧🇫', code: '+226', name: 'Burkina Faso'   },
+  { flag: '🇨🇬', code: '+242', name: 'Congo'          },
+  { flag: '🇨🇩', code: '+243', name: 'RD Congo'       },
+  { flag: '🇨🇮', code: '+225', name: "Côte d'Ivoire"  },
+  { flag: '🇬🇦', code: '+241', name: 'Gabon'          },
+  { flag: '🇬🇭', code: '+233', name: 'Ghana'          },
+  { flag: '🇬🇳', code: '+224', name: 'Guinée'         },
+  { flag: '🇰🇪', code: '+254', name: 'Kenya'          },
+  { flag: '🇲🇦', code: '+212', name: 'Maroc'          },
+  { flag: '🇲🇱', code: '+223', name: 'Mali'           },
+  { flag: '🇳🇪', code: '+227', name: 'Niger'          },
+  { flag: '🇳🇬', code: '+234', name: 'Nigéria'        },
+  { flag: '🇸🇳', code: '+221', name: 'Sénégal'        },
+  { flag: '🇹🇩', code: '+235', name: 'Tchad'          },
+  { flag: '🇹🇬', code: '+228', name: 'Togo'           },
+  { flag: '🇹🇳', code: '+216', name: 'Tunisie'        },
+  { flag: '🇿🇦', code: '+27',  name: 'Afrique du Sud' },
 ]
 
 // ── Formulaire ────────────────────────────────────────────────────────────────
@@ -83,7 +79,7 @@ const villesSuggestions = [
   'Maroua', 'Ngaoundéré', 'Bertoua', 'Ebolowa', 'Kribi',
   'Limbé', 'Kumba', 'Buea', 'Edéa', 'Nkongsamba',
 ]
-const showVilleSuggestions    = ref(false)
+const showVilleSuggestions     = ref(false)
 const villeSuggestionsFiltered = computed(() =>
   form.value.ville.length >= 2
     ? villesSuggestions.filter(v =>
@@ -110,7 +106,7 @@ const quartiersDouala = [
 ]
 const quartiersAll = [...quartiersYaounde, ...quartiersDouala]
 
-const showQuartierSuggestions    = ref(false)
+const showQuartierSuggestions     = ref(false)
 const quartierSuggestionsFiltered = computed(() =>
   form.value.quartier.length >= 2
     ? quartiersAll.filter(q =>
@@ -130,24 +126,14 @@ const canGoNext = computed(() => {
   return true
 })
 
-// ── Codes Mobile Money ────────────────────────────────────────────────────────
-const MARCHAND_OM   = '#150*14**696923379*Montant#'
-const MARCHAND_MOMO = '*126*14*271452*678451236*Montant#'
-
 // ── Soumission ────────────────────────────────────────────────────────────────
 const isSubmitting = ref(false)
 
 const submitOrder = async () => {
 
-  if (!isLoggedIn.value) navigateTo('/login?redirect=/checkout')
-  if (process.server && !authToken.value) {
-    await navigateTo('/login?redirect=/checkout')
-  }
-  if (currentStep.value < 2) { currentStep.value++; return }
-
-  if (!authToken.value || !authRole.value) {
-    toast.add({ title: 'Session expirée', description: 'Veuillez vous reconnecter.', color: 'error', icon: 'i-heroicons-lock-closed' })
-    navigateTo('/login?redirect=/checkout')
+  // Étape 1 → passer à l'étape 2 sans vérification auth
+  if (currentStep.value === 1) {
+    currentStep.value++
     return
   }
 
@@ -183,19 +169,13 @@ const submitOrder = async () => {
   try {
     const resp = await axios.post(`${API}/orders/checkout`, payload, {
       headers: {
-        'Authorization': `Bearer ${authToken.value}`,
-        'Content-Type':  'application/json',
-        'Accept':        'application/json',
+        'Content-Type': 'application/json',
+        'Accept':       'application/json',
       },
     })
     orderRef = resp.data?.ref ?? resp.data?.order_number ?? `CMD-${Date.now().toString().slice(-6)}`
   } catch (e: any) {
     isSubmitting.value = false
-    if (e?.response?.status === 401) {
-      toast.add({ title: 'Session expirée', description: 'Veuillez vous reconnecter.', color: 'error', icon: 'i-heroicons-lock-closed' })
-      navigateTo('/login?redirect=/checkout')
-      return
-    }
     const msg = e?.response?.data?.message || "Impossible d'enregistrer la commande. Réessayez."
     toast.add({ title: 'Erreur', description: msg, color: 'error', icon: 'i-heroicons-exclamation-triangle' })
     return
@@ -205,18 +185,16 @@ const submitOrder = async () => {
   playOrderSound()
 
   const emailInfo = form.value.email
-    ? `Un email de confirmation vous serra envoyé à ${form.value.email} avec tous les détails et instructions pour finaliser votre paiement.`
+    ? `Un message whatsapp ou email vous sera envoyé à ${form.value.email} avec tous les détails pour finaliser votre paiement.`
     : `Conservez la référence ${orderRef} pour le suivi de votre commande.`
 
   toast.add({
-    title: 'Commande confirmée !',
+    title:       'Commande confirmée !',
     description: `Merci ${form.value.prenom || form.value.nom} ! Votre commande ${orderRef} est enregistrée. ${emailInfo}`,
-    color: 'success',
-    icon: 'i-heroicons-check-circle',
-    duration: 10000,
+    color:       'success',
+    icon:        'i-heroicons-check-circle',
+    duration:    10000,
   })
-
- 
 
   window.dispatchEvent(new Event('order:placed'))
   clearCart()
@@ -548,9 +526,9 @@ const formatPrice = (n: number) =>
 
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
               <div v-for="g in [
-                { icon: 'i-heroicons-envelope',       text: 'Confirmation par email',  color: 'text-[#e60012]' },
-                { icon: 'i-heroicons-phone',          text: 'Suivi par téléphone',     color: 'text-[#274a82]' },
-                { icon: 'i-heroicons-arrow-path',     text: 'Retour sous 7 jours',     color: 'text-orange-400'},
+                { icon: 'i-heroicons-envelope',   text: 'Confirmation par email ou Whatsapp', color: 'text-[#e60012]'  },
+                { icon: 'i-heroicons-phone',       text: 'Suivi par téléphone',               color: 'text-[#274a82]' },
+                { icon: 'i-heroicons-arrow-path',  text: 'Retour sous 7 jours',               color: 'text-orange-400'},
               ]" :key="g.text" class="flex items-center gap-3">
                 <UIcon :name="g.icon" class="w-4 h-4 flex-shrink-0" :class="g.color" />
                 <span class="text-xs font-semibold text-gray-600">{{ g.text }}</span>

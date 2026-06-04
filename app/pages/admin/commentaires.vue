@@ -17,6 +17,10 @@ const reviews = ref([
   { id: 5, author: 'David Tchamba', product: 'Samsung Galaxy S23',   rating: 5, comment: 'Parfait ! Je recommande BRC Market à tout le monde.', date: '2025-12-12', blocked: false },
 ])
 
+const currentPage = ref(1)
+const perPage     = 10
+const totalPages  = ref(1)
+
 const activeFilter = ref('all')
 const filters = [
   { key: 'all',      label: 'Tous' },
@@ -35,6 +39,14 @@ const filtered = computed(() => {
     r.product.toLowerCase().includes(searchQuery.value.toLowerCase())
   )
   return list
+})
+
+const totalItems = computed(() => filtered.value.length)
+
+const paginatedReviews = computed(() => {
+  totalPages.value = Math.max(1, Math.ceil(filtered.value.length / perPage))
+  const start = (currentPage.value - 1) * perPage
+  return filtered.value.slice(start, start + perPage)
 })
 
 const toggleBlock = (review: any) => {
@@ -57,6 +69,8 @@ const starColor = (rating: number) => {
   if (rating === 3) return 'text-yellow-500'
   return 'text-red-500'
 }
+
+watch([activeFilter, searchQuery], () => { currentPage.value = 1 })
 </script>
 
 <template>
@@ -84,7 +98,7 @@ const starColor = (rating: number) => {
         <!-- Reviews list -->
         <div class="space-y-3">
           <div
-            v-for="review in filtered" :key="review.id"
+            v-for="review in paginatedReviews"
             class="bg-white rounded-2xl border shadow-sm p-5 transition"
             :class="review.blocked ? 'border-red-100 opacity-60' : 'border-gray-100'"
           >
@@ -147,6 +161,37 @@ const starColor = (rating: number) => {
         <div v-if="filtered.length === 0" class="text-center py-16 bg-white rounded-2xl border border-gray-100">
           <UIcon name="i-heroicons-star" class="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p class="text-gray-400">Aucun avis trouvé</p>
+        </div>
+
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="flex items-center justify-between px-5 py-4 border-t border-gray-100 bg-white rounded-b-2xl">
+          <p class="text-xs text-gray-400 font-medium">
+            Page {{ currentPage }} / {{ totalPages }} · {{ totalItems }} avis
+          </p>
+          <div class="flex items-center gap-2">
+            <button
+              @click="currentPage--"
+              :disabled="currentPage <= 1"
+              class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+              <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
+            </button>
+            <button
+              v-for="p in totalPages" :key="p"
+              @click="currentPage = p"
+              class="w-8 h-8 rounded-lg text-xs font-black transition-all"
+              :class="p === currentPage
+                ? 'bg-[#274a82] text-white'
+                : 'border border-gray-200 text-gray-500 hover:bg-gray-50'">
+              {{ p }}
+            </button>
+            <button
+              @click="currentPage++"
+              :disabled="currentPage >= totalPages"
+              class="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+              <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
       </div>

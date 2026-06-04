@@ -3,29 +3,35 @@ import { ref, computed } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
 
-useHead({
-  title: 'BRC Market',
-  titleTemplate: (titleChunk) => {
-    return titleChunk ? `${titleChunk} - Créer un Compte` : 'BRC Market'
-  },
-  link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }]
+// 1. Configuration dynamique de l'API
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
+
+useSeoMeta({
+  title:       'Créer un Compte',
+  description: 'Créez votre compte BRC Market et profitez d\'offres exclusives sur vos équipements informatiques au Cameroun.',
+  ogTitle:     'Créer un Compte - BRC Market',
+  ogUrl:       'https://brcmarket.cm/register',
+  robots:      'noindex, nofollow',
 })
+useHead({ link: [{ rel: 'canonical', href: 'https://brcmarket.cm/register' }] })
 
 const toast = useToast()
-
-const firstName       = ref('')
-const lastName        = ref('')
-const email           = ref('')
-const phone           = ref('')
-const password        = ref('')
-const confirmPassword = ref('')
-const loading         = ref(false)
-const errors          = ref<Record<string, string[]>>({})
-
 const router = useRouter()
 const token  = useCookie('auth_token')
 
-// Password strength
+const firstName           = ref('')
+const lastName            = ref('')
+const email               = ref('')
+const phone               = ref('')
+const password            = ref('')
+const confirmPassword     = ref('')
+const loading             = ref(false)
+const errors              = ref<Record<string, string[]>>({})
+const showPassword         = ref(false)
+const showConfirmPassword = ref(false)
+
+// Calcul de la force du mot de passe
 const passwordStrength = computed(() => {
   const p = password.value
   if (!p) return { score: 0, label: '', color: '' }
@@ -35,10 +41,10 @@ const passwordStrength = computed(() => {
   if (/[0-9]/.test(p))         score++
   if (/[^A-Za-z0-9]/.test(p))  score++
   const levels = [
-    { score: 1, label: 'Faible',    color: 'bg-red-500' },
+    { score: 1, label: 'Faible',    color: 'bg-red-500'    },
     { score: 2, label: 'Moyen',     color: 'bg-orange-400' },
     { score: 3, label: 'Bon',       color: 'bg-yellow-400' },
-    { score: 4, label: 'Excellent', color: 'bg-green-500' },
+    { score: 4, label: 'Excellent', color: 'bg-green-500'  },
   ]
   return levels[score - 1] ?? { score: 0, label: '', color: '' }
 })
@@ -64,7 +70,8 @@ const handleRegister = async () => {
   loading.value = true
 
   try {
-    const response = await axios.post('http://127.0.0.1:8000/api/auth/register', {
+    // Utilisation de la variable API au lieu de localhost
+    const response = await axios.post(`${API}/auth/register`, {
       first_name:            firstName.value,
       last_name:             lastName.value,
       email:                 email.value,
@@ -78,21 +85,20 @@ const handleRegister = async () => {
       },
     })
 
+    // Stockage du token pour connecter l'utilisateur immédiatement
     token.value = response.data.token
 
     toast.add({
       title:       'Compte créé avec succès !',
-      description: `Bienvenue sur BRC Market, ${response.data.user.first_name} ${response.data.user.last_name} !`,
+      description: `Bienvenue sur BRC Market, ${response.data.user.first_name} !`,
       color:       'success',
       icon:        'i-heroicons-check-circle',
     } as ToastProps)
 
+    // Redirection vers la boutique
     setTimeout(() => router.push('/boutique'), 1500)
 
   } catch (err: any) {
-    console.log('STATUS:', err.response?.status)
-    console.log('DATA:',   err.response?.data)
-
     if (err.response?.status === 422) {
       errors.value = err.response.data.errors ?? {}
       const firstError = Object.values(errors.value)[0]?.[0]
@@ -105,8 +111,8 @@ const handleRegister = async () => {
 
     } else if (err.message === 'Network Error') {
       toast.add({
-        title:       'Serveur inaccessible',
-        description: 'Vérifiez que Laravel est démarré.',
+        title:       'Service indisponible',
+        description: 'Impossible de joindre le serveur. Réessayez plus tard.',
         color:       'error',
         icon:        'i-heroicons-signal-slash',
       } as ToastProps)
@@ -211,14 +217,28 @@ const handleRegister = async () => {
           <div class="flex flex-col gap-1">
             <UInput
               v-model="password"
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               icon="i-heroicons-lock-closed"
               placeholder="Mot de passe (min. 8 caractères)"
               size="lg"
               block
               required
               :color="errors.password ? 'error' : 'primary'"
-            />
+            >
+              <template #trailing>
+                <button
+                  type="button"
+                  @click="showPassword = !showPassword"
+                  class="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                >
+                  <UIcon
+                    :name="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
+                    class="w-4 h-4"
+                  />
+                </button>
+              </template>
+            </UInput>
+
             <!-- Strength bar -->
             <div v-if="password" class="flex gap-1 mt-1 px-1">
               <div
@@ -244,14 +264,28 @@ const handleRegister = async () => {
           <div class="flex flex-col gap-1">
             <UInput
               v-model="confirmPassword"
-              type="password"
+              :type="showConfirmPassword ? 'text' : 'password'"
               icon="i-heroicons-lock-closed"
               placeholder="Confirmer le mot de passe"
               size="lg"
               block
               required
               :color="errors.confirmPassword ? 'error' : confirmPassword && passwordsMatch ? 'success' : 'primary'"
-            />
+            >
+              <template #trailing>
+                <button
+                  type="button"
+                  @click="showConfirmPassword = !showConfirmPassword"
+                  class="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                >
+                  <UIcon
+                    :name="showConfirmPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
+                    class="w-4 h-4"
+                  />
+                </button>
+              </template>
+            </UInput>
+
             <p v-if="confirmPassword && passwordsMatch" class="text-xs text-green-500 font-medium ml-1">
               ✓ Les mots de passe correspondent
             </p>
