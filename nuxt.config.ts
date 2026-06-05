@@ -7,7 +7,6 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@pinia/nuxt',
     '@vite-pwa/nuxt',
-    '@nuxtjs/sitemap',  // ← Ajouter pour sitemap auto
   ],
 
   runtimeConfig: {
@@ -34,7 +33,7 @@ export default defineNuxtConfig({
         { property: 'og:type',      content: 'website' },
         { property: 'og:locale',    content: 'fr_CM' },
         { name: 'twitter:card',  content: 'summary_large_image' },
-        { name: 'apple-mobile-web-app-capable',           content: 'yes' },
+        { name: 'mobile-web-app-capable',                 content: 'yes' }, // ✅ remplace apple-mobile-web-app-capable déprécié
         { name: 'apple-mobile-web-app-status-bar-style',  content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title',             content: 'BRC Market' },
         { name: 'theme-color',                            content: '#274a82' },
@@ -71,30 +70,16 @@ export default defineNuxtConfig({
     },
   },
 
-  // ✅ CHANGEMENT PRINCIPAL : plus de preset static, Vercel gère tout
+  // ✅ SSR Vercel — plus de preset static
   nitro: {
-    preset: 'vercel',  // ← Vercel SSR natif
+    preset: 'vercel',
 
-    // ✅ Cache ISR : pages régénérées automatiquement sans rebuild
     routeRules: {
-      '/':                    { isr: 60 * 10 },        // home  → cache 10 min
-      '/products/**':         { isr: 60 * 60 },        // produits → cache 1h
-      '/categories/**':       { isr: 60 * 60 },        // catégories → cache 1h
-      '/boutique':            { isr: 60 * 5  },        // boutique → cache 5 min
-      '/api/**':              { cache: false },         // API jamais cachée
-    },
-  },
-
-  // ✅ SUPPRIMÉ : le hook nitro:config qui faisait le prerender statique
-  // Plus besoin — SSR génère les pages à la demande
-
-  // ✅ Sitemap automatique — se met à jour sans rebuild
-  sitemap: {
-    hostname: 'https://brcmarket.cm',
-    sources: ['/api/sitemap-urls'],   // endpoint à créer (voir plus bas)
-    defaults: {
-      changefreq: 'weekly',
-      priority: 0.8,
+      '/':              { isr: 60 * 10 },  // home → cache 10 min
+      '/products/**':   { isr: 60 * 60 },  // produits → cache 1h
+      '/categories/**': { isr: 60 * 60 },  // catégories → cache 1h
+      '/boutique':      { isr: 60 * 5  },  // boutique → cache 5 min
+      '/api/**':        { cache: false  },  // API jamais cachée
     },
   },
 
@@ -134,6 +119,7 @@ export default defineNuxtConfig({
         { src: '/screenshots/mobile.png', sizes: '1169x2531', type: 'image/png', form_factor: 'narrow' },
       ],
     },
+
     workbox: {
       cleanupOutdatedCaches: true,
       skipWaiting: true,
@@ -141,9 +127,19 @@ export default defineNuxtConfig({
       navigateFallback: '/',
       globPatterns: ['**/*.{js,css,html,png,svg,ico,woff,woff2}'],
       maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-      navigateFallbackDenylist: [/^\/api\//, /^\/_nuxt\//],
+      navigateFallbackDenylist: [
+        /^\/api\//,
+        /^\/_nuxt\//,
+      ],
       runtimeCaching: [
         {
+          // ✅ API externe brcmarket → NetworkOnly, jamais mis en cache
+          urlPattern: ({ url }: { url: URL }) =>
+            url.hostname === 'api.brcmarket.cm',
+          handler: 'NetworkOnly',  // ← corrige le ERR_FAILED
+        },
+        {
+          // ✅ API interne Nuxt → NetworkFirst
           urlPattern: ({ url }: { url: URL }) =>
             url.pathname.startsWith('/api') && !url.pathname.startsWith('/api/_nuxt'),
           handler: 'NetworkFirst',
