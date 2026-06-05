@@ -7,6 +7,7 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@pinia/nuxt',
     '@vite-pwa/nuxt',
+    '@nuxtjs/sitemap',  // ← Ajouter pour sitemap auto
   ],
 
   runtimeConfig: {
@@ -70,78 +71,30 @@ export default defineNuxtConfig({
     },
   },
 
+  // ✅ CHANGEMENT PRINCIPAL : plus de preset static, Vercel gère tout
   nitro: {
-    preset: 'static',
-    prerender: {
-      crawlLinks: true,
-      concurrency: 1,
-      routes: ['/', '/200.html'],
-      ignore: ['/__sitemap__/style.xsl', '/sitemap.xml', '/404'],
+    preset: 'vercel',  // ← Vercel SSR natif
+
+    // ✅ Cache ISR : pages régénérées automatiquement sans rebuild
+    routeRules: {
+      '/':                    { isr: 60 * 10 },        // home  → cache 10 min
+      '/products/**':         { isr: 60 * 60 },        // produits → cache 1h
+      '/categories/**':       { isr: 60 * 60 },        // catégories → cache 1h
+      '/boutique':            { isr: 60 * 5  },        // boutique → cache 5 min
+      '/api/**':              { cache: false },         // API jamais cachée
     },
   },
 
-  hooks: {
-    async 'nitro:config'(nitroConfig) {
-      try {
-        const routes: string[] = []
+  // ✅ SUPPRIMÉ : le hook nitro:config qui faisait le prerender statique
+  // Plus besoin — SSR génère les pages à la demande
 
-        // ── Catégories ────────────────────────────────────────────────
-        const resCat = await fetch('https://api.brcmarket.cm/api/categories')
-
-        if (!resCat.ok) throw new Error(`API categories ${resCat.status}`)
-
-        const text = await resCat.text()
-        const categories = JSON.parse(text)
-
-        for (const cat of categories) {
-          // Route pour la catégorie parente (ex: /categories/ordinateurs)
-          routes.push(`/categories/${cat.slug}`)
-          
-          // Routes pour les catégories enfants mis à plat (ex: /categories/laptops)
-          for (const child of cat.children ?? []) {
-            if (child.slug) {
-              routes.push(`/categories/${child.slug}`)
-            }
-          }
-        }
-
-        // ── Produits ──────────────────────────────────────────────────
-        let page = 1
-        let lastPage = 1
-
-        do {
-          const resProd = await fetch(
-            `https://api.brcmarket.cm/api/products?per_page=100&page=${page}`
-          )
-
-          if (!resProd.ok) throw new Error(`API products page ${page}: ${resProd.status}`)
-
-          const prodText = await resProd.text()
-          const data = JSON.parse(prodText)
-
-          for (const product of data.data ?? []) {
-            if (product.slug) {
-              routes.push(`/products/${product.slug}`)
-            }
-          }
-
-          lastPage = data.last_page ?? 1
-          page++
-        } while (page <= lastPage)
-
-        nitroConfig.prerender!.routes = [
-          '/',
-          '/200.html',
-          ...routes,
-        ]
-
-        console.log(`✅ Prerender : ${routes.length} routes générées`)
-
-      } catch (e) {
-        console.error('❌ Erreur prerender hook :', e)
-        // On garde les routes par défaut si l'API est indisponible
-        nitroConfig.prerender!.routes = ['/', '/200.html']
-      }
+  // ✅ Sitemap automatique — se met à jour sans rebuild
+  sitemap: {
+    hostname: 'https://brcmarket.cm',
+    sources: ['/api/sitemap-urls'],   // endpoint à créer (voir plus bas)
+    defaults: {
+      changefreq: 'weekly',
+      priority: 0.8,
     },
   },
 
