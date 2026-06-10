@@ -4,7 +4,7 @@ import axios from 'axios'
 import useCart from '@/composables/useCart'
 import { useAuth } from '@/composables/useAuth' 
 
-const { authUser: user } = useAuth() 
+const { authUser: user, token } = useAuth()
 const { t } = useI18n()
 const toast  = useToast()
 const config = useRuntimeConfig()
@@ -194,9 +194,12 @@ const submitOrder = async () => {
 
   try {
     const resp = await axios.post(`${API}/orders/checkout`, payload, {
-      headers:         { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      withCredentials: true, // envoie le cookie Sanctum si connecté
-    })
+    headers: {
+      'Content-Type':  'application/json',
+      'Accept':        'application/json',
+      ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}),
+    },
+  })
     orderRef = resp.data?.ref ?? resp.data?.order_number ?? `CMD-${Date.now().toString().slice(-6)}`
   } catch (e: any) {
     isSubmitting.value = false
