@@ -7,11 +7,27 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@pinia/nuxt',
     '@vite-pwa/nuxt',
+    '@nuxtjs/i18n',
+  ],
+
+  i18n: {
+    locales: [
+      { code: 'fr', name: 'Français', flag: '🇫🇷', file: 'fr.json' },
+      { code: 'en', name: 'English',  flag: '🇬🇧', file: 'en.json' },
+    ],
+    defaultLocale: 'fr',
+    langDir: 'locales/',
+    strategy: 'no_prefix',        // ← change ici
+    detectBrowserLanguage: false, // ← désactive
+  },
+
+  plugins: [
+    './plugin/i18n-locale.client.ts',
   ],
 
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE ?? 'http://127.0.0.1:8000/api',
+      apiBase: process.env.NUXT_PUBLIC_API_BASE,
       cloudinaryCloudName:    process.env.NUXT_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '',
       cloudinaryUploadPreset: process.env.NUXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '',
     },
@@ -72,14 +88,14 @@ export default defineNuxtConfig({
 
   // ✅ SSR Vercel — plus de preset static
   nitro: {
-    preset: 'vercel',
+    preset: process.env.NODE_ENV === 'production' ? 'vercel' : 'node-server',
 
     routeRules: {
-      '/':              { isr: 60 * 10 },  // home → cache 10 min
-      '/products/**':   { isr: 60 * 60 },  // produits → cache 1h
-      '/categories/**': { isr: 60 * 60 },  // catégories → cache 1h
-      '/boutique':      { isr: 60 * 5  },  // boutique → cache 5 min
-      '/api/**':        { cache: false  },  // API jamais cachée
+      '/':              { isr: process.env.NODE_ENV === 'production' ? 60 * 10 : false },
+      '/products/**':   { isr: process.env.NODE_ENV === 'production' ? 60 * 60 : false },
+      '/categories/**': { isr: process.env.NODE_ENV === 'production' ? 60 * 60 : false },
+      '/boutique':      { isr: process.env.NODE_ENV === 'production' ? 60 * 5  : false },
+      '/api/**':        { cache: false },
     },
   },
 

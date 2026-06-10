@@ -2,6 +2,7 @@
 import useCart from '@/composables/useCart'
 
 const { cartItems, totalPrice, totalItems, isCartOpen, increaseQty, decreaseQty, removeItem, clearCart } = useCart()
+const { t } = useI18n()
 </script>
 
 <template>
@@ -12,7 +13,7 @@ const { cartItems, totalPrice, totalItems, isCartOpen, increaseQty, decreaseQty,
       color="neutral"
       variant="ghost"
       icon="i-heroicons-shopping-cart-solid"
-      aria-label="Panier"
+      :aria-label="$t('cart.title')"
       @click="isCartOpen = true"
     />
 
@@ -21,7 +22,7 @@ const { cartItems, totalPrice, totalItems, isCartOpen, increaseQty, decreaseQty,
       v-if="totalItems > 0"
       class="absolute -top-2 -right-2 min-w-[20px] h-[20px] px-1 bg-[#e60012] text-white text-[10px] font-black rounded-full flex items-center justify-center pointer-events-none z-10 shadow"
     >
-      {{ totalItems > 99 ? '99+' : totalItems }}
+      {{ totalItems > 99 ? $t('cart.limit') : totalItems }}
     </span>
 
     <!-- Drawer panier -->
@@ -33,12 +34,15 @@ const { cartItems, totalPrice, totalItems, isCartOpen, increaseQty, decreaseQty,
           <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
             <div class="flex items-center gap-2">
               <UIcon name="i-heroicons-shopping-cart-solid" class="w-5 h-5 text-[#274a82]" />
-              <h2 class="text-lg font-bold text-gray-900">Mon Panier</h2>
+              <h2 class="text-lg font-bold text-gray-900">{{ $t('cart.title') }}</h2>
               <span v-if="totalItems > 0" class="text-xs bg-[#274a82]/10 text-[#274a82] font-bold px-2 py-0.5 rounded-full">
-                {{ totalItems }} article{{ totalItems > 1 ? 's' : '' }}
+                {{ totalItems }} {{ totalItems > 1 ? $t('cart.articles') : $t('cart.article') }}
               </span>
             </div>
-            <button @click="isCartOpen = false" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
+            <button
+              @click="isCartOpen = false"
+              class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+            >
               <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
             </button>
           </div>
@@ -51,9 +55,9 @@ const { cartItems, totalPrice, totalItems, isCartOpen, increaseQty, decreaseQty,
               <div class="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center">
                 <UIcon name="i-heroicons-shopping-cart" class="w-10 h-10 text-gray-200" />
               </div>
-              <p class="font-semibold text-gray-500">Votre panier est vide</p>
+              <p class="font-semibold text-gray-500">{{ $t('cart.empty') }}</p>
               <UButton @click="isCartOpen = false" color="error" variant="outline" size="sm" class="font-bold">
-                Continuer mes achats
+                {{ $t('cart.continue') }}
               </UButton>
             </div>
 
@@ -71,7 +75,9 @@ const { cartItems, totalPrice, totalItems, isCartOpen, increaseQty, decreaseQty,
                 <div class="flex-1 min-w-0">
                   <h3 class="text-sm font-bold text-gray-800 line-clamp-2 leading-snug">{{ item.name }}</h3>
                   <p v-if="item.options" class="text-xs text-gray-400 mt-0.5">{{ item.options }}</p>
-                  <p class="text-sm font-black text-[#274a82] mt-1">{{ (item.price * item.quantity).toLocaleString() }} FCFA</p>
+                  <p class="text-sm font-black text-[#274a82] mt-1">
+                    {{ (item.price * item.quantity).toLocaleString() }} {{ $t('cart.currency') }}
+                  </p>
                 </div>
 
                 <div class="flex flex-col items-end gap-2">
@@ -91,21 +97,23 @@ const { cartItems, totalPrice, totalItems, isCartOpen, increaseQty, decreaseQty,
           <!-- Footer -->
           <div v-if="cartItems.length > 0" class="flex-shrink-0 border-t border-gray-100 px-5 py-4 space-y-3">
             <div class="flex items-center justify-between py-1">
-              <span class="text-sm text-gray-500 font-medium">Sous-total</span>
-              <span class="text-xl font-black text-gray-900">{{ totalPrice.toLocaleString() }} <span class="text-xs font-medium">FCFA</span></span>
+              <span class="text-sm text-gray-500 font-medium">{{ $t('cart.subtotal') }}</span>
+              <span class="text-xl font-black text-gray-900">
+                {{ totalPrice.toLocaleString() }} <span class="text-xs font-medium">{{ $t('cart.currency') }}</span>
+              </span>
             </div>
             <NuxtLink to="/checkout" @click="isCartOpen = false">
-              <UButton block color="error" class="font-bold " trailing-icon="i-heroicons-credit-card-solid">
-                Passer à la caisse
+              <UButton block color="error" class="font-bold" trailing-icon="i-heroicons-credit-card-solid">
+                {{ $t('cart.checkout') }}
               </UButton>
             </NuxtLink>
             <NuxtLink to="/cart" @click="isCartOpen = false">
               <UButton block variant="outline" color="neutral" class="font-bold my-2" trailing-icon="i-heroicons-shopping-bag-solid">
-                Voir le panier
+                {{ $t('cart.view_cart') }}
               </UButton>
             </NuxtLink>
             <button @click="clearCart" class="w-full text-center text-xs text-gray-400 hover:text-[#e60012] transition-colors font-medium pt-1">
-              Vider le panier
+              {{ $t('cart.clear') }}
             </button>
           </div>
 

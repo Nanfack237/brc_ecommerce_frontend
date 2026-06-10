@@ -10,6 +10,7 @@ export const useWishlist = () => {
   const { token, isLoggedIn } = useAuth()
   const toast  = useToast()
   const config = useRuntimeConfig()
+  const { t }  = useI18n()
   const API    = config.public.apiBase
 
   const authHeaders = computed(() => ({ Authorization: `Bearer ${token.value}` }))
@@ -34,8 +35,8 @@ export const useWishlist = () => {
   const toggleWishlist = async (productId: number, productName?: string) => {
     if (!isLoggedIn?.value) {
       toast.add({
-        title: 'Connexion requise',
-        description: 'Connectez-vous pour gérer vos favoris.',
+        title: t('wishlist.login_required_title'),
+        description: t('wishlist.login_required_desc'),
         color: 'warning',
         icon: 'i-heroicons-user-circle',
       })
@@ -53,16 +54,16 @@ export const useWishlist = () => {
       if (wasIn) {
         await axios.delete(`${API}/wishlist/${productId}`, { headers: authHeaders.value })
         toast.add({
-          title: 'Retiré des favoris',
-          description: productName ? `${productName} supprimé.` : undefined,
+          title: t('wishlist.removed_title'),
+          description: productName ? t('wishlist.removed_desc', { name: productName }) : undefined,
           color: 'neutral',
           icon: 'i-heroicons-heart',
         })
       } else {
         await axios.post(`${API}/wishlist/${productId}`, {}, { headers: authHeaders.value })
         toast.add({
-          title: 'Ajouté aux favoris !',
-          description: productName ? `${productName} sauvegardé.` : undefined,
+          title: t('wishlist.added_title'),
+          description: productName ? t('wishlist.added_desc', { name: productName }) : undefined,
           color: 'success',
           icon: 'i-heroicons-heart-solid',
         })
@@ -73,8 +74,8 @@ export const useWishlist = () => {
       wasIn ? rollback.add(productId) : rollback.delete(productId)
       wishlistIds.value = rollback
       toast.add({
-        title: 'Erreur',
-        description: 'Impossible de mettre à jour les favoris.',
+        title: t('wishlist.error_title'),
+        description: t('wishlist.error_desc'),
         color: 'error',
         icon: 'i-heroicons-x-circle',
       })

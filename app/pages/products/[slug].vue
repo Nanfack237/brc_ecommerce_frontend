@@ -6,6 +6,7 @@ const route  = useRoute()
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
 const toast  = useToast()
+const { t }  = useI18n()
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Spec    { key: string; value: string }
@@ -43,12 +44,28 @@ const { token, isLoggedIn } = useAuth()
 const authHeaders = computed(() => ({ Authorization: `Bearer ${token.value}` }))
 
 // ─── État produit ─────────────────────────────────────────────────────────────
-const product         = ref<Product | null>(null)
-const relatedProducts = ref<Product[]>([])
-const loading         = ref(true)
-const notFound        = ref(false)
+const slug = computed(() => route.params.slug as string)
 
-// ─── Avis (déclaré avant setSeo pour éviter référence avant init) ─────────────
+// ✅ lazy: true → la navigation est immédiate, le fetch se fait en arrière-plan
+// côté SSR (premier chargement / bot Google) le comportement reste bloquant
+const {
+  data:    productData,
+  error:   productError,
+  pending: loading,
+  refresh: refreshProduct,
+} = await useAsyncData(
+  () => `product-${slug.value}`,
+  () => $fetch<Product>(`${API}/products/${slug.value}`),
+  { lazy: true },
+)
+
+const product  = computed(() => productData.value ?? null)
+const notFound = computed(() => !!productError.value && !loading.value)
+
+// ─── Produits similaires ───────────────────────────────────────────────────────
+const relatedProducts = ref<Product[]>([])
+
+// ─── Avis ─────────────────────────────────────────────────────────────────────
 const reviews   = ref<Review[]>([])
 const avgRating = computed(() => {
   if (!reviews.value.length) return 0
@@ -78,7 +95,15 @@ const setSeo = (p: Product) => {
   })
 
   useHead({
-    link: [{ rel: 'canonical', href: url }],
+    link: [
+      { rel: 'canonical', href: url },
+      ...(p.images?.[0] ? [{
+        rel:           'preload',
+        as:            'image',
+        href:          p.images[0],
+        fetchpriority: 'high',
+      }] : []),
+    ],
     script: [{
       type:      'application/ld+json',
       innerHTML: JSON.stringify({
@@ -90,7 +115,6 @@ const setSeo = (p: Product) => {
         sku:        p.sku   ?? undefined,
         brand:      p.brand ? { '@type': 'Brand', name: p.brand } : undefined,
         url,
-
         offers: {
           '@type':         'Offer',
           priceCurrency:   'XAF',
@@ -102,12 +126,8 @@ const setSeo = (p: Product) => {
             : 'https://schema.org/OutOfStock',
           itemCondition: 'https://schema.org/NewCondition',
           url,
-          seller: {
-            '@type': 'Organization',
-            name:    'BRC Market',
-          },
+          seller: { '@type': 'Organization', name: 'BRC Market' },
         },
-
         ...(reviews.value.length > 0 || p.reviews_count > 0 ? {
           aggregateRating: {
             '@type':      'AggregateRating',
@@ -117,7 +137,6 @@ const setSeo = (p: Product) => {
             worstRating:  1,
           },
         } : {}),
-
         ...(reviews.value.length > 0 ? {
           review: reviews.value.slice(0, 5).map(r => ({
             '@type':      'Review',
@@ -142,80 +161,68 @@ const setSeo = (p: Product) => {
   })
 }
 
-// ─── Fetch produit — SSR + prerender ─────────────────────────────────────────
-// useAsyncData s'exécute côté serveur au moment du build (nuxt generate)
-// → setSeo() est appelé avant que le HTML soit généré
-// → Google voit la bonne og:image dans le HTML statique
-const slug = computed(() => route.params.slug as string)
-
-const { data: productData, error: productError } = await useAsyncData(
-  `product-${slug.value}`,
-  () => $fetch<Product>(`${API}/products/${slug.value}`),
-)
-
-product.value  = productData.value ?? null
-notFound.value = !!productError.value
-loading.value  = false
-
-if (productData.value) {
+// ─── SEO SSR (premier chargement) ─────────────────────────────────────────────
+// Côté serveur, productData est déjà disponible (useAsyncData bloque en SSR)
+if (import.meta.server && productData.value) {
   setSeo(productData.value)
-
-  // Produits liés
-  if (productData.value.category?.slug) {
-    try {
-      const r = await $fetch<any>(`${API}/categories/${productData.value.category.slug}/products`, {
-        params: { limit: 6 },
-      })
-      relatedProducts.value = (r.data ?? r)
-        .filter((p: Product) => p.id !== productData.value!.id)
-        .slice(0, 6)
-    } catch {}
-  }
-} else if (productError.value) {
+} else if (import.meta.server && productError.value) {
   useSeoMeta({ robots: 'noindex, nofollow' })
 }
 
-// ─── Rechargement client quand le slug change (navigation entre produits) ─────
-const reloadProduct = async (newSlug: string) => {
-  loading.value  = true
-  notFound.value = false
-  try {
-    const data = await $fetch<Product>(`${API}/products/${newSlug}`)
-    product.value = data
-    setSeo(data)
-    relatedProducts.value = []
-    if (data.category?.slug) {
-      try {
-        const r = await $fetch<any>(`${API}/categories/${data.category.slug}/products`, {
-          params: { limit: 6 },
-        })
-        relatedProducts.value = (r.data ?? r)
-          .filter((p: Product) => p.id !== data.id)
-          .slice(0, 6)
-      } catch {}
-    }
-  } catch (err: any) {
-    if (err.statusCode === 404 || err.response?.status === 404) notFound.value = true
-    useSeoMeta({ robots: 'noindex, nofollow' })
-  } finally {
-    loading.value = false
+// ─── Réactions au chargement client (lazy fetch terminé) ──────────────────────
+watch(productData, (p) => {
+  if (!p) return
+  setSeo(p)
+  mainImage.value = p.images?.[0] ?? ''
+  if (p.category?.slug) {
+    loadRelatedProducts(p.category.slug, p.id)
   }
+})
+
+watch(productError, (e) => {
+  if (e) useSeoMeta({ robots: 'noindex, nofollow' })
+})
+
+// ─── Rechargement lors d'une navigation entre produits ────────────────────────
+// ✅ On réinitialise les états secondaires puis on re-fetch via refreshProduct()
+watch(slug, async () => {
+  reviews.value       = []
+  reviewsLoaded.value = false
+  relatedProducts.value = []
+  mainImage.value     = ''
+  await refreshProduct()
+})
+
+// ─── Produits similaires ───────────────────────────────────────────────────────
+const loadRelatedProducts = async (categorySlug: string, currentId: number) => {
+  try {
+    const r = await $fetch<any>(`${API}/categories/${categorySlug}/products`, {
+      params: { limit: 6 },
+    })
+    relatedProducts.value = (r.data ?? r)
+      .filter((p: Product) => p.id !== currentId)
+      .slice(0, 6)
+  } catch {}
 }
 
-watch(slug, reloadProduct)
-
-onMounted(() => { initWishlist() })
+onMounted(() => {
+  initWishlist()
+  // ✅ Chargement différé après le rendu initial
+  if (productData.value?.category?.slug && productData.value?.id) {
+    loadRelatedProducts(productData.value.category.slug, productData.value.id)
+  }
+})
 
 // ─── Galerie ──────────────────────────────────────────────────────────────────
 const mainImage  = ref(productData.value?.images?.[0] ?? '')
 const thumbnails = computed(() => product.value?.images ?? [])
-watch(product, (p) => { if (p?.images?.[0]) mainImage.value = p.images[0] })
 const selectImage = (img: string) => { mainImage.value = img }
 
-// ─── Zoom desktop uniquement ──────────────────────────────────────────────────
+// ─── Zoom desktop ─────────────────────────────────────────────────────────────
 const isZoomed = ref(false)
 const zoomPos  = ref({ x: 0, y: 0 })
 const isMobile = ref(false)
+
 onMounted(() => {
   isMobile.value = window.innerWidth < 640
   window.addEventListener('resize', () => { isMobile.value = window.innerWidth < 640 })
@@ -230,7 +237,7 @@ const handleMouseMove = (e: MouseEvent) => {
   }
 }
 
-// ─── Quantité ─────────────────────────────────────────────────────────────────
+// ─── Quantité / Onglets ───────────────────────────────────────────────────────
 const quantity  = ref(1)
 const activeTab = ref('description')
 
@@ -272,7 +279,6 @@ const fetchReviews = async () => {
     const data = await $fetch<any>(`${API}/products/${product.value.id}/reviews`)
     reviews.value       = data.data ?? data
     reviewsLoaded.value = true
-    // Met à jour le schema.org avec les vraies notes
     if (product.value) setSeo(product.value)
   } catch {} finally {
     loadingReviews.value = false
@@ -294,7 +300,10 @@ const showReviewModal  = ref(false)
 const hoverRating      = ref(0)
 const reviewForm       = ref({ rating: 5, comment: '' })
 const submittingReview = ref(false)
-const ratingLabels     = ['', 'Mauvais', 'Passable', 'Bien', 'Très bien', 'Excellent']
+
+const ratingLabel = computed(() =>
+  t(`product.rating_label_${hoverRating.value || reviewForm.value.rating}`)
+)
 
 const openReviewModal = () => {
   if (!isLoggedIn.value) {
@@ -316,8 +325,8 @@ const submitReview = async () => {
       { headers: authHeaders.value }
     )
     toast.add({
-      title:       'Avis envoyé !',
-      description: 'Merci ! Votre avis est en attente de validation.',
+      title:       t('product.toast_review_success_title'),
+      description: t('product.toast_review_success_desc'),
       color:       'success',
       icon:        'i-heroicons-check-circle',
     })
@@ -326,8 +335,8 @@ const submitReview = async () => {
     fetchReviews()
   } catch (e: any) {
     toast.add({
-      title:       'Erreur',
-      description: e?.response?.data?.message ?? "Impossible d'envoyer votre avis.",
+      title:       t('product.toast_review_error_title'),
+      description: e?.response?.data?.message ?? t('product.toast_review_error_desc'),
       color:       'error',
       icon:        'i-heroicons-x-circle',
     })
@@ -337,6 +346,13 @@ const submitReview = async () => {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+const stockLabel = computed(() => {
+  if (!product.value) return ''
+  if (product.value.stock > 5)  return t('product.stock_available')
+  if (product.value.stock > 0)  return t('product.stock_low', { count: product.value.stock })
+  return t('product.stock_out')
+})
+
 const discountPercent = (item: Product) => {
   if (item.discount_percent) return `-${item.discount_percent}%`
   if (item.old_price && item.old_price > item.price)
@@ -355,7 +371,7 @@ const formatPrice = (p: number) =>
     <!-- LOADING -->
     <div v-if="loading" class="flex flex-col items-center justify-center py-24 gap-4">
       <div class="w-12 h-12 border-4 border-[#274a82] border-t-transparent rounded-full animate-spin"></div>
-      <p class="text-sm text-gray-400 font-semibold">Chargement du produit...</p>
+      <p class="text-sm text-gray-400 font-semibold">{{ $t('product.loading') }}</p>
     </div>
 
     <!-- NOT FOUND -->
@@ -363,12 +379,12 @@ const formatPrice = (p: number) =>
       <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center">
         <UIcon name="i-heroicons-face-frown" class="w-8 h-8 text-gray-300" />
       </div>
-      <h2 class="text-xl font-black text-gray-800">Produit introuvable</h2>
-      <p class="text-sm text-gray-400">Ce produit n'existe pas ou a été supprimé.</p>
+      <h2 class="text-xl font-black text-gray-800">{{ $t('product.not_found_title') }}</h2>
+      <p class="text-sm text-gray-400">{{ $t('product.not_found_desc') }}</p>
       <NuxtLink
         to="/"
         class="mt-2 px-6 py-2.5 bg-[#274a82] text-white text-sm font-black rounded-lg hover:bg-[#e60012] transition">
-        Retour à la boutique
+        {{ $t('product.not_found_btn') }}
       </NuxtLink>
     </div>
 
@@ -379,7 +395,9 @@ const formatPrice = (p: number) =>
       <nav
         aria-label="Fil d'Ariane"
         class="flex items-center gap-2 text-[14px] mb-5 text-gray-500 font-medium border-b border-gray-50 pb-2">
-        <NuxtLink to="/" class="hover:text-[#274a82] transition-colors flex-shrink-0">Boutique</NuxtLink>
+        <NuxtLink to="/boutique" class="hover:text-[#274a82] transition-colors flex-shrink-0">
+          {{ $t('product.breadcrumb_shop') }}
+        </NuxtLink>
         <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 flex-shrink-0" />
         <NuxtLink
           v-if="product.category"
@@ -387,7 +405,7 @@ const formatPrice = (p: number) =>
           class="text-[#274a82] hover:text-[#e60012] transition-colors flex-shrink-0">
           {{ product.category.name }}
         </NuxtLink>
-        <span v-else class="text-[#274a82] flex-shrink-0">Produit</span>
+        <span v-else class="text-[#274a82] flex-shrink-0">{{ $t('product.breadcrumb_product') }}</span>
         <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 flex-shrink-0" />
         <span
           class="truncate max-w-[150px] sm:max-w-[200px] text-[#274a82] font-bold pointer-events-none"
@@ -416,17 +434,19 @@ const formatPrice = (p: number) =>
             <button
               v-for="(img, i) in thumbnails" :key="i"
               @click="selectImage(img)"
-              :aria-label="`Voir image ${i + 1}`"
+              :aria-label="$t('product.image_aria_thumb', { index: i + 1 })"
               class="w-14 h-14 border-2 rounded-sm p-0.5 transition-all flex-shrink-0"
               :class="mainImage === img
                 ? 'border-[#274a82] ring-1 ring-[#274a82]'
                 : 'border-gray-200 hover:border-gray-300'">
               <img
                 :src="img"
-                loading="lazy"
+                :loading="i < 3 ? 'eager' : 'lazy'"
                 decoding="async"
+                width="56"
+                height="56"
                 class="w-full h-full object-cover rounded-sm"
-                :alt="`${product.name} - vue ${i + 1}`" />
+                :alt="$t('product.image_alt_thumb', { name: product.name, index: i + 1 })" />
             </button>
           </div>
 
@@ -453,12 +473,12 @@ const formatPrice = (p: number) =>
                 <UIcon name="i-heroicons-photo" class="w-16 h-16 text-gray-200" />
               </div>
 
-              <!-- ✅ Image principale : fetchpriority=high pour LCP Google -->
               <img
                 v-else
                 :src="mainImage"
                 :alt="product.name"
                 fetchpriority="high"
+                loading="eager"
                 decoding="async"
                 width="600"
                 height="600"
@@ -483,10 +503,12 @@ const formatPrice = (p: number) =>
                 :class="mainImage === img ? 'border-[#274a82]' : 'border-gray-200'">
                 <img
                   :src="img"
-                  loading="lazy"
+                  :loading="i === 0 ? 'eager' : 'lazy'"
                   decoding="async"
+                  width="56"
+                  height="56"
                   class="w-full h-full object-cover rounded-sm"
-                  :alt="`${product.name} - vue ${i + 1}`" />
+                  :alt="$t('product.image_alt_thumb', { name: product.name, index: i + 1 })" />
               </button>
             </div>
           </div>
@@ -515,7 +537,7 @@ const formatPrice = (p: number) =>
             v-if="reviewCount > 0"
             @click="activeTab = 'reviews'"
             class="flex items-center gap-2 hover:opacity-80 transition-opacity"
-            :aria-label="`${reviewCount} avis clients`">
+            :aria-label="$t('product.reviews_count', { count: reviewCount })">
             <div class="flex gap-0.5">
               <UIcon
                 v-for="j in 5" :key="j"
@@ -523,7 +545,7 @@ const formatPrice = (p: number) =>
                 class="w-3.5 h-3.5 text-yellow-400" />
             </div>
             <span class="text-xs text-gray-500 font-bold underline underline-offset-2">
-              {{ reviewCount }} avis
+              {{ $t('product.reviews_count', { count: reviewCount }) }}
             </span>
           </button>
 
@@ -536,14 +558,10 @@ const formatPrice = (p: number) =>
             <span
               class="text-[12px] font-bold"
               :class="product.stock > 0 ? 'text-green-600' : 'text-red-500'">
-              {{ product.stock > 5
-                ? 'En stock'
-                : product.stock > 0
-                  ? `Plus que ${product.stock} en stock`
-                  : 'Rupture de stock' }}
+              {{ stockLabel }}
             </span>
             <span v-if="product.sku" class="ml-auto text-[11px] text-gray-400 font-mono">
-              SKU: {{ product.sku }}
+              {{ $t('product.sku_label') }} {{ product.sku }}
             </span>
           </div>
 
@@ -562,7 +580,7 @@ const formatPrice = (p: number) =>
           </div>
           <div v-else-if="product.brand" class="py-3 border-y border-gray-100">
             <div class="flex justify-between items-center">
-              <span class="text-[12px] text-gray-400 font-bold">Marque</span>
+              <span class="text-[12px] text-gray-400 font-bold">{{ $t('product.brand_label') }}</span>
               <span class="text-[13px] text-gray-900 font-black">{{ product.brand }}</span>
             </div>
           </div>
@@ -574,7 +592,7 @@ const formatPrice = (p: number) =>
               <button
                 @click="quantity > 1 ? quantity-- : null"
                 :disabled="quantity <= 1"
-                aria-label="Diminuer la quantité"
+                :aria-label="$t('product.qty_decrease')"
                 class="px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-200 font-bold transition-colors text-lg select-none disabled:opacity-30">
                 −
               </button>
@@ -586,7 +604,7 @@ const formatPrice = (p: number) =>
               <button
                 @click="product.stock > 0 && quantity < product.stock ? quantity++ : null"
                 :disabled="product.stock === 0 || quantity >= product.stock"
-                aria-label="Augmenter la quantité"
+                :aria-label="$t('product.qty_increase')"
                 class="px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-200 font-bold transition-colors text-lg select-none disabled:opacity-30">
                 +
               </button>
@@ -598,12 +616,12 @@ const formatPrice = (p: number) =>
               block
               class="flex-1 bg-[#274a82] hover:bg-[#e60012] text-white font-black py-3 tracking-widest shadow-md transition-all rounded-sm text-sm sm:text-[12px] min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed">
               <UIcon name="i-heroicons-shopping-cart" class="w-4 h-4 mr-2" />
-              {{ product.stock === 0 ? 'Rupture de stock' : 'Ajouter au panier' }}
+              {{ product.stock === 0 ? $t('product.btn_out_of_stock') : $t('product.btn_add_to_cart') }}
             </UButton>
 
             <button
               @click="addToWishlist(product.id, product.name)"
-              :aria-label="isFav(product.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
+              :aria-label="isFav(product.id) ? $t('product.btn_fav_remove') : $t('product.btn_fav_add')"
               class="w-11 h-11 border rounded-sm flex items-center justify-center transition-colors flex-shrink-0"
               :class="isFav(product.id)
                 ? 'border-[#e60012] bg-red-50 text-[#e60012]'
@@ -630,7 +648,7 @@ const formatPrice = (p: number) =>
             :class="activeTab === 'description'
               ? 'border-[#e60012] text-black'
               : 'border-transparent text-gray-400 hover:text-gray-600'">
-            Description
+            {{ $t('product.tab_description') }}
           </button>
           <button
             v-if="product.specs?.length"
@@ -641,7 +659,7 @@ const formatPrice = (p: number) =>
             :class="activeTab === 'specs'
               ? 'border-[#e60012] text-black'
               : 'border-transparent text-gray-400 hover:text-gray-600'">
-            Fiche technique
+            {{ $t('product.tab_specs') }}
           </button>
           <button
             @click="activeTab = 'reviews'"
@@ -651,7 +669,7 @@ const formatPrice = (p: number) =>
             :class="activeTab === 'reviews'
               ? 'border-[#e60012] text-black'
               : 'border-transparent text-gray-400 hover:text-gray-600'">
-            Avis
+            {{ $t('product.tab_reviews') }}
             <span class="bg-gray-100 text-gray-500 text-[10px] font-black px-1.5 py-0.5 rounded-full">
               {{ reviewCount }}
             </span>
@@ -665,13 +683,13 @@ const formatPrice = (p: number) =>
             class="text-[13px] sm:text-[14px] leading-[1.8] text-gray-700">
             {{ product.description }}
           </p>
-          <p v-else class="text-sm text-gray-400 italic">Aucune description disponible pour ce produit.</p>
+          <p v-else class="text-sm text-gray-400 italic">{{ $t('product.no_description') }}</p>
         </div>
 
         <!-- Fiche technique -->
         <div v-else-if="activeTab === 'specs'" role="tabpanel" class="overflow-x-auto">
           <table class="w-full text-sm border-collapse">
-            <caption class="sr-only">Fiche technique de {{ product.name }}</caption>
+            <caption class="sr-only">{{ $t('product.specs_caption', { name: product.name }) }}</caption>
             <tbody>
               <tr
                 v-for="spec in product.specs" :key="spec.key"
@@ -698,18 +716,20 @@ const formatPrice = (p: number) =>
                       :name="j <= Math.round(avgRating) ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
                       class="w-4 h-4 text-yellow-400" />
                   </div>
-                  <span class="text-xs text-gray-400">{{ reviews.length }} avis clients</span>
+                  <span class="text-xs text-gray-400">
+                    {{ $t('product.reviews_avg_label', { count: reviews.length }) }}
+                  </span>
                 </div>
               </template>
               <span v-else-if="!loadingReviews" class="text-sm text-gray-400">
-                Aucun avis pour l'instant
+                {{ $t('product.reviews_none') }}
               </span>
             </div>
             <button
               @click="openReviewModal"
               class="flex items-center gap-2 px-4 py-2.5 bg-[#274a82] hover:bg-[#e60012] text-white text-xs font-black rounded-xl transition-all shadow-sm">
               <UIcon name="i-heroicons-pencil-square" class="w-3.5 h-3.5" />
-              Donner mon avis
+              {{ $t('product.reviews_give_btn') }}
             </button>
           </div>
 
@@ -725,15 +745,15 @@ const formatPrice = (p: number) =>
             <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
               <UIcon name="i-heroicons-chat-bubble-left-ellipsis" class="w-7 h-7 text-gray-300" />
             </div>
-            <p class="text-sm text-gray-400 font-medium">Soyez le premier à donner votre avis !</p>
+            <p class="text-sm text-gray-400 font-medium">{{ $t('product.reviews_be_first') }}</p>
             <button
               @click="openReviewModal"
               class="mt-1 px-5 py-2.5 bg-[#274a82] text-white text-xs font-black rounded-xl hover:bg-[#e60012] transition-all">
-              Écrire un avis
+              {{ $t('product.reviews_write_btn') }}
             </button>
           </div>
 
-          <!-- Marquee desktop — ✅ duplication pour boucle infinie vraie -->
+          <!-- Marquee desktop -->
           <div v-else>
             <div class="hidden sm:block relative overflow-hidden py-2">
               <div class="flex gap-5 marquee-container">
@@ -803,13 +823,13 @@ const formatPrice = (p: number) =>
         <div class="flex items-center justify-between border-b border-gray-200 mb-5 sm:mb-6">
           <h2
             class="text-base sm:text-xl font-bold text-gray-800 pb-2 border-b-2 border-[#e60012] mb-[-1px] tracking-tight">
-            Produits Similaires
+            {{ $t('product.related_title') }}
           </h2>
           <NuxtLink
             v-if="product.category"
             :to="`/categories/${product.category.slug}`"
             class="text-[12px] sm:text-[13px] font-black text-[#274a82] hover:text-[#e60012] flex items-center gap-1 transition-colors group">
-            Voir plus
+            {{ $t('product.related_see_more') }}
             <UIcon name="i-heroicons-arrow-right" class="group-hover:translate-x-1 transition-transform" />
           </NuxtLink>
         </div>
@@ -832,7 +852,7 @@ const formatPrice = (p: number) =>
                   class="absolute right-[-50px] group-hover:right-3 top-3 flex flex-col gap-2 z-30 transition-all duration-300">
                   <button
                     @click.prevent.stop="addToWishlist(item.id, item.name)"
-                    :aria-label="isFav(item.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
+                    :aria-label="isFav(item.id) ? $t('product.related_fav_remove') : $t('product.related_fav_add')"
                     class="w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center transition-colors"
                     :class="isFav(item.id)
                       ? 'bg-[#e60012] text-white'
@@ -842,7 +862,6 @@ const formatPrice = (p: number) =>
                       class="w-4 h-4" />
                   </button>
                 </div>
-                <!-- ✅ lazy loading produits similaires -->
                 <img
                   v-if="item.images?.[0]"
                   :src="item.images[0]"
@@ -864,11 +883,11 @@ const formatPrice = (p: number) =>
                   {{ item.name }}
                 </h3>
                 <div class="mt-2">
-                  <div class="text-lg sm:text-2xl font-black text-gray-900 mb-0.5 leading-tight">
-                    {{ formatPrice(item.price) }} <span class="text-[9px] sm:text-[11px] font-semibold">FCFA</span>
+                  <div class="text-xs sm:text-xl font-black text-gray-900 mb-0.5 leading-tight">
+                    {{ item.price.toLocaleString() }} <span class="text-[12px]">FCFA</span>
                   </div>
                   <span v-if="item.old_price" class="text-[10px] sm:text-[12px] text-[#e60012] line-through">
-                    {{ formatPrice(item.old_price) }} FCFA
+                    {{ item.old_price.toLocaleString() }} FCFA
                   </span>
                 </div>
               </div>
@@ -910,7 +929,7 @@ const formatPrice = (p: number) =>
                 <div class="text-sm font-black text-gray-900 leading-tight">
                   {{ item.price.toLocaleString() }} <span class="text-[8px]">FCFA</span>
                 </div>
-                <span v-if="item.old_price" class="text-[9px] text-gray-400 line-through">
+                <span v-if="item.old_price" class="text-[9px] text-[#e60012] line-through">
                   {{ item.old_price.toLocaleString() }} FCFA
                 </span>
               </div>
@@ -930,14 +949,16 @@ const formatPrice = (p: number) =>
         <!-- Header -->
         <div class="px-6 py-5 bg-[#274a82] flex items-center justify-between">
           <div>
-            <p class="text-xs text-white/50 font-bold tracking-widest">Votre avis</p>
+            <p class="text-xs text-white/50 font-bold tracking-widest">
+              {{ $t('product.modal_review_subtitle') }}
+            </p>
             <h2 class="text-base font-black text-white mt-0.5 line-clamp-1 max-w-[220px]">
               {{ product?.name }}
             </h2>
           </div>
           <button
             @click="showReviewModal = false"
-            aria-label="Fermer le modal"
+            :aria-label="$t('product.modal_review_close')"
             class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all flex-shrink-0">
             <UIcon name="i-heroicons-x-mark" class="w-4 h-4 text-white" />
           </button>
@@ -947,14 +968,16 @@ const formatPrice = (p: number) =>
 
           <!-- Étoiles -->
           <div>
-            <p class="text-xs font-black text-gray-400 tracking-widest mb-3">Votre note</p>
-            <div class="flex items-center gap-1" role="radiogroup" aria-label="Note">
+            <p class="text-xs font-black text-gray-400 tracking-widest mb-3">
+              {{ $t('product.modal_rating_label') }}
+            </p>
+            <div class="flex items-center gap-1" role="radiogroup" :aria-label="$t('product.modal_rating_label')">
               <button
                 v-for="star in 5" :key="star"
                 @click="reviewForm.rating = star"
                 @mouseenter="hoverRating = star"
                 @mouseleave="hoverRating = 0"
-                :aria-label="`${star} étoile${star > 1 ? 's' : ''}`"
+                :aria-label="$t(star > 1 ? 'product.rating_stars_aria' : 'product.rating_star_aria', { count: star })"
                 :aria-pressed="reviewForm.rating === star"
                 class="p-0.5 transition-transform hover:scale-110 focus:outline-none">
                 <UIcon
@@ -967,29 +990,35 @@ const formatPrice = (p: number) =>
                     : 'text-gray-200'" />
               </button>
               <span class="ml-3 text-sm font-black text-gray-700 min-w-[80px]">
-                {{ ratingLabels[hoverRating || reviewForm.rating] }}
+                {{ ratingLabel }}
               </span>
             </div>
           </div>
 
           <!-- Commentaire -->
           <div>
-            <p class="text-xs font-black text-gray-400 tracking-widest mb-2">Commentaire</p>
+            <p class="text-xs font-black text-gray-400 tracking-widest mb-2">
+              {{ $t('product.modal_comment_label') }}
+            </p>
             <textarea
               v-model="reviewForm.comment"
               :maxlength="500"
               rows="4"
-              placeholder="Partagez votre expérience avec ce produit..."
-              aria-label="Votre commentaire"
+              :placeholder="$t('product.modal_comment_placeholder')"
+              :aria-label="$t('product.modal_comment_label')"
               class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#274a82] focus:ring-2 focus:ring-[#274a82]/10 transition-all resize-none">
             </textarea>
             <div class="flex justify-between mt-1">
               <span
                 class="text-[10px]"
                 :class="reviewForm.comment.trim() ? 'text-green-500' : 'text-red-400'">
-                {{ reviewForm.comment.trim() ? '✓ Prêt à publier' : 'Le commentaire est requis' }}
+                {{ reviewForm.comment.trim()
+                  ? $t('product.modal_comment_ready')
+                  : $t('product.modal_comment_required') }}
               </span>
-              <span class="text-[10px] text-gray-400">{{ reviewForm.comment.length }} / 500</span>
+              <span class="text-[10px] text-gray-400">
+                {{ $t('product.modal_comment_limit', { count: reviewForm.comment.length }) }}
+              </span>
             </div>
           </div>
 
@@ -998,7 +1027,7 @@ const formatPrice = (p: number) =>
             <button
               @click="showReviewModal = false"
               class="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all">
-              Annuler
+              {{ $t('product.modal_btn_cancel') }}
             </button>
             <button
               @click="submitReview"
@@ -1008,7 +1037,9 @@ const formatPrice = (p: number) =>
                 :name="submittingReview ? 'i-heroicons-arrow-path' : 'i-heroicons-paper-airplane'"
                 class="w-4 h-4"
                 :class="submittingReview ? 'animate-spin' : ''" />
-              {{ submittingReview ? 'Envoi...' : "Publier l'avis" }}
+              {{ submittingReview
+                ? $t('product.modal_btn_submitting')
+                : $t('product.modal_btn_submit') }}
             </button>
           </div>
 
@@ -1023,7 +1054,6 @@ const formatPrice = (p: number) =>
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #274a82; border-radius: 10px; }
 .cursor-zoom-in { cursor: crosshair; }
 
-/* ✅ Marquee corrigé : duplication dans le v-for pour boucle infinie vraie */
 .animate-marquee-scroll {
   display: flex;
   animation: scroll-marquee 30s linear infinite;

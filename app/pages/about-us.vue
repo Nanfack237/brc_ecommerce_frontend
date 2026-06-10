@@ -1,168 +1,127 @@
 <script setup lang="ts">
+const { t } = useI18n()
 
 const SEO_URL = 'https://brcmarket.cm/about'
 useSeoMeta({
-  title:              'À Propos de Nous',
-  ogTitle:            'À Propos de BRC Market',
-  description:        'Découvrez BRC Market, votre spécialiste en informatique, réseaux, Electricite et sécurité électronique au Cameroun. Basés à Douala, nous livrons dans tout le pays.',
-  ogDescription:      'Découvrez BRC Market, votre spécialiste en informatique, réseaux et sécurité électronique au Cameroun. Basés à Douala, nous livrons dans tout le pays.',
+  title:              t('about.seo_title'),
+  ogTitle:            t('about.seo_og_title'),
+  description:        t('about.seo_description'),
+  ogDescription:      t('about.seo_og_description'),
   ogImage:            'https://brcmarket.cm/images/og-image.png',
   ogUrl:              SEO_URL,
-  twitterTitle:       'À Propos de BRC Market',
-  twitterDescription: 'Votre spécialiste en informatique et réseaux au Cameroun.',
+  twitterTitle:       t('about.seo_twitter_title'),
+  twitterDescription: t('about.seo_twitter_description'),
   twitterImage:       'https://brcmarket.cm/images/og-image.png',
 })
 useHead({ link: [{ rel: 'canonical', href: SEO_URL }] })
-
 </script>
 
 <template>
   <div class="max-w-7xl mx-auto px-4">
-    <!-- ================= HERO BANNER ================= -->
-    <section
-      class="relative h-[320px] md:h-[400px] gap-5 flex items-center justify-center overflow-hidden"
-    >
-      <!-- Background -->
+
+    <!-- HERO BANNER -->
+    <section class="relative h-[320px] md:h-[400px] gap-5 flex items-center justify-center overflow-hidden">
       <img
         src="/images/about-us1.jpg"
         alt="À propos de BRC Market"
         class="absolute inset-0 w-full h-full object-cover"
       />
-
-      <!-- Overlay -->
       <div class="absolute inset-0 bg-black/60"></div>
-
-      <!-- Content -->
       <div class="relative z-10 text-center px-6">
         <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
-          À propos de BRC Market
+          {{ $t('about.hero_title') }}
         </h1>
         <p class="text-gray-200 max-w-3xl mx-auto text-lg">
-          Votre partenaire technologique de confiance au Cameroun et partout dans l'Afrique.
+          {{ $t('about.hero_sub') }}
         </p>
       </div>
     </section>
 
-    <!-- ================= INTRO ================= -->
+    <!-- INTRO -->
     <UContainer class="py-10">
       <div class="max-w-4xl mx-auto text-center">
-        <h2 class="text-3xl font-semibold mb-6">
-          Qui sommes-nous ?
-        </h2>
+        <h2 class="text-3xl font-semibold mb-6">{{ $t('about.intro_title') }}</h2>
         <p class="text-gray-600 leading-relaxed text-lg">
-          <span class="font-semibold text-gray-800">BRC Market</span> est une entreprise
-          spécialisée dans la vente de matériel informatique, électronique et
-          technologique, ainsi que dans les services IT professionnels.
+          <span class="font-semibold text-gray-800">BRC Market</span>
+          {{ $t('about.intro_body', { brand: '' }).replace('BRC Market', '').trimStart() }}
           <br /><br />
-          Nous accompagnons particuliers, entreprises et institutions avec des
-          solutions fiables, performantes et adaptées à leurs besoins.
+          {{ $t('about.intro_body2') }}
         </p>
       </div>
     </UContainer>
 
-    <!-- ================= VALUES ================= -->
+    <!-- VALUES -->
     <UContainer class="pb-10">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 
         <UCard class="p-8 text-center shadow-lg">
           <UIcon name="i-heroicons-shield-check" class="w-10 h-10 text-red-600 mx-auto mb-4" />
-          <h3 class="text-xl font-semibold mb-2">Fiabilité</h3>
-          <p class="text-gray-600">
-            Des produits certifiés, testés et garantis pour une tranquillité totale.
-          </p>
+          <h3 class="text-xl font-semibold mb-2">{{ $t('about.value1_title') }}</h3>
+          <p class="text-gray-600">{{ $t('about.value1_body') }}</p>
         </UCard>
 
         <UCard class="p-8 text-center shadow-lg">
           <UIcon name="i-heroicons-light-bulb" class="w-10 h-10 text-red-600 mx-auto mb-4" />
-          <h3 class="text-xl font-semibold mb-2">Innovation</h3>
-          <p class="text-gray-600">
-            Nous suivons l’évolution technologique pour vous proposer le meilleur.
-          </p>
+          <h3 class="text-xl font-semibold mb-2">{{ $t('about.value2_title') }}</h3>
+          <p class="text-gray-600">{{ $t('about.value2_body') }}</p>
         </UCard>
 
         <UCard class="p-8 text-center shadow-lg">
           <UIcon name="i-heroicons-user-group" class="w-10 h-10 text-red-600 mx-auto mb-4" />
-          <h3 class="text-xl font-semibold mb-2">Proximité</h3>
-          <p class="text-gray-600">
-            Une équipe locale, disponible et à l’écoute de vos besoins.
-          </p>
+          <h3 class="text-xl font-semibold mb-2">{{ $t('about.value3_title') }}</h3>
+          <p class="text-gray-600">{{ $t('about.value3_body') }}</p>
         </UCard>
 
       </div>
     </UContainer>
 
-    <!-- ================= SERVICES ================= -->
+    <!-- SERVICES -->
     <section class="bg-gray-50 py-10">
       <UContainer>
-        <h2 class="text-3xl font-semibold text-center mb-12">
-          Ce que nous faisons
-        </h2>
-
+        <h2 class="text-3xl font-semibold text-center mb-12">{{ $t('about.services_title') }}</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 
           <UCard class="p-6 shadow-md">
-            <h3 class="font-semibold mb-2">Vente de matériel</h3>
-            <p class="text-gray-600 text-sm">
-              Ordinateurs, smartphones, accessoires, imprimantes, réseaux et sécurité.
-            </p>
+            <h3 class="font-semibold mb-2">{{ $t('about.service1_title') }}</h3>
+            <p class="text-gray-600 text-sm">{{ $t('about.service1_body') }}</p>
           </UCard>
 
           <UCard class="p-6 shadow-md">
-            <h3 class="font-semibold mb-2">Maintenance & Réparation</h3>
-            <p class="text-gray-600 text-sm">
-              Diagnostic, réparation et optimisation de vos équipements.
-            </p>
+            <h3 class="font-semibold mb-2">{{ $t('about.service2_title') }}</h3>
+            <p class="text-gray-600 text-sm">{{ $t('about.service2_body') }}</p>
           </UCard>
 
           <UCard class="p-6 shadow-md">
-            <h3 class="font-semibold mb-2">Infrastructure IT</h3>
-            <p class="text-gray-600 text-sm">
-              Réseaux, serveurs et solutions professionnelles.
-            </p>
+            <h3 class="font-semibold mb-2">{{ $t('about.service3_title') }}</h3>
+            <p class="text-gray-600 text-sm">{{ $t('about.service3_body') }}</p>
           </UCard>
 
           <UCard class="p-6 shadow-md">
-            <h3 class="font-semibold mb-2">Sécurité informatique</h3>
-            <p class="text-gray-600 text-sm">
-              Systèmes d'alarme, videosurveillance, contrôle d’accès et biométrie.
-            </p>
+            <h3 class="font-semibold mb-2">{{ $t('about.service4_title') }}</h3>
+            <p class="text-gray-600 text-sm">{{ $t('about.service4_body') }}</p>
           </UCard>
 
           <UCard class="p-6 shadow-md">
-            <h3 class="font-semibold mb-2">Audit & Conseil</h3>
-            <p class="text-gray-600 text-sm">
-              Analyse, recommandations et accompagnement stratégique IT.
-            </p>
+            <h3 class="font-semibold mb-2">{{ $t('about.service5_title') }}</h3>
+            <p class="text-gray-600 text-sm">{{ $t('about.service5_body') }}</p>
           </UCard>
 
           <UCard class="p-6 shadow-md">
-            <h3 class="font-semibold mb-2">Support & SAV</h3>
-            <p class="text-gray-600 text-sm">
-              Assistance technique avant et après vente, rapide et efficace.
-            </p>
+            <h3 class="font-semibold mb-2">{{ $t('about.service6_title') }}</h3>
+            <p class="text-gray-600 text-sm">{{ $t('about.service6_body') }}</p>
           </UCard>
 
         </div>
       </UContainer>
     </section>
 
-    <!-- ================= CTA ================= -->
+    <!-- CTA -->
     <UContainer class="py-20 text-center">
-      <h2 class="text-3xl font-semibold mb-4">
-        Travaillons ensemble
-      </h2>
-      <p class="text-gray-600 mb-8 max-w-2xl mx-auto">
-        Vous avez un projet ou besoin d’un accompagnement technologique ?
-        Contactez-nous dès aujourd’hui.
-      </p>
-
+      <h2 class="text-3xl font-semibold mb-4">{{ $t('about.cta_title') }}</h2>
+      <p class="text-gray-600 mb-8 max-w-2xl mx-auto">{{ $t('about.cta_body') }}</p>
       <div class="flex justify-center gap-4">
-        <UButton color="error" size="lg" to="/contact">
-          Nous contacter
-        </UButton>
-        <UButton class="bg-[#274a82] hover:bg-[#274a82] text-white" size="lg" to="/boutique">
-          Voir la boutique
-        </UButton>
+        <UButton color="error" size="lg" to="/contact">{{ $t('about.cta_contact') }}</UButton>
+        <UButton class="bg-[#274a82] hover:bg-[#274a82] text-white" size="lg" to="/boutique">{{ $t('about.cta_shop') }}</UButton>
       </div>
     </UContainer>
 

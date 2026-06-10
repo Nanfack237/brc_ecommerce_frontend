@@ -6,18 +6,24 @@ import CartDrawer from '@/components/CartDrawer.vue'
 import useCart from '@/composables/useCart'
 
 const { cartItems } = useCart()
-const locale             = ref('fr')
+const { locale, locales, setLocale, t } = useI18n()
 const showLocaleDropdown = ref(false)
 
-const languages = [
-  { code: 'fr', label: 'Français', flag: '🇫🇷' },
-  // { code: 'en', label: 'English',  flag: '🇬🇧' },
-]
+const languages = computed(() =>
+  (locales.value as { code: string; name: string; flag: string }[]).map(l => ({
+    code: l.code,
+    label: l.name,
+    flag: l.flag,
+  }))
+)
 
-const currentLang = computed(() => languages.find(l => l.code === locale.value) ?? languages[0])
+const currentLang = computed(() =>
+  languages.value.find(l => l.code === locale.value) ?? languages.value[0]
+)
 
 const selectLocale = (code: string) => {
-  locale.value             = code
+  setLocale(code as 'fr' | 'en')
+  localStorage.setItem('locale', code)
   showLocaleDropdown.value = false
 }
 
@@ -45,13 +51,13 @@ const fetchMe = async () => {
 }
 
 /* ── Rôle helpers ─────────────────────────────────────────────────────────── */
-const isAdmin    = computed(() => ['admin', 'user'].includes(authUser.value?.role))
-const isLivreur  = computed(() => authUser.value?.role === 'livreur')
+const isAdmin       = computed(() => ['admin', 'super_admin'].includes(authUser.value?.role))
+const isLivreur     = computed(() => authUser.value?.role === 'livreur')
 const hasBackOffice = computed(() => isAdmin.value || isLivreur.value)
 
 const backOfficeLink = computed(() => {
-  if (isAdmin.value)   return { label: 'Back Office',       icon: 'i-heroicons-clipboard-document-list', to: '/admin' }
-  if (isLivreur.value) return { label: 'Espace Livreur',    icon: 'i-heroicons-truck',                   to: '/livreur/livraisons' }
+  if (isAdmin.value)   return { label: t('common.back_office'),    icon: 'i-heroicons-clipboard-document-list', to: '/admin' }
+  if (isLivreur.value) return { label: t('common.livreur_space'),  icon: 'i-heroicons-truck',                   to: '/livreur/livraisons' }
   return null
 })
 
@@ -61,9 +67,7 @@ const { navGroups: categoriesData, loadingCats, errorCats, fetchCategories } = u
 const subLinks = (cat: { links: { label: string; to: string }[] }) =>
   cat.links.filter(l => l.label !== 'Voir tout')
 
-/* ══════════════════════════════════════════════════════════════════════════
-   SEARCH — autocomplete pro
-══════════════════════════════════════════════════════════════════════════ */
+/* ── Search ───────────────────────────────────────────────────────────────── */
 interface SearchProduct {
   id:          number
   name:        string
@@ -180,34 +184,41 @@ const avatarColor = computed(() => {
 
 const handleLogout = async () => {
   await logout()
-  isMenuOpen.value = false; showMobileUserMenu.value = false
-  toast.add({ title: 'Déconnecté', description: 'À bientôt sur BRC Market !', color: 'success', icon: 'i-heroicons-check-circle', duration: 3000 })
+  isMenuOpen.value = false
+  showMobileUserMenu.value = false
+  toast.add({
+    title:       t('toast.logged_out'),
+    description: t('toast.logged_out_desc'),
+    color:       'success',
+    icon:        'i-heroicons-check-circle',
+    duration:    3000,
+  })
 }
 
 const toggleSection = (section: string) => {
   activeSection.value = activeSection.value === section ? null : section
 }
 
-const accountLinks = [
-  { label: 'Mes commandes',    icon: 'i-heroicons-shopping-bag',  to: '/compte/commandes'    },
-  { label: 'Mes favoris',      icon: 'i-heroicons-heart',          to: '/compte/favoris'      },
-  { label: 'Mes Avis',         icon: 'i-heroicons-star',           to: '/compte/avis'         },
-  { label: 'Mes informations', icon: 'i-heroicons-user-circle',    to: '/compte/informations' },
-  { label: 'Paramètres',       icon: 'i-heroicons-cog-6-tooth',    to: '/compte/parametres'   },
-]
+const accountLinks = computed(() => [
+  { label: t('account.orders'),    icon: 'i-heroicons-shopping-bag', to: '/compte/commandes'    },
+  { label: t('account.favorites'), icon: 'i-heroicons-heart',         to: '/compte/favoris'      },
+  { label: t('account.reviews'),   icon: 'i-heroicons-star',          to: '/compte/avis'         },
+  { label: t('account.info'),      icon: 'i-heroicons-user-circle',   to: '/compte/informations' },
+  { label: t('account.settings'),  icon: 'i-heroicons-cog-6-tooth',   to: '/compte/parametres'   },
+])
 
-const servicesData = [
-  { label: 'Maintenance Et Réparation', links: [
-    { label: 'Ordinateur et Assistance', to: '/services/maintenance-support' },
+const servicesData = computed(() => [
+  { label: t('services.maintenance'), links: [
+    { label: t('services.maintenance_link'), to: '/services/maintenance-support' },
   ]},
-  { label: 'Sécurité & Réseau', links: [
-    { label: 'Securite Electronique', to: '/services/securite-electronique' },
-    { label: 'Audit & Câblage',       to: '/services/audit-cablage'         },
+  { label: t('services.security'), links: [
+    { label: t('services.security_link1'), to: '/services/securite-electronique' },
+    { label: t('services.security_link2'), to: '/services/audit-cablage'         },
   ]},
-  { label: 'Electrique', links: [
-    { label: 'Electricité et Energie', to: '/services/electricite-energie' },
+  { label: t('services.electric'), links: [
+    { label: t('services.electric_link'), to: '/services/electricite-energie' },
   ]},
-]
+])
 
 onMounted(() => {
   fetchMe()
@@ -218,6 +229,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
+
 </script>
 
 <template>
@@ -231,15 +243,13 @@ onUnmounted(() => {
     </template>
 
     <!-- ── NAV DESKTOP ── -->
-    <!-- FIX: changé hidden md:flex en hidden lg:flex pour éviter le chevauchement avec le logo -->
     <div class="hidden lg:flex items-center space-x-2">
-      <UButton variant="ghost" :class="route.path === '/' ? 'text-red-600 font-bold' : 'text-gray-700'" to="/">Accueil</UButton>
-      <UButton variant="ghost" :class="route.path.startsWith('/boutique') ? 'text-red-600 font-bold' : 'text-gray-700'" to="/boutique">Boutique</UButton>
+      <UButton variant="ghost" :class="route.path === '/' ? 'text-red-600 font-bold' : 'text-gray-700'" to="/">{{ $t('nav.home') }}</UButton>
+      <UButton variant="ghost" :class="route.path.startsWith('/boutique') ? 'text-red-600 font-bold' : 'text-gray-700'" to="/boutique">{{ $t('nav.shop') }}</UButton>
 
       <UPopover mode="hover">
-        <UButton variant="ghost" :class="route.path.startsWith('/categories') ? 'text-red-600 font-bold' : 'text-gray-700'" trailing-icon="i-lucide-chevron-down">Catégorie</UButton>
+        <UButton variant="ghost" :class="route.path.startsWith('/categories') ? 'text-red-600 font-bold' : 'text-gray-700'" trailing-icon="i-lucide-chevron-down">{{ $t('nav.categories') }}</UButton>
         <template #content>
-          <!-- FIX: ajout de max-h-[80vh] overflow-y-auto pour que le dropdown scroll si les catégories dépassent l'écran -->
           <div class="p-6 bg-white shadow-xl rounded-lg w-[900px] max-h-[90vh] overflow-y-auto" style="max-width: calc(100vw - 2rem);">
             <div v-if="loadingCats" class="grid grid-cols-3 gap-6">
               <div v-for="n in 6" :key="n" class="space-y-2">
@@ -250,8 +260,8 @@ onUnmounted(() => {
             </div>
             <div v-else-if="errorCats" class="flex flex-col items-center justify-center gap-2 py-8 text-center">
               <UIcon name="i-heroicons-exclamation-circle" class="w-8 h-8 text-red-300" />
-              <p class="text-sm text-red-500 font-medium">Impossible de charger les catégories</p>
-              <button @click="fetchCategories" class="text-xs text-[#274a82] font-bold hover:underline mt-1">Réessayer</button>
+              <p class="text-sm text-red-500 font-medium">{{ $t('common.error_categories') }}</p>
+              <button @click="fetchCategories" class="text-xs text-[#274a82] font-bold hover:underline mt-1">{{ $t('common.retry') }}</button>
             </div>
             <div v-else class="grid grid-cols-4 gap-4">
               <div v-for="cat in categoriesData" :key="cat.slug">
@@ -268,16 +278,14 @@ onUnmounted(() => {
                 </ul>
               </div>
               <div>
-                <NuxtLink
-                  to="/boutique?promo=1"
-                  class="block font-bold mb-2 border-b-2 border-red-500 text-[14px] text-gray-900 hover:text-red-600 transition-colors pb-1"
-                >
-                  Nos promos
+                <NuxtLink to="/boutique?promo=1"
+                  class="block font-bold mb-2 border-b-2 border-red-500 text-[14px] text-gray-900 hover:text-red-600 transition-colors pb-1">
+                  {{ $t('common.promos') }}
                 </NuxtLink>
                 <ul class="space-y-1">
                   <li>
                     <NuxtLink to="/boutique?promo=1" class="text-sm text-gray-600 hover:text-red-600 transition-colors">
-                      Tous les produits en promo
+                      {{ $t('common.all_promos') }}
                     </NuxtLink>
                   </li>
                 </ul>
@@ -288,7 +296,7 @@ onUnmounted(() => {
       </UPopover>
 
       <UPopover mode="hover">
-        <UButton variant="ghost" :class="route.path.startsWith('/services') ? 'text-red-600 font-bold' : 'text-gray-700'" trailing-icon="i-lucide-chevron-down">Nos Services</UButton>
+        <UButton variant="ghost" :class="route.path.startsWith('/services') ? 'text-red-600 font-bold' : 'text-gray-700'" trailing-icon="i-lucide-chevron-down">{{ $t('nav.services') }}</UButton>
         <template #content>
           <div class="p-6 grid grid-cols-2 gap-6 bg-white shadow-xl rounded-lg w-[450px]">
             <div v-for="service in servicesData" :key="service.label">
@@ -303,7 +311,7 @@ onUnmounted(() => {
         </template>
       </UPopover>
 
-      <UButton variant="ghost" :class="route.path.startsWith('/contact') ? 'text-red-600 font-bold' : 'text-gray-700'" to="/contact">Contact</UButton>
+      <UButton variant="ghost" :class="route.path.startsWith('/contact') ? 'text-red-600 font-bold' : 'text-gray-700'" to="/contact">{{ $t('nav.contact') }}</UButton>
     </div>
 
     <!-- ── RIGHT DESKTOP ── -->
@@ -323,7 +331,7 @@ onUnmounted(() => {
             ref="searchInputRef"
             v-model="searchQuery"
             type="text"
-            placeholder="Rechercher un produit..."
+            :placeholder="$t('search.placeholder')"
             class="flex-1 text-sm bg-transparent outline-none text-gray-800 placeholder-gray-400 min-w-0"
             @focus="searchFocused = true"
             @keydown="onKeydown"
@@ -362,10 +370,10 @@ onUnmounted(() => {
             <template v-else-if="searchResults.length > 0">
               <div class="px-4 pt-3 pb-1 flex items-center justify-between">
                 <span class="text-xs font-black text-gray-400 tracking-widest">
-                  {{ searchResults.length }} résultat{{ searchResults.length > 1 ? 's' : '' }}
+                  {{ searchResults.length }} {{ searchResults.length > 1 ? $t('search.results') : $t('search.result') }}
                 </span>
                 <button @click="handleSearch" class="text-[10px] font-black text-[#274a82] hover:text-[#e60012] transition-colors flex items-center gap-1">
-                  Voir tout <UIcon name="i-heroicons-arrow-right" class="w-3 h-3" />
+                  {{ $t('search.see_all') }} <UIcon name="i-heroicons-arrow-right" class="w-3 h-3" />
                 </button>
               </div>
               <div class="px-2 pb-2 space-y-0.5 max-h-[360px] overflow-y-auto">
@@ -394,15 +402,15 @@ onUnmounted(() => {
               <div class="border-t border-gray-100 px-4 py-2 flex items-center gap-3 bg-gray-50/50">
                 <div class="flex items-center gap-1">
                   <kbd class="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 rounded text-gray-500 font-mono">↑↓</kbd>
-                  <span class="text-[10px] text-gray-400">naviguer</span>
+                  <span class="text-[10px] text-gray-400">{{ $t('search.navigate') }}</span>
                 </div>
                 <div class="flex items-center gap-1">
                   <kbd class="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 rounded text-gray-500 font-mono">↵</kbd>
-                  <span class="text-[10px] text-gray-400">sélectionner</span>
+                  <span class="text-[10px] text-gray-400">{{ $t('search.select') }}</span>
                 </div>
                 <div class="flex items-center gap-1">
                   <kbd class="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 rounded text-gray-500 font-mono">Esc</kbd>
-                  <span class="text-[10px] text-gray-400">fermer</span>
+                  <span class="text-[10px] text-gray-400">{{ $t('search.close') }}</span>
                 </div>
               </div>
             </template>
@@ -411,11 +419,11 @@ onUnmounted(() => {
                 <UIcon name="i-heroicons-magnifying-glass" class="w-6 h-6 text-gray-300" />
               </div>
               <div>
-                <p class="text-sm font-semibold text-gray-600">Aucun résultat pour</p>
+                <p class="text-sm font-semibold text-gray-600">{{ $t('search.no_results_title') }}</p>
                 <p class="text-sm text-[#274a82] font-black mt-0.5">"{{ searchQuery }}"</p>
               </div>
               <button @click="handleSearch" class="text-xs text-[#e60012] font-bold hover:underline">
-                Rechercher quand même →
+                {{ $t('search.search_anyway') }}
               </button>
             </div>
           </div>
@@ -446,7 +454,6 @@ onUnmounted(() => {
       </div>
 
       <!-- ── User menu DESKTOP ── -->
-      <!-- FIX: changé hidden md:flex en hidden lg:flex -->
       <div class="hidden lg:flex items-center ml-1 gap-3">
         <UPopover v-if="!isLoggedIn" mode="hover" placement="bottom-end">
           <button class="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
@@ -455,10 +462,10 @@ onUnmounted(() => {
           <template #content>
             <div class="bg-white shadow-xl rounded-xl w-56 py-2 border border-gray-100">
               <NuxtLink to="/login" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-sm font-medium text-gray-700 transition-colors">
-                <UIcon name="i-heroicons-arrow-right-on-rectangle" /> Se connecter
+                <UIcon name="i-heroicons-arrow-right-on-rectangle" /> {{ $t('auth.login') }}
               </NuxtLink>
               <NuxtLink to="/register" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-sm font-medium text-gray-700 transition-colors">
-                <UIcon name="i-heroicons-user-plus" /> Créer un compte
+                <UIcon name="i-heroicons-user-plus" /> {{ $t('auth.register') }}
               </NuxtLink>
             </div>
           </template>
@@ -471,7 +478,6 @@ onUnmounted(() => {
           </button>
           <template #content>
             <div class="bg-white shadow-xl rounded-xl w-60 py-2 border border-gray-100">
-              <!-- User info -->
               <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 mb-1">
                 <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-black flex-shrink-0" :style="{ backgroundColor: avatarColor }">{{ userInitials }}</div>
                 <div class="min-w-0">
@@ -480,7 +486,7 @@ onUnmounted(() => {
                   <span class="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold"
                     :class="isAdmin ? 'bg-[#274a82]/10 text-[#274a82]' : isLivreur ? 'bg-[#e07b39]/10 text-[#e07b39]' : 'bg-gray-100 text-gray-500'">
                     <UIcon :name="isAdmin ? 'i-heroicons-shield-check' : isLivreur ? 'i-heroicons-truck' : 'i-heroicons-user'" class="w-3 h-3" />
-                    {{ isAdmin ? (authUser?.role === 'super_admin' ? 'Super Admin' : 'Admin') : isLivreur ? 'Livreur' : 'Client' }}
+                    {{ isAdmin ? (authUser?.role === 'super_admin' ? $t('common.super_admin') : $t('common.admin')) : isLivreur ? $t('common.livreur') : $t('common.client') }}
                   </span>
                 </div>
               </div>
@@ -504,7 +510,7 @@ onUnmounted(() => {
 
               <div class="border-t border-gray-100 my-1" />
               <button class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 text-sm font-medium text-red-600 transition-colors" @click="handleLogout">
-                <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-4 h-4" /> Se déconnecter
+                <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-4 h-4" /> {{ $t('auth.logout') }}
               </button>
             </div>
           </template>
@@ -536,7 +542,7 @@ onUnmounted(() => {
               ref="mobileSearchInputRef"
               v-model="searchQuery"
               type="text"
-              placeholder="Rechercher un produit..."
+              :placeholder="$t('search.placeholder')"
               class="flex-1 text-sm bg-transparent outline-none text-gray-800 placeholder-gray-400"
               @focus="mobileFocused = true"
               @keydown="onKeydown"
@@ -566,10 +572,10 @@ onUnmounted(() => {
           <template v-else-if="searchResults.length > 0">
             <div class="px-5 py-2.5 flex items-center justify-between border-b border-gray-100 flex-shrink-0 bg-gray-50/50">
               <span class="text-xs font-black text-gray-400 tracking-widest">
-                {{ searchResults.length }} résultat{{ searchResults.length > 1 ? 's' : '' }}
+                {{ searchResults.length }} {{ searchResults.length > 1 ? $t('search.results') : $t('search.result') }}
               </span>
               <button @click="handleSearch" class="text-[11px] font-black text-[#274a82] flex items-center gap-1 hover:text-[#e60012] transition-colors">
-                Voir tout <UIcon name="i-heroicons-arrow-right" class="w-3 h-3" />
+                {{ $t('search.see_all') }} <UIcon name="i-heroicons-arrow-right" class="w-3 h-3" />
               </button>
             </div>
             <div class="flex-1 overflow-y-auto px-3 py-2 space-y-1">
@@ -593,7 +599,7 @@ onUnmounted(() => {
             <div class="flex-shrink-0 border-t border-gray-100">
               <button @click="handleSearch" class="w-full flex items-center justify-center gap-2 py-4 text-[13px] font-bold text-[#274a82] hover:bg-blue-50 transition-colors">
                 <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
-                Voir tous les résultats pour "{{ searchQuery }}"
+                {{ $t('search.see_all_results') }} "{{ searchQuery }}"
               </button>
             </div>
           </template>
@@ -602,42 +608,42 @@ onUnmounted(() => {
               <UIcon name="i-heroicons-magnifying-glass" class="w-8 h-8 text-gray-300" />
             </div>
             <div>
-              <p class="text-base font-bold text-gray-700">Aucun résultat</p>
+              <p class="text-base font-bold text-gray-700">{{ $t('search.no_results') }}</p>
               <p class="text-sm text-gray-400 mt-1">pour <span class="font-bold text-[#274a82]">"{{ searchQuery }}"</span></p>
             </div>
             <button @click="handleSearch" class="px-5 py-2.5 bg-[#274a82] text-white text-sm font-bold rounded-xl hover:bg-[#e60012] transition-colors">
-              Rechercher quand même
+              {{ $t('search.search_anyway') }}
             </button>
           </div>
         </div>
 
-        <!-- Nav bar -->
+        <!-- Nav bar mobile -->
         <div v-if="!showMobileDropdown" class="flex-shrink-0 border-b border-gray-100 bg-gray-50 w-full">
           <div class="flex items-stretch w-full">
             <NuxtLink to="/" @click="isMenuOpen = false; activeSection = null"
               class="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[9px] font-semibold transition-all"
               :class="route.path === '/' ? 'bg-[#274a82] text-white' : 'text-gray-500 hover:bg-white hover:text-[#274a82]'">
-              <UIcon name="i-heroicons-home" class="w-4 h-4" />Accueil
+              <UIcon name="i-heroicons-home" class="w-4 h-4" />{{ $t('nav.home') }}
             </NuxtLink>
             <NuxtLink to="/boutique" @click="isMenuOpen = false; activeSection = null"
               class="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[9px] font-semibold transition-all"
               :class="route.path.startsWith('/boutique') ? 'bg-[#274a82] text-white' : 'text-gray-500 hover:bg-white hover:text-[#274a82]'">
-              <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4" />Boutique
+              <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4" />{{ $t('nav.shop') }}
             </NuxtLink>
             <button @click="toggleSection('categories')"
               class="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[9px] font-semibold transition-all"
               :class="activeSection === 'categories' ? 'bg-red-600 text-white' : 'text-gray-500 hover:bg-white hover:text-red-600'">
-              <UIcon name="i-heroicons-squares-2x2" class="w-4 h-4" />Catégories
+              <UIcon name="i-heroicons-squares-2x2" class="w-4 h-4" />{{ $t('nav.categories') }}
             </button>
             <button @click="toggleSection('services')"
               class="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[9px] font-semibold transition-all"
               :class="activeSection === 'services' ? 'bg-red-600 text-white' : 'text-gray-500 hover:bg-white hover:text-red-600'">
-              <UIcon name="i-heroicons-wrench-screwdriver" class="w-4 h-4" />Services
+              <UIcon name="i-heroicons-wrench-screwdriver" class="w-4 h-4" />{{ $t('nav.services') }}
             </button>
             <NuxtLink to="/contact" @click="isMenuOpen = false; activeSection = null"
               class="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[9px] font-semibold transition-all"
               :class="route.path.startsWith('/contact') ? 'bg-[#274a82] text-white' : 'text-gray-500 hover:bg-white hover:text-[#274a82]'">
-              <UIcon name="i-heroicons-envelope" class="w-4 h-4" />Contact
+              <UIcon name="i-heroicons-envelope" class="w-4 h-4" />{{ $t('nav.contact') }}
             </NuxtLink>
           </div>
         </div>
@@ -654,8 +660,8 @@ onUnmounted(() => {
           </div>
           <div v-else-if="errorCats" class="flex flex-col items-center justify-center gap-3 py-10 text-center">
             <UIcon name="i-heroicons-exclamation-circle" class="w-10 h-10 text-red-200" />
-            <p class="text-sm text-red-400 font-medium">Impossible de charger les catégories</p>
-            <button @click="fetchCategories" class="text-xs text-[#274a82] font-bold border border-[#274a82]/20 px-4 py-2 rounded-lg">Réessayer</button>
+            <p class="text-sm text-red-400 font-medium">{{ $t('common.error_categories') }}</p>
+            <button @click="fetchCategories" class="text-xs text-[#274a82] font-bold border border-[#274a82]/20 px-4 py-2 rounded-lg">{{ $t('common.retry') }}</button>
           </div>
           <div v-else>
             <div v-for="cat in categoriesData" :key="cat.slug" class="mb-5">
@@ -673,6 +679,7 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- Services mobile -->
         <div v-else-if="!showMobileDropdown && activeSection === 'services'" class="flex-1 overflow-y-auto px-4 py-4">
           <div v-for="service in servicesData" :key="service.label" class="mb-5">
             <h4 class="text-[12px] font-bold text-gray-400 tracking-widest mb-2 flex items-center gap-2">
@@ -687,18 +694,19 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- Explore mobile -->
         <div v-else-if="!showMobileDropdown" class="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
           <div class="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center">
             <UIcon name="i-heroicons-squares-2x2" class="w-8 h-8 text-gray-200" />
           </div>
-          <p class="text-sm text-gray-400 font-medium">Explorez nos catégories<br />ou services ci-dessus</p>
+          <p class="text-sm text-gray-400 font-medium">{{ $t('common.explore') }}<br />{{ $t('common.explore_sub') }}</p>
         </div>
 
         <!-- BOTTOM DRAWER -->
         <div v-if="!showMobileDropdown" class="flex-shrink-0 border-t border-gray-100 bg-white">
           <div v-if="!isLoggedIn" class="px-4 py-4 flex gap-2">
-            <UButton to="/login" class="flex-1" variant="outline" @click="isMenuOpen = false">Connexion</UButton>
-            <UButton to="/register" class="flex-1" @click="isMenuOpen = false">S&apos;inscrire</UButton>
+            <UButton to="/login" class="flex-1" variant="outline" @click="isMenuOpen = false">{{ $t('common.connection') }}</UButton>
+            <UButton to="/register" class="flex-1" @click="isMenuOpen = false">{{ $t('common.subscribe') }}</UButton>
           </div>
           <div v-else class="px-4 pt-3 pb-4">
             <button @click="showMobileUserMenu = !showMobileUserMenu"
@@ -714,7 +722,6 @@ onUnmounted(() => {
 
             <Transition name="dropdown">
               <div v-if="showMobileUserMenu" class="mt-2 rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-
                 <template v-if="!isLivreur">
                   <NuxtLink v-for="link in accountLinks" :key="link.to" :to="link.to"
                     @click="isMenuOpen = false; showMobileUserMenu = false"
@@ -744,7 +751,7 @@ onUnmounted(() => {
                   <div class="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
                     <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-3.5 h-3.5 text-red-500" />
                   </div>
-                  Se déconnecter
+                  {{ $t('auth.logout') }}
                 </button>
               </div>
             </Transition>

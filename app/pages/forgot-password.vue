@@ -1,47 +1,31 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
 
+const { t } = useI18n()
+const toast  = useToast()
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
+
 useSeoMeta({
-  title:       'Mot de Passe Oublié',
-  description: 'Réinitialisez votre mot de passe BRC Market en quelques étapes simples.',
-  ogTitle:     'Mot de Passe Oublié - BRC Market',
+  title:       t('forgot_password.seo_title'),
+  description: t('forgot_password.seo_description'),
+  ogTitle:     t('forgot_password.seo_og_title'),
   ogUrl:       'https://brcmarket.cm/forgot-password',
   robots:      'noindex, nofollow',
 })
 useHead({ link: [{ rel: 'canonical', href: 'https://brcmarket.cm/forgot-password' }] })
 
-const toast  = useToast()
-const config = useRuntimeConfig()
-const API    = config.public.apiBase
-
-// ── Steps : 1 = email, 2 = code, 3 = nouveau mdp ─────────────────────────
 const currentStep = ref(1)
 
-// ── Step 1 ────────────────────────────────────────────────────────────────
 const email       = ref('')
 const loadingSend = ref(false)
 
-// ── Step 2 ────────────────────────────────────────────────────────────────
 const code        = ref('')
 const loadingCode = ref(false)
 const resendTimer = ref(0)
 let timerInterval: ReturnType<typeof setInterval> | null = null
 
-const startResendTimer = () => {
-  resendTimer.value = 60
-  if (timerInterval) clearInterval(timerInterval)
-  timerInterval = setInterval(() => {
-    resendTimer.value--
-    if (resendTimer.value <= 0 && timerInterval) {
-      clearInterval(timerInterval)
-      timerInterval = null
-    }
-  }, 1000)
-}
-
-// ── Step 3 ────────────────────────────────────────────────────────────────
 const newPassword        = ref('')
 const confirmNewPassword = ref('')
 const showNewPassword    = ref(false)
@@ -57,10 +41,10 @@ const passwordStrength = computed(() => {
   if (/[0-9]/.test(p))         score++
   if (/[^A-Za-z0-9]/.test(p))  score++
   const levels = [
-    { score: 1, label: 'Faible',    color: 'bg-red-500'    },
-    { score: 2, label: 'Moyen',     color: 'bg-orange-400' },
-    { score: 3, label: 'Bon',       color: 'bg-yellow-400' },
-    { score: 4, label: 'Excellent', color: 'bg-green-500'  },
+    { score: 1, label: t('forgot_password.strength_weak'),      color: 'bg-red-500'    },
+    { score: 2, label: t('forgot_password.strength_medium'),    color: 'bg-orange-400' },
+    { score: 3, label: t('forgot_password.strength_good'),      color: 'bg-yellow-400' },
+    { score: 4, label: t('forgot_password.strength_excellent'), color: 'bg-green-500'  },
   ]
   return levels[score - 1] ?? { score: 0, label: '', color: '' }
 })
@@ -69,7 +53,18 @@ const passwordsMatch = computed(() =>
   confirmNewPassword.value.length > 0 && newPassword.value === confirmNewPassword.value
 )
 
-// ── Step 1 : Envoyer le code ──────────────────────────────────────────────
+const startResendTimer = () => {
+  resendTimer.value = 60
+  if (timerInterval) clearInterval(timerInterval)
+  timerInterval = setInterval(() => {
+    resendTimer.value--
+    if (resendTimer.value <= 0 && timerInterval) {
+      clearInterval(timerInterval)
+      timerInterval = null
+    }
+  }, 1000)
+}
+
 const handleSendCode = async () => {
   loadingSend.value = true
   try {
@@ -77,27 +72,25 @@ const handleSendCode = async () => {
       headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
     })
     toast.add({
-      title:       'Code envoyé !',
-      description: `Un code de vérification a été envoyé à ${email.value}.`,
-      color:       'success',
-      icon:        'i-heroicons-envelope',
+      title:       t('forgot_password.toast_sent_title'),
+      description: t('forgot_password.toast_sent_desc', { email: email.value }),
+      color: 'success', icon: 'i-heroicons-envelope',
     } as ToastProps)
     currentStep.value = 2
     startResendTimer()
   } catch (err: any) {
     if (err.response?.status === 404) {
-      toast.add({ title: 'Email introuvable', description: 'Aucun compte associé à cet email.', color: 'error', icon: 'i-heroicons-x-circle' } as ToastProps)
+      toast.add({ title: t('forgot_password.toast_404_title'), description: t('forgot_password.toast_404_desc'), color: 'error', icon: 'i-heroicons-x-circle' } as ToastProps)
     } else if (err.message === 'Network Error') {
-      toast.add({ title: 'Serveur inaccessible', description: 'Vérifiez que Laravel est démarré.', color: 'error', icon: 'i-heroicons-signal-slash' } as ToastProps)
+      toast.add({ title: t('forgot_password.toast_network_title'), description: t('forgot_password.toast_network_desc'), color: 'error', icon: 'i-heroicons-signal-slash' } as ToastProps)
     } else {
-      toast.add({ title: 'Erreur', description: err.response?.data?.message ?? 'Une erreur est survenue.', color: 'error', icon: 'i-heroicons-exclamation-circle' } as ToastProps)
+      toast.add({ title: t('forgot_password.toast_error_title'), description: err.response?.data?.message ?? t('forgot_password.toast_error_desc'), color: 'error', icon: 'i-heroicons-exclamation-circle' } as ToastProps)
     }
   } finally {
     loadingSend.value = false
   }
 }
 
-// ── Step 2 : Vérifier le code ─────────────────────────────────────────────
 const handleVerifyCode = async () => {
   loadingCode.value = true
   try {
@@ -108,26 +101,24 @@ const handleVerifyCode = async () => {
       headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
     })
     toast.add({
-      title:       'Code vérifié !',
-      description: 'Définissez maintenant votre nouveau mot de passe.',
-      color:       'success',
-      icon:        'i-heroicons-check-circle',
+      title:       t('forgot_password.toast_verified_title'),
+      description: t('forgot_password.toast_verified_desc'),
+      color: 'success', icon: 'i-heroicons-check-circle',
     } as ToastProps)
     currentStep.value = 3
   } catch (err: any) {
     if (err.response?.status === 422) {
-      toast.add({ title: 'Code invalide', description: err.response?.data?.message ?? 'Code incorrect ou expiré.', color: 'error', icon: 'i-heroicons-x-circle' } as ToastProps)
+      toast.add({ title: t('forgot_password.toast_code_invalid_title'), description: err.response?.data?.message ?? t('forgot_password.toast_code_invalid_desc'), color: 'error', icon: 'i-heroicons-x-circle' } as ToastProps)
     } else if (err.message === 'Network Error') {
-      toast.add({ title: 'Serveur inaccessible', description: 'Vérifiez que Laravel est démarré.', color: 'error', icon: 'i-heroicons-signal-slash' } as ToastProps)
+      toast.add({ title: t('forgot_password.toast_network_title'), description: t('forgot_password.toast_network_desc'), color: 'error', icon: 'i-heroicons-signal-slash' } as ToastProps)
     } else {
-      toast.add({ title: 'Erreur', description: err.response?.data?.message ?? 'Une erreur est survenue.', color: 'error', icon: 'i-heroicons-exclamation-circle' } as ToastProps)
+      toast.add({ title: t('forgot_password.toast_error_title'), description: err.response?.data?.message ?? t('forgot_password.toast_error_desc'), color: 'error', icon: 'i-heroicons-exclamation-circle' } as ToastProps)
     }
   } finally {
     loadingCode.value = false
   }
 }
 
-// ── Renvoyer le code ──────────────────────────────────────────────────────
 const handleResendCode = async () => {
   if (resendTimer.value > 0) return
   loadingSend.value = true
@@ -136,24 +127,22 @@ const handleResendCode = async () => {
       headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
     })
     toast.add({
-      title:       'Code renvoyé !',
-      description: `Un nouveau code a été envoyé à ${email.value}.`,
-      color:       'success',
-      icon:        'i-heroicons-envelope',
+      title:       t('forgot_password.toast_resent_title'),
+      description: t('forgot_password.toast_resent_desc', { email: email.value }),
+      color: 'success', icon: 'i-heroicons-envelope',
     } as ToastProps)
     code.value = ''
     startResendTimer()
   } catch (err: any) {
-    toast.add({ title: 'Erreur', description: err.response?.data?.message ?? 'Impossible de renvoyer le code.', color: 'error', icon: 'i-heroicons-exclamation-circle' } as ToastProps)
+    toast.add({ title: t('forgot_password.toast_error_title'), description: err.response?.data?.message ?? t('forgot_password.toast_resend_error_desc'), color: 'error', icon: 'i-heroicons-exclamation-circle' } as ToastProps)
   } finally {
     loadingSend.value = false
   }
 }
 
-// ── Step 3 : Réinitialiser ────────────────────────────────────────────────
 const handleResetPassword = async () => {
   if (!passwordsMatch.value) {
-    toast.add({ title: 'Erreur', description: 'Les mots de passe ne correspondent pas.', color: 'error', icon: 'i-heroicons-x-circle' } as ToastProps)
+    toast.add({ title: t('forgot_password.toast_passwords_title'), description: t('forgot_password.toast_passwords_desc'), color: 'error', icon: 'i-heroicons-x-circle' } as ToastProps)
     return
   }
   loadingReset.value = true
@@ -167,19 +156,18 @@ const handleResetPassword = async () => {
       headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
     })
     toast.add({
-      title:       'Mot de passe modifié !',
-      description: 'Vous pouvez maintenant vous connecter.',
-      color:       'success',
-      icon:        'i-heroicons-check-circle',
+      title:       t('forgot_password.toast_reset_title'),
+      description: t('forgot_password.toast_reset_desc'),
+      color: 'success', icon: 'i-heroicons-check-circle',
     } as ToastProps)
     setTimeout(() => navigateTo('/login'), 1500)
   } catch (err: any) {
     if (err.response?.status === 422) {
-      toast.add({ title: 'Erreur', description: err.response?.data?.message ?? 'Vérifiez les champs.', color: 'error', icon: 'i-heroicons-exclamation-triangle' } as ToastProps)
+      toast.add({ title: t('forgot_password.toast_error_title'), description: err.response?.data?.message ?? t('forgot_password.toast_validation_desc'), color: 'error', icon: 'i-heroicons-exclamation-triangle' } as ToastProps)
     } else if (err.message === 'Network Error') {
-      toast.add({ title: 'Serveur inaccessible', description: 'Vérifiez que Laravel est démarré.', color: 'error', icon: 'i-heroicons-signal-slash' } as ToastProps)
+      toast.add({ title: t('forgot_password.toast_network_title'), description: t('forgot_password.toast_network_desc'), color: 'error', icon: 'i-heroicons-signal-slash' } as ToastProps)
     } else {
-      toast.add({ title: 'Erreur', description: err.response?.data?.message ?? 'Une erreur est survenue.', color: 'error', icon: 'i-heroicons-exclamation-circle' } as ToastProps)
+      toast.add({ title: t('forgot_password.toast_error_title'), description: err.response?.data?.message ?? t('forgot_password.toast_error_desc'), color: 'error', icon: 'i-heroicons-exclamation-circle' } as ToastProps)
     }
   } finally {
     loadingReset.value = false
@@ -198,14 +186,14 @@ const handleResetPassword = async () => {
           class="w-16 h-16 text-gray-400"
         />
         <h1 class="text-2xl font-bold mt-2">
-          {{ currentStep === 1 ? 'Mot de passe oublié'
-           : currentStep === 2 ? 'Vérification du code'
-           : 'Nouveau mot de passe' }}
+          {{ currentStep === 1 ? $t('forgot_password.header_title_1')
+           : currentStep === 2 ? $t('forgot_password.header_title_2')
+           : $t('forgot_password.header_title_3') }}
         </h1>
         <p class="text-sm text-gray-500 mt-1">
-          {{ currentStep === 1 ? 'Entrez votre email pour recevoir un code'
-           : currentStep === 2 ? `Code envoyé à ${email}`
-           : 'Choisissez un nouveau mot de passe sécurisé' }}
+          {{ currentStep === 1 ? $t('forgot_password.header_sub_1')
+           : currentStep === 2 ? $t('forgot_password.header_sub_2', { email })
+           : $t('forgot_password.header_sub_3') }}
         </p>
       </div>
 
@@ -229,32 +217,29 @@ const handleResetPassword = async () => {
 
       <Transition name="slide" mode="out-in">
 
-        <!-- ══ STEP 1 : EMAIL ══ -->
+        <!-- STEP 1 : EMAIL -->
         <form v-if="currentStep === 1" key="s1" @submit.prevent="handleSendCode" class="flex flex-col gap-4">
-          <div class="flex flex-col gap-1">
-            <UInput
-              v-model="email"
-              type="email"
-              icon="i-heroicons-envelope"
-              placeholder="Adresse email"
-              size="lg"
-              block
-              required
-            />
-          </div>
+          <UInput
+            v-model="email"
+            type="email"
+            icon="i-heroicons-envelope"
+            :placeholder="$t('forgot_password.field_email')"
+            size="lg"
+            block
+            required
+          />
           <UButton type="submit" color="error" size="lg" block :loading="loadingSend" icon="i-heroicons-paper-airplane">
-            Envoyer le code
+            {{ $t('forgot_password.btn_send_code') }}
           </UButton>
-          
         </form>
 
-        <!-- ══ STEP 2 : CODE ══ -->
+        <!-- STEP 2 : CODE -->
         <form v-else-if="currentStep === 2" key="s2" @submit.prevent="handleVerifyCode" class="flex flex-col gap-4">
 
           <div class="flex items-start gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
             <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-[#274a82] flex-shrink-0 mt-0.5" />
             <p class="text-xs text-gray-600">
-              Vérifiez votre boîte mail <strong class="text-[#274a82]">{{ email }}</strong> et entrez le code à 6 chiffres reçu.
+              {{ $t('forgot_password.code_info', { email }) }}
             </p>
           </div>
 
@@ -262,7 +247,7 @@ const handleResetPassword = async () => {
             v-model="code"
             type="text"
             icon="i-heroicons-hashtag"
-            placeholder="• • • • • •"
+            :placeholder="$t('forgot_password.field_code')"
             size="lg"
             block
             required
@@ -270,31 +255,32 @@ const handleResetPassword = async () => {
           />
 
           <UButton type="submit" color="error" size="lg" block :loading="loadingCode" icon="i-heroicons-shield-check">
-            Vérifier le code
+            {{ $t('forgot_password.btn_verify_code') }}
           </UButton>
 
           <div class="text-center text-sm">
-            <span class="text-gray-400">Pas reçu ? </span>
+            <span class="text-gray-400">{{ $t('forgot_password.resend_label') }} </span>
             <button type="button" @click="handleResendCode" :disabled="resendTimer > 0 || loadingSend"
               class="font-bold transition-colors"
               :class="resendTimer > 0 ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:underline'">
-              {{ resendTimer > 0 ? `Renvoyer dans ${resendTimer}s` : 'Renvoyer le code' }}
+              {{ resendTimer > 0 ? $t('forgot_password.resend_timer', { seconds: resendTimer }) : $t('forgot_password.resend_btn') }}
             </button>
           </div>
 
           <button type="button" @click="currentStep = 1"
             class="flex items-center justify-center gap-1 text-sm text-gray-400 hover:text-gray-600 font-bold transition-colors">
             <UIcon name="i-heroicons-arrow-left" class="w-4 h-4" />
-            Changer d'email
+            {{ $t('forgot_password.change_email') }}
           </button>
         </form>
 
-        <!-- ══ STEP 3 : NOUVEAU MOT DE PASSE ══ -->
+        <!-- STEP 3 : NOUVEAU MOT DE PASSE -->
         <form v-else key="s3" @submit.prevent="handleResetPassword" class="flex flex-col gap-4">
 
           <div class="flex flex-col gap-1">
             <UInput v-model="newPassword" :type="showNewPassword ? 'text' : 'password'"
-              icon="i-heroicons-lock-closed" placeholder="Nouveau mot de passe" size="lg" block required>
+              icon="i-heroicons-lock-closed" :placeholder="$t('forgot_password.field_new_password')"
+              size="lg" block required>
               <template #trailing>
                 <button type="button" @click="showNewPassword = !showNewPassword"
                   class="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none">
@@ -307,16 +293,19 @@ const handleResetPassword = async () => {
                 :class="i <= passwordStrength.score ? passwordStrength.color : 'bg-gray-200'" />
             </div>
             <p v-if="newPassword" class="text-xs ml-1" :class="{
-              'text-red-500': passwordStrength.score === 1,
+              'text-red-500':    passwordStrength.score === 1,
               'text-orange-400': passwordStrength.score === 2,
               'text-yellow-500': passwordStrength.score === 3,
-              'text-green-500': passwordStrength.score === 4,
-            }">Force : {{ passwordStrength.label }}</p>
+              'text-green-500':  passwordStrength.score === 4,
+            }">
+              {{ $t('forgot_password.password_strength', { label: passwordStrength.label }) }}
+            </p>
           </div>
 
           <div class="flex flex-col gap-1">
             <UInput v-model="confirmNewPassword" :type="showConfirmNew ? 'text' : 'password'"
-              icon="i-heroicons-lock-closed" placeholder="Confirmer le mot de passe" size="lg" block required
+              icon="i-heroicons-lock-closed" :placeholder="$t('forgot_password.field_confirm_password')"
+              size="lg" block required
               :color="confirmNewPassword && passwordsMatch ? 'success' : 'primary'">
               <template #trailing>
                 <button type="button" @click="showConfirmNew = !showConfirmNew"
@@ -325,12 +314,16 @@ const handleResetPassword = async () => {
                 </button>
               </template>
             </UInput>
-            <p v-if="confirmNewPassword && passwordsMatch" class="text-xs text-green-500 font-medium ml-1">✓ Les mots de passe correspondent</p>
-            <p v-else-if="confirmNewPassword && !passwordsMatch" class="text-xs text-red-500 ml-1">✗ Les mots de passe ne correspondent pas</p>
+            <p v-if="confirmNewPassword && passwordsMatch" class="text-xs text-green-500 font-medium ml-1">
+              {{ $t('forgot_password.passwords_match') }}
+            </p>
+            <p v-else-if="confirmNewPassword && !passwordsMatch" class="text-xs text-red-500 ml-1">
+              {{ $t('forgot_password.passwords_no_match') }}
+            </p>
           </div>
 
           <UButton type="submit" color="error" size="lg" block :loading="loadingReset" :disabled="!passwordsMatch" icon="i-heroicons-check-circle">
-            Réinitialiser le mot de passe
+            {{ $t('forgot_password.btn_reset') }}
           </UButton>
 
         </form>
@@ -339,8 +332,10 @@ const handleResetPassword = async () => {
 
       <!-- LIEN CONNEXION -->
       <div v-if="currentStep === 1" class="text-center mt-5 text-sm">
-        <span class="text-gray-500">Vous vous souvenez de votre mot de passe ?</span>
-        <NuxtLink to="/login" class="text-red-600 font-medium hover:underline ml-1">Se connecter</NuxtLink>
+        <span class="text-gray-500">{{ $t('forgot_password.back_to_login') }}</span>
+        <NuxtLink to="/login" class="text-red-600 font-medium hover:underline ml-1">
+          {{ $t('forgot_password.login_link') }}
+        </NuxtLink>
       </div>
 
     </UCard>

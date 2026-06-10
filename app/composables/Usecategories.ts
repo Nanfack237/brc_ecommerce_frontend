@@ -23,18 +23,23 @@ export interface CatNavLink  { label: string; to: string }
 export interface CatNavGroup { label: string; slug: string; links: CatNavLink[] }
 
 export const useCategories = () => {
+
   // ── État partagé via useState (Nuxt SSR-safe singleton) ──────────────────
   const categories  = useState<Category[]>('categories', () => [])
   const loadingCats = useState<boolean>('categories-loading', () => false)
   const loadedCats  = useState<boolean>('categories-loaded',  () => false)
   const errorCats   = useState<string | null>('categories-error', () => null)
 
-  const config = useRuntimeConfig()
-  const API    = config.public.apiBase
-
   // ── Fetch depuis GET /api/categories ─────────────────────────────────────
   const fetchCategories = async () => {
     if (loadedCats.value || loadingCats.value) return
+
+    // ✅ Ne jamais fetcher côté serveur SSR
+    if (process.server) return
+
+    // ✅ useRuntimeConfig appelé dans le contexte d'exécution
+    const config = useRuntimeConfig()
+    const API    = config.public.apiBase
 
     loadingCats.value = true
     errorCats.value   = null
@@ -47,8 +52,6 @@ export const useCategories = () => {
 
       console.log('[useCategories] response:', JSON.stringify(res).slice(0, 400))
 
-      // Le CategoryController retourne directement un tableau JSON
-      // (response()->json($categories) sans pagination)
       let list: Category[] = []
 
       if (Array.isArray(res)) {
@@ -73,18 +76,13 @@ export const useCategories = () => {
     }
   }
 
-  // ── Groupes de navigation ────────────────────────────────────────────────
-  // CategoryController::index() retourne :
-  // [{ id, name, slug, image, is_promoted, products_count, children: [...] }]
-  // Les children sont déjà filtrés (activeChildren) et triés (sort_order)
+  // ── Groupes de navigation ─────────────────────────────────────────────────
   const navGroups = computed<CatNavGroup[]>(() => {
     return categories.value.map(cat => {
       const links: CatNavLink[] = []
 
-      // Lien "Voir tout" vers la catégorie parente
       links.push({ label: 'Voir tout', to: `/categories/${cat.slug}` })
 
-      // Sous-catégories → /categories/{child.slug}
       if (cat.children?.length) {
         cat.children.forEach(child => {
           links.push({
@@ -98,7 +96,7 @@ export const useCategories = () => {
     })
   })
 
-  // ── Liste plate utile pour les autres pages ──────────────────────────────
+  // ── Liste plate utile pour les autres pages ───────────────────────────────
   const allCategories = computed(() => {
     const flat: (Category | CategoryChild)[] = []
     categories.value.forEach(cat => {

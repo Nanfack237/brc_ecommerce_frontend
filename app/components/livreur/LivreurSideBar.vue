@@ -6,29 +6,22 @@ const route  = useRoute()
 const router = useRouter()
 const toast  = useToast()
 const token  = useCookie('auth_token')
+const { t }  = useI18n()
 
-// Configuration dynamique de l'API
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
 
 const user = useState<any>('auth_user', () => null)
-
-// Partagé avec DelivererHeader — le bouton burger ouvre ceci
 const mobileOpen = useState<boolean>('deliverer_sidebar_open', () => false)
 
-// Fermeture automatique au changement de route
 watch(() => route.path, () => { mobileOpen.value = false })
 
-// ── Nouvelles commandes assignées ─────────────────────────────────────────
 const newOrdersCount = useState<number>('livreur_new_orders', () => 0)
-
-// localStorage n'existe que côté client
-const lastSeenCount = ref<number>(0)
+const lastSeenCount  = ref<number>(0)
 
 const fetchNewOrders = async () => {
   if (!token.value) return
   try {
-    // Utilisation de la variable API
     const { data } = await axios.get(`${API}/livreur/stats`, {
       headers: { Authorization: `Bearer ${token.value}` }
     })
@@ -37,12 +30,9 @@ const fetchNewOrders = async () => {
   } catch {}
 }
 
-// Efface le badge quand on clique sur "Mes livraisons"
 const clearBadge = () => {
   const current = lastSeenCount.value + newOrdersCount.value
-  if (process.client) {
-    localStorage.setItem('livreur_last_seen', String(current))
-  }
+  if (process.client) localStorage.setItem('livreur_last_seen', String(current))
   lastSeenCount.value  = current
   newOrdersCount.value = 0
 }
@@ -50,31 +40,22 @@ const clearBadge = () => {
 let pollingTimer: ReturnType<typeof setInterval>
 
 onMounted(async () => {
-  // Lire localStorage uniquement côté client
   if (process.client) {
     lastSeenCount.value = parseInt(localStorage.getItem('livreur_last_seen') ?? '0')
   }
-
   if (!user.value && token.value) {
     try {
-      // Utilisation de la variable API pour le profil
       const res = await axios.get(`${API}/auth/me`, {
         headers: { Authorization: `Bearer ${token.value}` }
       })
       user.value = res.data
-    } catch {
-      token.value = null
-    }
+    } catch { token.value = null }
   }
-
   await fetchNewOrders()
-  // Vérification toutes les 30 secondes pour les nouveaux colis à livrer
   pollingTimer = setInterval(fetchNewOrders, 30_000)
 })
 
-onUnmounted(() => {
-  if (pollingTimer) clearInterval(pollingTimer)
-})
+onUnmounted(() => { if (pollingTimer) clearInterval(pollingTimer) })
 
 const fullName = computed(() =>
   user.value ? `${user.value.first_name} ${user.value.last_name}` : '...'
@@ -85,10 +66,10 @@ const initials = computed(() => {
   return `${user.value.first_name?.[0] ?? ''}${user.value.last_name?.[0] ?? ''}`.toUpperCase()
 })
 
-const links = [
-  { label: 'Mes livraisons', icon: 'i-heroicons-truck', to: '/livreur/livraisons', badge: true  },
-  { label: 'Historique',     icon: 'i-heroicons-clock', to: '/livreur/historique', badge: false },
-]
+const links = computed(() => [
+  { label: t('livreur_sidebar.link_livraisons'), icon: 'i-heroicons-truck', to: '/livreur/livraisons', badge: true  },
+  { label: t('livreur_sidebar.link_historique'), icon: 'i-heroicons-clock', to: '/livreur/historique', badge: false },
+])
 
 const isActive = (to: string) => {
   if (!route?.path) return false
@@ -101,41 +82,37 @@ const handleLinkClick = (link: any) => {
 
 const handleLogout = async () => {
   try {
-    // Utilisation de la variable API pour logout
     await axios.post(`${API}/auth/logout`, {}, {
       headers: { Authorization: `Bearer ${token.value}` }
     })
   } catch {}
-  
+
   token.value      = null
   user.value       = null
   mobileOpen.value = false
-  
+
   if (process.client) localStorage.removeItem('livreur_last_seen')
-  
+
   toast.add({
-    title: 'Déconnecté', 
-    description: 'À bientôt sur BRC Market !',
-    color: 'success', 
+    title: t('livreur_sidebar.toast_logout_title'),
+    description: t('livreur_sidebar.toast_logout_desc'),
+    color: 'success',
     icon: 'i-heroicons-check-circle',
   } as ToastProps)
-  
+
   router.push('/login')
 }
 </script>
 
 <template>
 
-  <!-- ══════════════════════════════════════════
-       DESKTOP — lg+ only
-  ══════════════════════════════════════════ -->
+  <!-- DESKTOP -->
   <aside class="hidden lg:flex flex-col w-60 flex-shrink-0 sticky top-16 self-start h-[calc(100vh-4rem)] bg-white border-r border-gray-100 overflow-y-auto">
 
     <div class="mx-4 border-t border-gray-100" />
 
-    <!-- Nav -->
     <nav class="flex-1 p-2 py-3 overflow-y-auto">
-      <p class="text-xs font-bold text-gray-400 tracking-widest px-3 mb-1">Livraisons</p>
+      <p class="text-xs font-bold text-gray-400 tracking-widest px-3 mb-1">{{ $t('livreur_sidebar.nav_section') }}</p>
       <div class="flex flex-col gap-0.5">
         <NuxtLink
           v-for="link in links"
@@ -149,13 +126,12 @@ const handleLogout = async () => {
         >
           <UIcon :name="link.icon" class="w-4 h-4 flex-shrink-0" />
           {{ link.label }}
-          <!-- Badge nouvelles commandes -->
           <span
             v-if="link.badge && newOrdersCount > 0"
             class="ml-auto min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center transition-all"
             :class="isActive(link.to) ? 'bg-white text-[#274a82]' : 'bg-[#274a82] text-white'"
           >
-            {{ newOrdersCount > 99 ? '99+' : newOrdersCount }}
+            {{ newOrdersCount > 99 ? $t('livreur_sidebar.badge_limit') : newOrdersCount }}
           </span>
           <span v-else-if="isActive(link.to)" class="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
         </NuxtLink>
@@ -164,32 +140,28 @@ const handleLogout = async () => {
 
     <div class="mx-4 border-t border-gray-100" />
 
-    <!-- Footer -->
     <div class="p-2">
       <NuxtLink
-            to="/"
-            class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-[#274a82] transition-all mb-1"
-          >
-            <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-4 h-4 flex-shrink-0" />
-            Voir le site
-          </NuxtLink>
+        to="/"
+        class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-[#274a82] transition-all mb-1"
+      >
+        <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-4 h-4 flex-shrink-0" />
+        {{ $t('livreur_sidebar.see_site') }}
+      </NuxtLink>
       <button
         class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all"
         @click="handleLogout"
       >
         <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-4 h-4 flex-shrink-0" />
-        Se déconnecter
+        {{ $t('livreur_sidebar.logout_btn') }}
       </button>
     </div>
 
   </aside>
 
-  <!-- ══════════════════════════════════════════
-       MOBILE drawer — below lg
-  ══════════════════════════════════════════ -->
+  <!-- MOBILE -->
   <Teleport to="body">
 
-    <!-- Backdrop -->
     <Transition
       enter-active-class="transition duration-200 ease-out"
       enter-from-class="opacity-0"
@@ -205,7 +177,6 @@ const handleLogout = async () => {
       />
     </Transition>
 
-    <!-- Drawer -->
     <Transition
       enter-active-class="transition duration-250 ease-out"
       enter-from-class="-translate-x-full"
@@ -219,7 +190,6 @@ const handleLogout = async () => {
         class="fixed top-0 left-0 h-full w-72 bg-white z-50 flex flex-col shadow-2xl lg:hidden"
       >
 
-        <!-- Drawer header -->
         <div class="flex items-center justify-between px-4 h-16 border-b border-gray-100 flex-shrink-0">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-[#274a82] flex items-center justify-center flex-shrink-0">
@@ -229,7 +199,7 @@ const handleLogout = async () => {
               <p class="text-sm font-black text-gray-900 truncate">{{ fullName }}</p>
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#274a82]/10 text-[#274a82]">
                 <UIcon name="i-heroicons-truck" class="w-3 h-3" />
-                Livreur
+                {{ $t('livreur_sidebar.role_livreur') }}
               </span>
             </div>
           </div>
@@ -243,9 +213,8 @@ const handleLogout = async () => {
 
         <div class="mx-4 border-t border-gray-100 flex-shrink-0" />
 
-        <!-- Nav -->
         <nav class="flex-1 p-2 py-3 overflow-y-auto">
-          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 mb-1">Livraisons</p>
+          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 mb-1">{{ $t('livreur_sidebar.nav_section') }}</p>
           <div class="flex flex-col gap-0.5">
             <NuxtLink
               v-for="link in links"
@@ -259,13 +228,12 @@ const handleLogout = async () => {
             >
               <UIcon :name="link.icon" class="w-4 h-4 flex-shrink-0" />
               {{ link.label }}
-              <!-- Badge nouvelles commandes -->
               <span
                 v-if="link.badge && newOrdersCount > 0"
                 class="ml-auto min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center"
                 :class="isActive(link.to) ? 'bg-white text-[#274a82]' : 'bg-[#274a82] text-white'"
               >
-                {{ newOrdersCount > 99 ? '99+' : newOrdersCount }}
+                {{ newOrdersCount > 99 ? $t('livreur_sidebar.badge_limit') : newOrdersCount }}
               </span>
               <span v-else-if="isActive(link.to)" class="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
             </NuxtLink>
@@ -274,21 +242,20 @@ const handleLogout = async () => {
 
         <div class="mx-4 border-t border-gray-100 flex-shrink-0" />
 
-        <!-- Footer -->
         <div class="p-2 flex-shrink-0">
           <NuxtLink
             to="/"
             class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-[#274a82] transition-all mb-1"
           >
             <UIcon name="i-heroicons-arrow-top-right-on-square" class="w-4 h-4 flex-shrink-0" />
-            Voir le site
+            {{ $t('livreur_sidebar.see_site') }}
           </NuxtLink>
           <button
             class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all"
             @click="handleLogout"
           >
             <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-4 h-4 flex-shrink-0" />
-            Se déconnecter
+            {{ $t('livreur_sidebar.logout_btn') }}
           </button>
         </div>
 

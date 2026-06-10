@@ -1,88 +1,90 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 useHead({
-  title: 'Mentions Légales',
+  title: t('mentions_legales.seo_title'),
   link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }]
 })
 
-const sections = [
+const sections = computed(() => [
   {
     icon: 'i-heroicons-building-office-2',
-    title: 'Éditeur du site',
+    title: t('mentions_legales.section_editor_title'),
     content: [
-      { label: 'Raison sociale',   value: 'Business Revolution Company (BRC)' },
-      { label: 'Forme juridique',  value: 'Entreprise individuelle / SARL' },
-      { label: 'Siège social',     value: 'Akwa Douala, rue Castelnau — Juste après la rue du Collège King Akwa, Cameroun' },
-      { label: 'Téléphone',        value: '+237 6 89 20 57 51 / 6 83 62 77 87' },
-      { label: 'Email',            value: 'businessrevcompany@gmail.com' },
-      { label: 'Secteur',          value: 'Commerce électronique — Technologies de l\'information et outils informatiques' },
+      { label: t('mentions_legales.section_editor_raison'),  value: t('mentions_legales.section_editor_raison_val') },
+      { label: t('mentions_legales.section_editor_forme'),   value: t('mentions_legales.section_editor_forme_val') },
+      { label: t('mentions_legales.section_editor_siege'),   value: t('mentions_legales.section_editor_siege_val') },
+      { label: t('mentions_legales.section_editor_tel'),     value: t('mentions_legales.section_editor_tel_val') },
+      { label: t('mentions_legales.section_editor_email'),   value: t('businessrevcompany@gmail.com')},
+      { label: t('mentions_legales.section_editor_secteur'), value: t('mentions_legales.section_editor_secteur_val') },
     ]
   },
   {
     icon: 'i-heroicons-globe-alt',
-    title: 'Hébergement',
+    title: t('mentions_legales.section_hosting_title'),
     content: [
-      { label: 'Hébergeur',   value: 'www.codechosting.cm' },
-      { label: 'Site web',    value: 'https://brcmarket.com' },
+      { label: t('mentions_legales.section_hosting_host'), value: t('mentions_legales.section_hosting_host_val') },
+      { label: t('mentions_legales.section_hosting_site'), value: t('mentions_legales.section_hosting_site_val') },
     ]
   },
   {
     icon: 'i-heroicons-shield-check',
-    title: 'Protection des données personnelles',
+    title: t('mentions_legales.section_data_title'),
     paragraphs: [
-      'Conformément aux lois en vigueur au Cameroun sur la protection des données personnelles, BRC Market s\'engage à protéger la vie privée de ses utilisateurs.',
-      'Les données collectées (nom, email, téléphone, adresse de livraison) sont utilisées uniquement dans le cadre du traitement de vos commandes et de la relation client. Elles ne sont jamais cédées, vendues ou louées à des tiers.',
-      'Vous disposez d\'un droit d\'accès, de rectification et de suppression de vos données personnelles. Pour exercer ce droit, contactez-nous à : businessrevcompany@gmail.com.',
+      t('mentions_legales.section_data_p1'),
+      t('mentions_legales.section_data_p2'),
+      t('mentions_legales.section_data_p3'),
     ]
   },
   {
     icon: 'i-heroicons-shopping-cart',
-    title: 'Conditions générales de vente',
+    title: t('mentions_legales.section_cgv_title'),
     paragraphs: [
-      'Les prix affichés sur BRC Market sont en Francs CFA (FCFA) et incluent toutes les taxes applicables. BRC Market se réserve le droit de modifier ses prix à tout moment.',
-      'Toute commande passée sur le site vaut acceptation des prix et descriptions des produits. Les commandes sont définitives après confirmation du paiement.',
-      'La livraison est disponible partout en Afrique. Les délais et frais de livraison sont communiqués lors de la validation de la commande.',
+      t('mentions_legales.section_cgv_p1'),
+      t('mentions_legales.section_cgv_p2'),
+      t('mentions_legales.section_cgv_p3'),
     ]
   },
   {
     icon: 'i-heroicons-arrow-path',
-    title: 'Politique de retour',
+    title: t('mentions_legales.section_return_title'),
     paragraphs: [
-      'Vous disposez de 7 jours à compter de la réception de votre commande pour retourner un article. Le produit doit être dans son état d\'origine, non utilisé et dans son emballage d\'origine.',
-      'Pour initier un retour, contactez notre service client par email ou téléphone. BRC Market prend en charge le remplacement ou le remboursement selon les cas.',
+      t('mentions_legales.section_return_p1'),
+      t('mentions_legales.section_return_p2'),
     ]
   },
   {
     icon: 'i-heroicons-wrench-screwdriver',
-    title: 'Garantie & SAV',
+    title: t('mentions_legales.section_warranty_title'),
     paragraphs: [
-      'Tous les produits vendus sur BRC Market bénéficient d\'une garantie de 12 mois. Cette garantie couvre les défauts de fabrication et les pannes survenant dans des conditions normales d\'utilisation.',
-      'Notre Service Après-Vente (SAV BRC Market) est disponible du Lundi au Samedi de 8h15 à 16h45. Contactez-nous au +237 6 89 20 57 51.',
+      t('mentions_legales.section_warranty_p1'),
+      t('mentions_legales.section_warranty_p2'),
     ]
   },
   {
     icon: 'i-heroicons-scale',
-    title: 'Propriété intellectuelle',
+    title: t('mentions_legales.section_ip_title'),
     paragraphs: [
-      'L\'ensemble du contenu de ce site (textes, images, logos, icônes, vidéos, données) est la propriété exclusive de BRC Market ou de ses partenaires et est protégé par les lois relatives à la propriété intellectuelle.',
-      'Toute reproduction, distribution, modification ou utilisation commerciale de ce contenu sans autorisation préalable écrite de BRC Market est strictement interdite.',
+      t('mentions_legales.section_ip_p1'),
+      t('mentions_legales.section_ip_p2'),
     ]
   },
   {
     icon: 'i-heroicons-exclamation-triangle',
-    title: 'Limitation de responsabilité',
+    title: t('mentions_legales.section_liability_title'),
     paragraphs: [
-      'BRC Market s\'efforce de maintenir ce site accessible et à jour. Cependant, nous ne pouvons garantir l\'absence d\'interruptions liées à des opérations de maintenance ou à des problèmes techniques indépendants de notre volonté.',
-      'BRC Market ne saurait être tenu responsable des dommages indirects résultant de l\'utilisation du site ou de l\'impossibilité d\'y accéder.',
+      t('mentions_legales.section_liability_p1'),
+      t('mentions_legales.section_liability_p2'),
     ]
   },
   {
     icon: 'i-heroicons-document-text',
-    title: 'Droit applicable',
+    title: t('mentions_legales.section_law_title'),
     paragraphs: [
-      'Le présent site et ses mentions légales sont soumis au droit camerounais. En cas de litige, et à défaut de résolution amiable, les tribunaux compétents de Douala seront seuls compétents.',
+      t('mentions_legales.section_law_p1'),
     ]
   },
-]
+])
 </script>
 
 <template>
@@ -105,27 +107,27 @@ const sections = [
 
         <div class="relative z-10 text-center px-6">
           <h1 class="text-3xl md:text-5xl font-black text-white my-5 tracking-tight">
-            Mentions Légales
+            {{ $t('mentions_legales.hero_title') }}
           </h1>
           <p class="text-gray-300 text-sm md:text-base max-w-lg mx-auto">
-            Informations légales relatives à l'exploitation du site
-            <span class="text-white font-bold">BRC Market</span>
+            {{ $t('mentions_legales.hero_sub') }}
+            <span class="text-white font-bold">{{ $t('mentions_legales.hero_brand') }}</span>
           </p>
-          <p class="text-gray-500 text-xs my-5">Dernière mise à jour : Mai 2026</p>
+          <p class="text-gray-500 text-xs my-5">{{ $t('mentions_legales.hero_updated') }}</p>
         </div>
       </section>
 
       <!-- ===== BREADCRUMB ===== -->
       <nav class="flex items-center gap-2 text-[13px] text-gray-500 font-medium py-4 border-b border-gray-200 mb-8">
-        <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Boutique</NuxtLink>
+        <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">{{ $t('mentions_legales.breadcrumb_home') }}</NuxtLink>
         <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
-        <span class="text-[#274a82] font-bold">Mentions Légales</span>
+        <span class="text-[#274a82] font-bold">{{ $t('mentions_legales.breadcrumb_current') }}</span>
       </nav>
 
       <!-- ===== TABLE DES MATIÈRES (desktop) ===== -->
       <div class="hidden lg:block mb-10">
         <div class="bg-white rounded-sm border border-gray-100 p-6 shadow-sm">
-          <p class="text-[14px] font-black text-gray-400 tracking-widest mb-4">Table des matières</p>
+          <p class="text-[14px] font-black text-gray-400 tracking-widest mb-4">{{ $t('mentions_legales.toc_label') }}</p>
           <div class="flex flex-wrap gap-2">
             <a
               v-for="(s, i) in sections" :key="i"
@@ -197,21 +199,21 @@ const sections = [
 
       <!-- ===== CONTACT FOOTER ===== -->
       <div class="mt-10 rounded-sm overflow-hidden border border-[#274a82]/20 shadow-sm">
-        <div class=" bg-[#274a82] px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="bg-[#274a82] px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div class="text-center sm:text-left">
-            <p class="text-white font-black text-base mb-1">Une question sur ces mentions ?</p>
-            <p class="text-gray-300 text-sm">Notre équipe est disponible du Lundi au Samedi de 8h15 à 16h45</p>
+            <p class="text-white font-black text-base mb-1">{{ $t('mentions_legales.contact_question') }}</p>
+            <p class="text-gray-300 text-sm">{{ $t('mentions_legales.contact_hours') }}</p>
           </div>
           <div class="flex gap-3 flex-shrink-0">
             <NuxtLink to="/contact"
               class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#e60012] hover:bg-red-700 text-white text-sm font-black rounded-sm transition-all shadow-md">
               <UIcon name="i-heroicons-envelope" class="w-4 h-4" />
-              Nous contacter
+              {{ $t('mentions_legales.contact_btn') }}
             </NuxtLink>
             <a href="tel:+237689205751"
               class="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-black rounded-sm transition-all">
               <UIcon name="i-heroicons-device-phone-mobile" class="w-4 h-4" />
-              Appeler
+              {{ $t('mentions_legales.contact_call') }}
             </a>
           </div>
         </div>

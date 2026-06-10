@@ -1,24 +1,29 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
 
-// 1. Protection et configuration
 const { requireAuth } = useAuth()
 requireAuth()
+
+const { t } = useI18n()
 
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
 
 useHead({
-  title: 'BRC Market',
-  titleTemplate: (titleChunk) => `${titleChunk} - Paramètres`,
-  link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }]
+  title: () => t('parametre_compte.seo_title'),
+  titleTemplate: (title) => title ? `${title} - BRC Market` : 'BRC Market',
+  link: [{ rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
 })
 
 const toast  = useToast()
 const token  = useCookie('auth_token')
 const router = useRouter()
+
+const showDeleteModal   = ref(false)
+const deleteConfirmText = ref('')
+const loadingDelete     = ref(false)
 
 const notifications = ref({
   email_orders:     true,
@@ -26,36 +31,65 @@ const notifications = ref({
   email_newsletter: true,
 })
 
-const showDeleteModal   = ref(false)
-const deleteConfirmText = ref('')
-const loadingDelete     = ref(false)
+// ── Sections liens rapides (computed pour réactivité i18n) ────────────────────
+const settingSections = computed(() => [
+  {
+    title: t('parametre_compte.section_account_title'),
+    icon:  'i-heroicons-user-circle',
+    items: [
+      {
+        label: t('parametre_compte.link_edit_info_label'),
+        desc:  t('parametre_compte.link_edit_info_desc'),
+        to:    '/compte/informations',
+        icon:  'i-heroicons-pencil-square',
+      },
+    ],
+  },
+  {
+    title: t('parametre_compte.section_activity_title'),
+    icon:  'i-heroicons-shopping-bag',
+    items: [
+      {
+        label: t('parametre_compte.link_orders_label'),
+        desc:  t('parametre_compte.link_orders_desc'),
+        to:    '/compte/commandes',
+        icon:  'i-heroicons-shopping-bag',
+      },
+      {
+        label: t('parametre_compte.link_favorites_label'),
+        desc:  t('parametre_compte.link_favorites_desc'),
+        to:    '/compte/favoris',
+        icon:  'i-heroicons-heart',
+      },
+    ],
+  },
+])
 
+// ── Actions ───────────────────────────────────────────────────────────────────
 const saveNotifications = () => {
-  // Optionnel : Tu pourras ajouter ici un appel API PUT `${API}/profile/notifications` plus tard
-  toast.add({ 
-    title: 'Préférences sauvegardées', 
-    description: 'Vos préférences de notifications ont été mises à jour.', 
-    color: 'success', 
-    icon: 'i-heroicons-check-circle' 
+  toast.add({
+    title:       t('parametre_compte.toast_notif_title'),
+    description: t('parametre_compte.toast_notif_desc'),
+    color:       'success',
+    icon:        'i-heroicons-check-circle',
   } as ToastProps)
 }
 
 const logoutAll = async () => {
   try {
-    // Utilisation de la variable API
     await axios.post(`${API}/auth/logout`, {}, {
-      headers: { Authorization: `Bearer ${token.value}` }
+      headers: { Authorization: `Bearer ${token.value}` },
     })
   } catch {}
-  
+
   token.value = null
-  toast.add({ 
-    title: 'Déconnecté', 
-    description: 'Vous avez été déconnecté de tous les appareils.', 
-    color: 'success', 
-    icon: 'i-heroicons-check-circle' 
+  toast.add({
+    title:       t('parametre_compte.toast_logout_title'),
+    description: t('parametre_compte.toast_logout_desc'),
+    color:       'success',
+    icon:        'i-heroicons-check-circle',
   } as ToastProps)
-  
+
   router.push('/login')
 }
 
@@ -63,158 +97,122 @@ const deleteAccount = async () => {
   if (deleteConfirmText.value !== 'SUPPRIMER') return
   loadingDelete.value = true
   try {
-    // Utilisation de la variable API pour la suppression de compte
     await axios.delete(`${API}/profile`, {
-      headers: { Authorization: `Bearer ${token.value}` }
+      headers: { Authorization: `Bearer ${token.value}` },
     })
-    
     token.value = null
-    toast.add({ 
-      title: 'Compte supprimé', 
-      description: 'Votre compte a été supprimé définitivement.', 
-      color: 'neutral', 
-      icon: 'i-heroicons-trash' 
+    toast.add({
+      title:       t('parametre_compte.toast_delete_success_title'),
+      description: t('parametre_compte.toast_delete_success_desc'),
+      color:       'neutral',
+      icon:        'i-heroicons-trash',
     } as ToastProps)
-    
     router.push('/')
   } catch {
-    toast.add({ 
-      title: 'Erreur', 
-      description: 'Impossible de supprimer le compte.', 
-      color: 'error', 
-      icon: 'i-heroicons-x-circle' 
+    toast.add({
+      title:       t('parametre_compte.toast_delete_error_title'),
+      description: t('parametre_compte.toast_delete_error_desc'),
+      color:       'error',
+      icon:        'i-heroicons-x-circle',
     } as ToastProps)
   } finally {
     loadingDelete.value   = false
     showDeleteModal.value = false
   }
 }
-
-const settingSections = [
-  {
-    title: 'Compte', icon: 'i-heroicons-user-circle',
-    items: [
-      { label: 'Modifier mes informations', desc: 'Nom, email, téléphone', to: '/compte/informations', icon: 'i-heroicons-pencil-square' },
-    ]
-  },
-  {
-    title: 'Activité', icon: 'i-heroicons-shopping-bag',
-    items: [
-      { label: 'Mes commandes', desc: 'Historique des achats', to: '/compte/commandes', icon: 'i-heroicons-shopping-bag' },
-      { label: 'Mes favoris',   desc: 'Produits sauvegardés',  to: '/compte/favoris',   icon: 'i-heroicons-heart' },
-    ]
-  },
-]
 </script>
 
 <template>
   <div class="space-y-5">
 
-      <!-- Breadcrumb + title -->
+    <!-- ══ BREADCRUMB + TITRE ══════════════════════════════════════════════ -->
+    <div>
+      <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
+        <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">
+          {{ $t('parametre_compte.breadcrumb_home') }}
+        </NuxtLink>
+        <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
+        <span class="text-gray-600">{{ $t('parametre_compte.page_title') }}</span>
+      </div>
+      <h1 class="text-2xl font-black text-gray-900">{{ $t('parametre_compte.page_title') }}</h1>
+      <p class="text-gray-500 text-sm mt-1">{{ $t('parametre_compte.subtitle') }}</p>
+    </div>
+
+    <!-- ══ LIENS RAPIDES ═══════════════════════════════════════════════════ -->
+    <div
+      v-for="section in settingSections"
+      :key="section.title"
+      class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+    >
+      <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-50 bg-gray-50/50">
+        <UIcon :name="section.icon" class="w-4 h-4 text-[#274a82]" />
+        <span class="text-[14px] font-bold text-gray-500 tracking-wider">{{ section.title }}</span>
+      </div>
       <div>
-        <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
-          <NuxtLink to="/" class="hover:text-[#274a82]">Accueil</NuxtLink>
-          <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
-          <span class="text-gray-600">Paramètres</span>
-        </div>
-        <h1 class="text-2xl font-black text-gray-900">Paramètres</h1>
-        <p class="text-gray-500 text-sm mt-1">Gérez vos préférences et votre compte</p>
-      </div>
-
-      <!-- Quick links -->
-      <div v-for="section in settingSections" :key="section.title" class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-50 bg-gray-50/50">
-          <UIcon :name="section.icon" class="w-4 h-4 text-[#274a82]" />
-          <span class="text-[14px] font-bold text-gray-500 tracking-wider">{{ section.title }}</span>
-        </div>
-        <div>
-          <NuxtLink
-            v-for="item in section.items" :key="item.label" :to="item.to"
-            class="flex items-center justify-between px-5 py-4 hover:bg-blue-50/50 transition group border-b border-gray-50 last:border-0"
-          >
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl bg-[#274a82]/10 flex items-center justify-center">
-                <UIcon :name="item.icon" class="w-4 h-4 text-[#274a82]" />
-              </div>
-              <div>
-                <p class="text-sm font-semibold text-gray-800 group-hover:text-[#274a82] transition">{{ item.label }}</p>
-                <p class="text-xs text-gray-400">{{ item.desc }}</p>
-              </div>
+        <NuxtLink
+          v-for="item in section.items"
+          :key="item.label"
+          :to="item.to"
+          class="flex items-center justify-between px-5 py-4 hover:bg-blue-50/50 transition group border-b border-gray-50 last:border-0"
+        >
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-[#274a82]/10 flex items-center justify-center">
+              <UIcon :name="item.icon" class="w-4 h-4 text-[#274a82]" />
             </div>
-            <UIcon name="i-heroicons-chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-[#274a82] transition" />
-          </NuxtLink>
-        </div>
-      </div>
-
-      <!-- Security -->
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-50 bg-gray-50/50">
-          <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-[#274a82]" />
-          <span class="text-[14px] font-bold text-gray-500 tracking-wider">Sécurité</span>
-        </div>
-        <div class="px-5 py-4 flex items-center justify-between border-b border-gray-50">
-          <div>
-            <p class="text-sm font-semibold text-gray-800">Déconnecter tous les appareils</p>
-            <p class="text-xs text-gray-400">Révoque tous les tokens actifs</p>
-          </div>
-          <UButton size="sm" color="neutral" variant="outline" icon="i-heroicons-arrow-left-on-rectangle" @click="logoutAll">
-            Déconnecter
-          </UButton>
-        </div>
-        <NuxtLink to="/compte/informations" class="flex items-center justify-between px-5 py-4 hover:bg-blue-50/50 group transition">
-          <div>
-            <p class="text-sm font-semibold text-gray-800 group-hover:text-[#274a82] transition">Changer le mot de passe</p>
-            <p class="text-xs text-gray-400">Modifier votre mot de passe actuel</p>
+            <div>
+              <p class="text-sm font-semibold text-gray-800 group-hover:text-[#274a82] transition">
+                {{ item.label }}
+              </p>
+              <p class="text-xs text-gray-400">{{ item.desc }}</p>
+            </div>
           </div>
           <UIcon name="i-heroicons-chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-[#274a82] transition" />
         </NuxtLink>
       </div>
-
-      <!-- Danger zone -->
-      <!-- <div class="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
-        <div class="flex items-center gap-2 px-5 py-3 border-b border-red-50 bg-red-50/50">
-          <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4 text-red-500" />
-          <span class="text-[14px] font-bold text-red-500 tracking-wider">Zone dangereuse</span>
-        </div>
-        <div class="px-5 py-4 flex items-center justify-between">
-          <div>
-            <p class="text-sm font-semibold text-gray-800">Supprimer mon compte</p>
-            <p class="text-xs text-gray-400">Action irréversible — toutes vos données seront effacées</p>
-          </div>
-          <UButton size="sm" color="error" variant="soft" icon="i-heroicons-trash" @click="showDeleteModal = true">
-            Supprimer
-          </UButton>
-        </div>
-      </div> -->
-
     </div>
 
-    <!-- Delete modal -->
-    <!-- <UModal v-model:open="showDeleteModal">
-  <template #content>
-    <div class="p-6">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
-          <UIcon name="i-heroicons-trash" class="w-5 h-5 text-red-600" />
-        </div>
-        <div>
-          <h2 class="font-black text-gray-900">Supprimer le compte</h2>
-          <p class="text-xs text-gray-400">Cette action est irréversible</p>
-        </div>
+    <!-- ══ SÉCURITÉ ════════════════════════════════════════════════════════ -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-50 bg-gray-50/50">
+        <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-[#274a82]" />
+        <span class="text-[14px] font-bold text-gray-500 tracking-wider">
+          {{ $t('parametre_compte.section_security_title') }}
+        </span>
       </div>
-      <p class="text-sm text-gray-600 mb-4">
-        Toutes vos commandes, favoris et données personnelles seront supprimés définitivement.
-        Tapez <strong>SUPPRIMER</strong> pour confirmer.
-      </p>
-      <UInput v-model="deleteConfirmText" placeholder="Tapez SUPPRIMER" size="lg" class="mb-4" :color="deleteConfirmText === 'SUPPRIMER' ? 'error' : 'primary'" />
-      <div class="flex gap-3">
-        <UButton block variant="outline" color="neutral" @click="showDeleteModal = false">Annuler</UButton>
-        <UButton block color="error" icon="i-heroicons-trash" :disabled="deleteConfirmText !== 'SUPPRIMER'" :loading="loadingDelete" @click="deleteAccount">
-          Supprimer définitivement
+
+      <!-- Déconnecter tous les appareils -->
+      <div class="px-5 py-4 flex items-center justify-between border-b border-gray-50">
+        <div>
+          <p class="text-sm font-semibold text-gray-800">
+            {{ $t('parametre_compte.logout_all_label') }}
+          </p>
+          <p class="text-xs text-gray-400">{{ $t('parametre_compte.logout_all_desc') }}</p>
+        </div>
+        <UButton
+          size="sm"
+          color="neutral"
+          variant="outline"
+          icon="i-heroicons-arrow-left-on-rectangle"
+          @click="logoutAll"
+        >
+          {{ $t('parametre_compte.logout_all_btn') }}
         </UButton>
       </div>
-    </div>
-  </template> -->
-    <!-- </UModal> -->
 
+      <!-- Changer le mot de passe -->
+      <NuxtLink
+        to="/compte/informations"
+        class="flex items-center justify-between px-5 py-4 hover:bg-blue-50/50 group transition"
+      >
+        <div>
+          <p class="text-sm font-semibold text-gray-800 group-hover:text-[#274a82] transition">
+            {{ $t('parametre_compte.change_password_label') }}
+          </p>
+          <p class="text-xs text-gray-400">{{ $t('parametre_compte.change_password_desc') }}</p>
+        </div>
+        <UIcon name="i-heroicons-chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-[#274a82] transition" />
+      </NuxtLink>
+    </div>
+
+  </div>
 </template>

@@ -1,22 +1,21 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
 
-// 1. Configuration dynamique de l'API
+const { t } = useI18n()
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
 
 useSeoMeta({
-  title:       'Créer un Compte',
-  description: 'Créez votre compte BRC Market et profitez d\'offres exclusives sur vos équipements informatiques au Cameroun.',
-  ogTitle:     'Créer un Compte - BRC Market',
+  title:       t('register.seo_title'),
+  description: t('register.seo_description'),
+  ogTitle:     t('register.seo_og_title'),
   ogUrl:       'https://brcmarket.cm/register',
   robots:      'noindex, nofollow',
 })
 useHead({ link: [{ rel: 'canonical', href: 'https://brcmarket.cm/register' }] })
 
-const toast = useToast()
+const toast  = useToast()
 const router = useRouter()
 const token  = useCookie('auth_token')
 
@@ -28,10 +27,9 @@ const password            = ref('')
 const confirmPassword     = ref('')
 const loading             = ref(false)
 const errors              = ref<Record<string, string[]>>({})
-const showPassword         = ref(false)
+const showPassword        = ref(false)
 const showConfirmPassword = ref(false)
 
-// Calcul de la force du mot de passe
 const passwordStrength = computed(() => {
   const p = password.value
   if (!p) return { score: 0, label: '', color: '' }
@@ -41,10 +39,10 @@ const passwordStrength = computed(() => {
   if (/[0-9]/.test(p))         score++
   if (/[^A-Za-z0-9]/.test(p))  score++
   const levels = [
-    { score: 1, label: 'Faible',    color: 'bg-red-500'    },
-    { score: 2, label: 'Moyen',     color: 'bg-orange-400' },
-    { score: 3, label: 'Bon',       color: 'bg-yellow-400' },
-    { score: 4, label: 'Excellent', color: 'bg-green-500'  },
+    { score: 1, label: t('register.strength_weak'),      color: 'bg-red-500'    },
+    { score: 2, label: t('register.strength_medium'),    color: 'bg-orange-400' },
+    { score: 3, label: t('register.strength_good'),      color: 'bg-yellow-400' },
+    { score: 4, label: t('register.strength_excellent'), color: 'bg-green-500'  },
   ]
   return levels[score - 1] ?? { score: 0, label: '', color: '' }
 })
@@ -57,10 +55,10 @@ const handleRegister = async () => {
   errors.value = {}
 
   if (password.value !== confirmPassword.value) {
-    errors.value = { confirmPassword: ['Les mots de passe ne correspondent pas.'] }
+    errors.value = { confirmPassword: [t('register.toast_passwords_desc')] }
     toast.add({
-      title:       'Erreur',
-      description: 'Les mots de passe ne correspondent pas.',
+      title:       t('register.toast_passwords_title'),
+      description: t('register.toast_passwords_desc'),
       color:       'error',
       icon:        'i-heroicons-x-circle',
     } as ToastProps)
@@ -70,7 +68,6 @@ const handleRegister = async () => {
   loading.value = true
 
   try {
-    // Utilisation de la variable API au lieu de localhost
     const response = await axios.post(`${API}/auth/register`, {
       first_name:            firstName.value,
       last_name:             lastName.value,
@@ -85,17 +82,15 @@ const handleRegister = async () => {
       },
     })
 
-    // Stockage du token pour connecter l'utilisateur immédiatement
     token.value = response.data.token
 
     toast.add({
-      title:       'Compte créé avec succès !',
-      description: `Bienvenue sur BRC Market, ${response.data.user.first_name} !`,
+      title:       t('register.toast_success_title'),
+      description: t('register.toast_success_desc', { name: response.data.user.first_name }),
       color:       'success',
       icon:        'i-heroicons-check-circle',
     } as ToastProps)
 
-    // Redirection vers la boutique
     setTimeout(() => router.push('/boutique'), 1500)
 
   } catch (err: any) {
@@ -103,24 +98,24 @@ const handleRegister = async () => {
       errors.value = err.response.data.errors ?? {}
       const firstError = Object.values(errors.value)[0]?.[0]
       toast.add({
-        title:       'Erreur de validation',
-        description: firstError ?? 'Vérifiez les champs du formulaire.',
+        title:       t('register.toast_validation_title'),
+        description: firstError ?? t('register.toast_error_desc'),
         color:       'error',
         icon:        'i-heroicons-exclamation-triangle',
       } as ToastProps)
 
     } else if (err.message === 'Network Error') {
       toast.add({
-        title:       'Service indisponible',
-        description: 'Impossible de joindre le serveur. Réessayez plus tard.',
+        title:       t('register.toast_network_title'),
+        description: t('register.toast_network_desc'),
         color:       'error',
         icon:        'i-heroicons-signal-slash',
       } as ToastProps)
 
     } else {
       toast.add({
-        title:       'Erreur',
-        description: err.response?.data?.message ?? 'Une erreur est survenue.',
+        title:       t('register.toast_error_title'),
+        description: err.response?.data?.message ?? t('register.toast_error_desc'),
         color:       'error',
         icon:        'i-heroicons-exclamation-circle',
       } as ToastProps)
@@ -138,8 +133,8 @@ const handleRegister = async () => {
       <!-- HEADER -->
       <div class="text-center mb-6">
         <UIcon name="i-heroicons-user-plus" class="w-16 h-16 text-gray-400" />
-        <h1 class="text-2xl font-bold mt-2">Créer un compte</h1>
-        <p class="text-sm text-gray-500">Rejoignez BRC Market dès aujourd'hui !</p>
+        <h1 class="text-2xl font-bold mt-2">{{ $t('register.header_title') }}</h1>
+        <p class="text-sm text-gray-500">{{ $t('register.header_sub') }}</p>
       </div>
 
       <!-- FORM -->
@@ -152,7 +147,7 @@ const handleRegister = async () => {
               v-model="firstName"
               type="text"
               icon="i-heroicons-user"
-              placeholder="Prénom"
+              :placeholder="$t('register.field_firstname')"
               size="lg"
               block
               required
@@ -169,7 +164,7 @@ const handleRegister = async () => {
               v-model="lastName"
               type="text"
               icon="i-heroicons-user"
-              placeholder="Nom de famille"
+              :placeholder="$t('register.field_lastname')"
               size="lg"
               block
               required
@@ -186,7 +181,7 @@ const handleRegister = async () => {
               v-model="email"
               type="email"
               icon="i-heroicons-envelope"
-              placeholder="Adresse email"
+              :placeholder="$t('register.field_email')"
               size="lg"
               block
               required
@@ -203,7 +198,7 @@ const handleRegister = async () => {
               v-model="phone"
               type="tel"
               icon="i-heroicons-device-phone-mobile"
-              placeholder="Numéro de téléphone"
+              :placeholder="$t('register.field_phone')"
               size="lg"
               block
               :color="errors.phone ? 'error' : 'primary'"
@@ -219,7 +214,7 @@ const handleRegister = async () => {
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               icon="i-heroicons-lock-closed"
-              placeholder="Mot de passe (min. 8 caractères)"
+              :placeholder="$t('register.field_password')"
               size="lg"
               block
               required
@@ -253,7 +248,7 @@ const handleRegister = async () => {
               'text-yellow-500': passwordStrength.score === 3,
               'text-green-500':  passwordStrength.score === 4,
             }">
-              Force : {{ passwordStrength.label }}
+              {{ $t('register.password_strength', { label: passwordStrength.label }) }}
             </p>
             <p v-if="errors.password" class="text-xs text-red-500 ml-1">
               {{ errors.password[0] }}
@@ -266,7 +261,7 @@ const handleRegister = async () => {
               v-model="confirmPassword"
               :type="showConfirmPassword ? 'text' : 'password'"
               icon="i-heroicons-lock-closed"
-              placeholder="Confirmer le mot de passe"
+              :placeholder="$t('register.field_confirm_password')"
               size="lg"
               block
               required
@@ -287,10 +282,10 @@ const handleRegister = async () => {
             </UInput>
 
             <p v-if="confirmPassword && passwordsMatch" class="text-xs text-green-500 font-medium ml-1">
-              ✓ Les mots de passe correspondent
+              {{ $t('register.passwords_match') }}
             </p>
             <p v-else-if="confirmPassword && !passwordsMatch" class="text-xs text-red-500 ml-1">
-              ✗ Les mots de passe ne correspondent pas
+              {{ $t('register.passwords_no_match') }}
             </p>
             <p v-if="errors.confirmPassword" class="text-xs text-red-500 ml-1">
               {{ errors.confirmPassword[0] }}
@@ -308,15 +303,15 @@ const handleRegister = async () => {
           :loading="loading"
           icon="i-heroicons-user-plus"
         >
-          Créer mon compte
+          {{ $t('register.submit') }}
         </UButton>
       </form>
 
       <!-- LOGIN LINK -->
       <div class="text-center mt-5 text-sm">
-        <span class="text-gray-500">Vous avez déjà un compte ?</span>
+        <span class="text-gray-500">{{ $t('register.already_account') }}</span>
         <NuxtLink to="/login" class="text-red-600 font-medium hover:underline ml-1">
-          Se connecter
+          {{ $t('register.login_link') }}
         </NuxtLink>
       </div>
 

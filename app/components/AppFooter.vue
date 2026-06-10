@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import axios from 'axios'
 
 const year = new Date().getFullYear()
+const { t } = useI18n()
 const { isLoggedIn } = useAuth()
+
 // Accordéon mobile
 const openSection = ref<string | null>(null)
 const toggle = (section: string) => {
@@ -32,23 +33,23 @@ const handleLogout = async () => {
   token.value = null
 
   toast.add({
-    title: 'Déconnecté',
-    description: 'À bientôt sur BRC Market !',
-    color: 'success',
-    icon: 'i-heroicons-check-circle',
-    duration: 3000,
+    title:       t('toast.logged_out'),
+    description: t('toast.logged_out_desc'),
+    color:       'success',
+    icon:        'i-heroicons-check-circle',
+    duration:    3000,
   })
 
   router.push('/login')
 }
 
 // User menu items
-const userLinks = [
-  { label: 'Mes commandes',  icon: 'i-heroicons-shopping-bag',   to: '/compte/commandes' },
-  { label: 'Mes favoris',    icon: 'i-heroicons-heart',           to: '/compte/favoris' },
-  { label: 'Mes informations', icon: 'i-heroicons-user-circle',  to: '/compte/informations' },
-  { label: 'Paramètres',     icon: 'i-heroicons-cog-6-tooth',     to: '/compte/parametres' },
-]
+const userLinks = computed(() => [
+  { label: t('account.orders'),    icon: 'i-heroicons-shopping-bag',  to: '/compte/commandes'    },
+  { label: t('account.favorites'), icon: 'i-heroicons-heart',          to: '/compte/favoris'      },
+  { label: t('account.info'),      icon: 'i-heroicons-user-circle',    to: '/compte/informations' },
+  { label: t('account.settings'),  icon: 'i-heroicons-cog-6-tooth',    to: '/compte/parametres'   },
+])
 </script>
 
 <template>
@@ -67,9 +68,7 @@ const userLinks = [
           </div>
 
           <p class="text-sm text-gray-400 leading-relaxed mb-4">
-            BRC Market est votre partenaire de confiance pour
-            l'achat de matériel informatique, smartphones,
-            réseaux, electricite et services IT professionnels au Cameroun.
+            {{ $t('footer.tagline') }}
           </p>
 
           <div class="flex items-center gap-3 flex-wrap">
@@ -80,7 +79,7 @@ const userLinks = [
               <UButton icon="i-simple-icons-whatsapp" color="gray" variant="ghost" size="sm" />
             </NuxtLink>
             <NuxtLink to="/about-us" class="text-sm hover:text-white transition ml-1">
-              Qui sommes-nous ?
+              {{ $t('footer.who_are_we') }}
             </NuxtLink>
           </div>
         </div>
@@ -91,7 +90,7 @@ const userLinks = [
             class="w-full flex items-center justify-between py-3 md:py-0 md:cursor-default text-white font-semibold md:mb-4"
             @click="toggle('shop')"
           >
-            <span>Boutique</span>
+            <span>{{ $t('footer.shop_title') }}</span>
             <UIcon
               name="i-heroicons-chevron-down"
               class="w-4 h-4 transition-transform md:hidden"
@@ -102,10 +101,10 @@ const userLinks = [
             class="space-y-2 text-sm overflow-hidden transition-all duration-300 md:block"
             :class="openSection === 'shop' ? 'max-h-40 pb-4' : 'max-h-0 md:max-h-none'"
           >
-            <li><NuxtLink to="/boutique" class="hover:text-white transition">Tous les produits</NuxtLink></li>
-            <li><NuxtLink to="/categories/ordinateurs/laptops" class="hover:text-white transition">Ordinateurs</NuxtLink></li>
-            <li><NuxtLink to="/categories/smartphones-et-tablettes/smartphones" class="hover:text-white transition">Smartphones</NuxtLink></li>
-            <li><NuxtLink to="/categories/accessoires-ordinateurs" class="hover:text-white transition">Accessoires Ordinateurs</NuxtLink></li>
+            <li><NuxtLink to="/boutique" class="hover:text-white transition">{{ $t('footer.shop_all') }}</NuxtLink></li>
+            <li><NuxtLink to="/categories/ordinateurs" class="hover:text-white transition">{{ $t('footer.shop_computers') }}</NuxtLink></li>
+            <li><NuxtLink to="/categories/smartphones" class="hover:text-white transition">{{ $t('footer.shop_smartphones') }}</NuxtLink></li>
+            <li><NuxtLink to="/categories/accessoires-ordinateurs" class="hover:text-white transition">{{ $t('footer.shop_accessories') }}</NuxtLink></li>
           </ul>
         </div>
 
@@ -115,7 +114,7 @@ const userLinks = [
             class="w-full flex items-center justify-between py-3 md:py-0 md:cursor-default text-white font-semibold md:mb-4"
             @click="toggle('services')"
           >
-            <span>Nos Services</span>
+            <span>{{ $t('footer.services_title') }}</span>
             <UIcon
               name="i-heroicons-chevron-down"
               class="w-4 h-4 transition-transform md:hidden"
@@ -126,20 +125,20 @@ const userLinks = [
             class="space-y-2 text-sm overflow-hidden transition-all duration-300 md:block"
             :class="openSection === 'services' ? 'max-h-48 pb-4' : 'max-h-0 md:max-h-none'"
           >
-            <li><NuxtLink to="/services/maintenance-support" class="hover:text-white transition">Maintenance & Réparation</NuxtLink></li>
-            <li><NuxtLink to="/services/securite-electronique" class="hover:text-white transition">Securite Electronique</NuxtLink></li>
-            <li><NuxtLink to="/services/audit-cablage" class="hover:text-white transition">Audit et Cablage</NuxtLink></li>
-            <li><NuxtLink to="/services/electricite-energie" class="hover:text-white transition">Electricite et Energie</NuxtLink></li>
+            <li><NuxtLink to="/services/maintenance-support" class="hover:text-white transition">{{ $t('footer.services_maintenance') }}</NuxtLink></li>
+            <li><NuxtLink to="/services/securite-electronique" class="hover:text-white transition">{{ $t('footer.services_security') }}</NuxtLink></li>
+            <li><NuxtLink to="/services/audit-cablage" class="hover:text-white transition">{{ $t('footer.services_cabling') }}</NuxtLink></li>
+            <li><NuxtLink to="/services/electricite-energie" class="hover:text-white transition">{{ $t('footer.services_electric') }}</NuxtLink></li>
           </ul>
         </div>
 
         <!-- CONTACT -->
         <div class="border-t border-white/10 md:border-0 pt-4 md:pt-0">
-          <h4 class="text-white font-semibold mb-3">Contact</h4>
+          <h4 class="text-white font-semibold mb-3">{{ $t('footer.contact_title') }}</h4>
           <ul class="space-y-3 text-sm mb-5">
             <li class="flex items-start gap-2">
               <UIcon name="i-heroicons-map-pin" class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <span>Akwa Douala – Cameroun, rue Castelnau</span>
+              <span>{{ $t('footer.contact_address') }}</span>
             </li>
             <li class="flex items-start gap-2">
               <UIcon name="i-heroicons-phone" class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
@@ -164,7 +163,7 @@ const userLinks = [
                 block
                 class="font-semibold"
               >
-                Se connecter
+                {{ $t('auth.login') }}
               </UButton>
             </NuxtLink>
           </div>
@@ -181,7 +180,7 @@ const userLinks = [
               class="font-semibold text-[#274a82] justify-between"
               @click="userMenuOpen = !userMenuOpen"
             >
-              Mon compte
+              {{ $t('footer.my_account') }}
             </UButton>
 
             <!-- Dropdown -->
@@ -189,7 +188,6 @@ const userLinks = [
               v-if="userMenuOpen"
               class="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-2xl overflow-hidden z-50 border border-gray-100"
             >
-              <!-- Menu links -->
               <NuxtLink
                 v-for="link in userLinks"
                 :key="link.to"
@@ -201,16 +199,14 @@ const userLinks = [
                 {{ link.label }}
               </NuxtLink>
 
-              <!-- Divider -->
               <div class="border-t border-gray-100" />
 
-              <!-- Logout -->
               <button
                 class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition"
                 @click="handleLogout"
               >
                 <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-4 h-4" />
-                Se déconnecter
+                {{ $t('auth.logout') }}
               </button>
             </div>
           </div>
@@ -222,10 +218,9 @@ const userLinks = [
     <!-- ===== BOTTOM FOOTER ===== -->
     <div class="border-t border-gray-700">
       <UContainer class="py-4 flex flex-col items-center gap-3 md:flex-row md:justify-between text-xs text-gray-400">
-        <span>© {{ year }} BRC Market. Tous droits réservés.</span>
+        <span>{{ $t('footer.copyright', { year }) }}</span>
         <div class="flex gap-4">
-          <NuxtLink to="/mentions-legales" class="hover:text-white transition">Mentions légales</NuxtLink>
-         
+          <NuxtLink to="/mentions-legales" class="hover:text-white transition">{{ $t('footer.legal') }}</NuxtLink>
         </div>
       </UContainer>
     </div>

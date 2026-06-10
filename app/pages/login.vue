@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import axios from 'axios'
 import type { ToastProps } from '@nuxt/ui'
 
-// 1. Configuration dynamique de l'API
+const { t } = useI18n()
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
 
 useSeoMeta({
-  title:       'Se Connecter',
-  description: 'Connectez-vous à votre compte BRC Market pour suivre vos commandes et accéder à vos avantages.',
-  ogTitle:     'Se Connecter - BRC Market',
+  title:       t('login.seo_title'),
+  description: t('login.seo_description'),
+  ogTitle:     t('login.seo_og_title'),
   ogUrl:       'https://brcmarket.cm/login',
   robots:      'noindex, nofollow',
 })
@@ -20,12 +19,10 @@ const toast    = useToast()
 const router   = useRouter()
 const route    = useRoute()
 
-// ── Persistance session ──────────────────────────────────────────────────
-const token    = useCookie('auth_token', { maxAge: 60 * 60 * 24 * 7 }) // 7 jours
-const authRole = useCookie('auth_role',  { maxAge: 60 * 60 * 24 * 7 }) // 7 jours
+const token    = useCookie('auth_token', { maxAge: 60 * 60 * 24 * 7 })
+const authRole = useCookie('auth_role',  { maxAge: 60 * 60 * 24 * 7 })
 const authUser = useState<any>('auth_user', () => null)
 
-// ── Form state ────────────────────────────────────────────────────────────
 const email        = ref('')
 const password     = ref('')
 const loading      = ref(false)
@@ -37,7 +34,6 @@ const handleLogin = async () => {
   errors.value  = {}
 
   try {
-    // Utilisation de la variable API au lieu de localhost
     const response = await axios.post(`${API}/auth/login`, {
       email:    email.value,
       password: password.value,
@@ -50,31 +46,25 @@ const handleLogin = async () => {
 
     const { token: userToken, user } = response.data
 
-    // 1. Stocker le token dans le cookie
-    token.value = userToken
-
-    // 2. Stocker le rôle dans un cookie dédié (accessible aux middlewares)
+    token.value    = userToken
     authRole.value = user.role
-
-    // 3. Stocker tout l'objet user dans useState (état réactif global)
     authUser.value = user
 
     toast.add({
-      title:       'Connexion réussie !',
-      description: `Bienvenue, ${user.first_name} !`,
+      title:       t('login.toast_success_title'),
+      description: t('login.toast_success_desc', { name: user.first_name }),
       color:       'success',
       icon:        'i-heroicons-check-circle',
     } as ToastProps)
 
-    // 4. Redirection après 800ms
     setTimeout(() => {
       const redirect = route.query.redirect as string | undefined
       if (redirect) {
         router.push(redirect)
-      } else if (user.role === 'admin' || user.role === 'user') {
+      } else if (user.role === 'admin' || user.role === 'super_admin') {
         router.push('/admin')
       } else if (user.role === 'livreur') {
-        router.push('/livreur/livraisons') 
+        router.push('/livreur/livraisons')
       } else {
         router.push('/boutique')
       }
@@ -84,40 +74,40 @@ const handleLogin = async () => {
     if (err.response?.status === 422) {
       errors.value = err.response.data.errors ?? {}
       toast.add({
-        title:       'Erreur de validation',
-        description: 'Vérifiez les champs du formulaire.',
+        title:       t('login.toast_validation_title'),
+        description: t('login.toast_validation_desc'),
         color:       'error',
         icon:        'i-heroicons-exclamation-triangle',
       } as ToastProps)
 
     } else if (err.response?.status === 401) {
       toast.add({
-        title:       'Identifiants incorrects',
-        description: err.response.data.message ?? 'Email ou mot de passe incorrect.',
+        title:       t('login.toast_401_title'),
+        description: err.response.data.message ?? t('login.toast_401_desc'),
         color:       'error',
         icon:        'i-heroicons-x-circle',
       } as ToastProps)
 
     } else if (err.response?.status === 403) {
       toast.add({
-        title:       'Compte suspendu',
-        description: err.response.data.message ?? 'Contactez le support.',
+        title:       t('login.toast_403_title'),
+        description: err.response.data.message ?? t('login.toast_403_desc'),
         color:       'error',
         icon:        'i-heroicons-no-symbol',
       } as ToastProps)
 
     } else if (err.message === 'Network Error') {
       toast.add({
-        title:       'Serveur injoignable',
-        description: 'Impossible de contacter BRC Market. Vérifiez votre connexion.',
+        title:       t('login.toast_network_title'),
+        description: t('login.toast_network_desc'),
         color:       'error',
         icon:        'i-heroicons-signal-slash',
       } as ToastProps)
 
     } else {
       toast.add({
-        title:       'Erreur',
-        description: `Une erreur est survenue : ${err.message}`,
+        title:       t('login.toast_error_title'),
+        description: t('login.toast_error_desc', { message: err.message }),
         color:       'error',
         icon:        'i-heroicons-exclamation-circle',
       } as ToastProps)
@@ -135,8 +125,8 @@ const handleLogin = async () => {
       <!-- HEADER -->
       <div class="text-center mb-6">
         <UIcon name="i-heroicons-user-circle" class="w-16 h-16 text-gray-400" />
-        <h1 class="text-2xl font-bold mt-2">Connexion à votre compte</h1>
-        <p class="text-sm text-gray-500">Accédez à votre espace BRC Market</p>
+        <h1 class="text-2xl font-bold mt-2">{{ $t('login.header_title') }}</h1>
+        <p class="text-sm text-gray-500">{{ $t('login.header_sub') }}</p>
       </div>
 
       <!-- FORM -->
@@ -148,7 +138,7 @@ const handleLogin = async () => {
             v-model="email"
             type="email"
             icon="i-heroicons-envelope"
-            placeholder="Adresse email"
+            :placeholder="$t('login.field_email')"
             size="lg"
             block
             required
@@ -162,28 +152,28 @@ const handleLogin = async () => {
         <!-- PASSWORD -->
         <div class="flex flex-col gap-1">
           <UInput
-              v-model="password"
-              :type="showPassword ? 'text' : 'password'"
-              icon="i-heroicons-lock-closed"
-              placeholder="Mot de passe"
-              size="lg"
-              block
-              required
-              :color="errors.password ? 'error' : 'primary'"
-            >
-              <template #trailing>
-                <button
-                  type="button"
-                  @click="showPassword = !showPassword"
-                  class="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
-                >
-                  <UIcon
-                    :name="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
-                    class="w-4 h-4"
-                  />
-                </button>
-              </template>
-            </UInput>
+            v-model="password"
+            :type="showPassword ? 'text' : 'password'"
+            icon="i-heroicons-lock-closed"
+            :placeholder="$t('login.field_password')"
+            size="lg"
+            block
+            required
+            :color="errors.password ? 'error' : 'primary'"
+          >
+            <template #trailing>
+              <button
+                type="button"
+                @click="showPassword = !showPassword"
+                class="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+              >
+                <UIcon
+                  :name="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
+                  class="w-4 h-4"
+                />
+              </button>
+            </template>
+          </UInput>
           <p v-if="errors.password" class="text-xs text-red-500 ml-1">
             {{ errors.password[0] }}
           </p>
@@ -192,7 +182,7 @@ const handleLogin = async () => {
         <!-- MOT DE PASSE OUBLIÉ -->
         <div class="flex justify-end -mt-1">
           <NuxtLink to="/forgot-password" class="text-sm text-red-600 hover:underline">
-            Mot de passe oublié ?
+            {{ $t('login.forgot_password') }}
           </NuxtLink>
         </div>
 
@@ -205,16 +195,16 @@ const handleLogin = async () => {
           :loading="loading"
           icon="i-heroicons-arrow-right-on-rectangle"
         >
-          Se connecter
+          {{ $t('login.submit') }}
         </UButton>
 
       </form>
 
       <!-- LIEN INSCRIPTION -->
       <div class="text-center mt-5 text-sm">
-        <span class="text-gray-500">Pas encore de compte ?</span>
+        <span class="text-gray-500">{{ $t('login.no_account') }}</span>
         <NuxtLink to="/register" class="text-red-600 font-medium hover:underline ml-1">
-          Créer un compte
+          {{ $t('login.create_account') }}
         </NuxtLink>
       </div>
 

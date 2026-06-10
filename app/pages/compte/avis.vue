@@ -2,12 +2,14 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 
-const { requireAuth, token, authUser } = useAuth()
+const { requireAuth, token } = useAuth()
 requireAuth()
 
+const { t } = useI18n()
+
 useHead({
-  title: 'Mes Avis',
-  titleTemplate: (t) => t ? `${t} - BRC Market` : 'BRC Market',
+  title: () => t('avis_compte.seo_title'),
+  titleTemplate: (title) => title ? `${title} - BRC Market` : 'BRC Market',
 })
 
 const config = useRuntimeConfig()
@@ -19,7 +21,7 @@ const authHeaders = computed(() => ({
   Accept: 'application/json',
 }))
 
-/* ── Types ─────────────────────────────────────────────────────────────────── */
+/* ── Types ──────────────────────────────────────────────────────────────────── */
 interface Review {
   id:          number
   rating:      number
@@ -35,8 +37,8 @@ interface Review {
 }
 
 /* ── State ──────────────────────────────────────────────────────────────────── */
-const reviews = ref<Review[]>([])
-const loading = ref(true)
+const reviews    = ref<Review[]>([])
+const loading    = ref(true)
 const deletingId = ref<number | null>(null)
 
 /* ── Fetch ──────────────────────────────────────────────────────────────────── */
@@ -59,23 +61,30 @@ const deleteReview = async (review: Review) => {
     await axios.delete(`${API}/reviews/${review.id}`, { headers: authHeaders.value })
     reviews.value = reviews.value.filter(r => r.id !== review.id)
     toast.add({
-      title: 'Avis supprimé',
+      title: t('avis_compte.toast_deleted_title'),
       color: 'neutral',
       icon:  'i-heroicons-trash',
     })
   } catch {
-    toast.add({ title: 'Erreur', description: 'Impossible de supprimer cet avis.', color: 'error', icon: 'i-heroicons-x-circle' })
+    toast.add({
+      title:       t('avis_compte.toast_error_title'),
+      description: t('avis_compte.toast_error_desc'),
+      color:       'error',
+      icon:        'i-heroicons-x-circle',
+    })
   } finally {
     deletingId.value = null
   }
 }
 
-/* ── Helpers ─────────────────────────────────────────────────────────────────── */
+/* ── Helpers ────────────────────────────────────────────────────────────────── */
 const formatDate = (d: string) =>
   new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
 
-const starLabel = (n: number) =>
-  ['', 'Très mauvais', 'Mauvais', 'Moyen', 'Bien', 'Excellent'][n] ?? ''
+const starLabel = (n: number) => {
+  const key = `avis_compte.star_label_${n}` as const
+  return t(key) ?? ''
+}
 
 const starColor = (rating: number) => {
   if (rating >= 4) return '#22c55e'
@@ -85,100 +94,97 @@ const starColor = (rating: number) => {
 
 const productImage = (r: Review) => r.product?.images?.[0] ?? '/images/placeholder.jpg'
 
-/* ── Stats ───────────────────────────────────────────────────────────────────── */
+/* ── Stats ──────────────────────────────────────────────────────────────────── */
 const stats = computed(() => ({
   total:    reviews.value.length,
   approved: reviews.value.filter(r =>  r.is_approved).length,
   pending:  reviews.value.filter(r => !r.is_approved).length,
-  avgRating: reviews.value.length
-    ? (reviews.value.reduce((s, r) => s + r.rating, 0) / reviews.value.length).toFixed(1)
-    : '—',
 }))
-
-const breadcrumbItems = [
-  { label: 'Accueil',     to: '/' },
-  { label: 'Mon Compte',  to: '/compte' },
-  { label: 'Mes Avis',    to: '/compte/avis', current: true },
-]
 
 onMounted(fetchMyReviews)
 </script>
 
 <template>
+  <div class="space-y-6">
 
+    <!-- ══ BREADCRUMB + TITRE ══════════════════════════════════════════════ -->
+    <div>
+      <div class="hidden sm:flex items-center gap-2 text-sm text-gray-400 mb-2">
+        <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">
+          {{ $t('avis_compte.breadcrumb_home') }}
+        </NuxtLink>
+        <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
+        <span class="text-gray-600 font-medium">{{ $t('avis_compte.page_title') }}</span>
+      </div>
+      <h1 class="text-2xl font-black text-gray-900">{{ $t('avis_compte.page_title') }}</h1>
+      <p class="text-gray-500 text-sm mt-0.5">
+        {{ $t('avis_compte.subtitle', { count: reviews.length }) }}
+      </p>
+    </div>
 
-    <!-- BREADCRUMB -->
-   <div class="mb-8">
-    <div class="hidden sm:flex items-center gap-2 text-sm text-gray-400 mb-2">
-          <NuxtLink to="/" class="hover:text-[#274a82] transition-colors">Accueil</NuxtLink>
-          <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" />
-          <span class="text-gray-600 font-medium">Mes Avis</span>
-        </div>
-
-    <h1 class="text-2xl font-black text-gray-900">Mes Avis</h1>
-    <p class="text-gray-500 text-sm mt-0.5">
-      {{ reviews?.length || 0 }} avis laissé(s) sur nos produits
-    </p>
-  </div>
-
-    <!-- TITRE -->
-   
-
-    <!-- LOADING -->
+    <!-- ══ LOADING ══════════════════════════════════════════════════════════ -->
     <div v-if="loading" class="flex flex-col items-center justify-center py-20 gap-3">
       <div class="w-8 h-8 border-4 border-[#274a82] border-t-transparent rounded-full animate-spin"></div>
-      <span class="text-sm text-gray-400 font-medium">Chargement de vos avis...</span>
+      <span class="text-sm text-gray-400 font-medium">{{ $t('avis_compte.loading') }}</span>
     </div>
 
     <template v-else>
 
-      <!-- STATS — affichées seulement si au moins 1 avis -->
-      <div v-if="reviews.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+      <!-- ══ STATS ══════════════════════════════════════════════════════════ -->
+      <div v-if="reviews.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-          <p class="text-xs font-black text-gray-400 tracking-wider mb-1">Total</p>
+          <p class="text-xs font-black text-gray-400 tracking-wider mb-1">
+            {{ $t('avis_compte.stats_total') }}
+          </p>
           <p class="text-2xl font-black text-gray-900">{{ stats.total }}</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-          <p class="text-xs font-black text-green-500 tracking-wider mb-1">Publiés</p>
+          <p class="text-xs font-black text-green-500 tracking-wider mb-1">
+            {{ $t('avis_compte.stats_published') }}
+          </p>
           <p class="text-2xl font-black text-green-600">{{ stats.approved }}</p>
         </div>
         <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
-          <p class="text-xs font-black text-yellow-500 tracking-wider mb-1">En attente</p>
+          <p class="text-xs font-black text-yellow-500 tracking-wider mb-1">
+            {{ $t('avis_compte.stats_pending') }}
+          </p>
           <p class="text-2xl font-black text-yellow-600">{{ stats.pending }}</p>
         </div>
-        
       </div>
 
-      <!-- AUCUN AVIS -->
+      <!-- ══ AUCUN AVIS ══════════════════════════════════════════════════════ -->
       <div v-if="reviews.length === 0"
         class="flex flex-col items-center justify-center py-20 gap-5 text-center">
         <div class="w-20 h-20 rounded-3xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center">
           <UIcon name="i-heroicons-star" class="w-10 h-10 text-gray-300" />
         </div>
         <div>
-          <p class="text-base font-bold text-gray-700 mb-1">Vous n'avez pas encore laissé d'avis</p>
-          <p class="text-sm text-gray-400">Achetez un produit et partagez votre expérience !</p>
+          <p class="text-base font-bold text-gray-700 mb-1">{{ $t('avis_compte.empty_title') }}</p>
+          <p class="text-sm text-gray-400">{{ $t('avis_compte.empty_sub') }}</p>
         </div>
         <NuxtLink to="/boutique"
           class="flex items-center gap-2 px-5 py-2.5 bg-[#274a82] hover:bg-[#e60012] text-white font-bold rounded-xl transition-colors text-sm">
           <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4" />
-          Découvrir les produits
+          {{ $t('avis_compte.empty_btn') }}
         </NuxtLink>
       </div>
 
-      <!-- LISTE DES AVIS -->
+      <!-- ══ LISTE DES AVIS ══════════════════════════════════════════════════ -->
       <div v-else class="space-y-3">
-        <div v-for="review in reviews" :key="review.id"
+        <div
+          v-for="review in reviews" :key="review.id"
           class="bg-white border rounded-2xl overflow-hidden shadow-sm transition-shadow hover:shadow-md"
-          :class="review.is_approved ? 'border-gray-100' : 'border-yellow-100'">
-
+          :class="review.is_approved ? 'border-gray-100' : 'border-yellow-100'"
+        >
           <div class="flex gap-0 sm:gap-4">
 
             <!-- Image produit -->
             <NuxtLink
               :to="review.product ? `/products/${review.product.slug}` : '#'"
-              class="hidden sm:flex w-24 flex-shrink-0 bg-[#f8f8f8] items-center justify-center border-r border-gray-100 hover:bg-gray-100 transition-colors">
-              <img v-if="review.product?.images?.[0]"
+              class="hidden sm:flex w-24 flex-shrink-0 bg-[#f8f8f8] items-center justify-center border-r border-gray-100 hover:bg-gray-100 transition-colors"
+            >
+              <img
+                v-if="review.product?.images?.[0]"
                 :src="productImage(review)"
                 :alt="review.product?.name"
                 class="w-full h-full object-contain p-2"
@@ -189,13 +195,14 @@ onMounted(fetchMyReviews)
             <!-- Contenu -->
             <div class="flex-1 p-4 min-w-0">
 
-              <!-- Ligne produit + statut -->
+              <!-- Nom produit + badge statut -->
               <div class="flex items-start justify-between gap-3 mb-3">
                 <div class="min-w-0">
                   <NuxtLink
                     :to="review.product ? `/products/${review.product.slug}` : '#'"
-                    class="block text-sm font-black text-[#274a82] hover:text-[#e60012] transition-colors truncate leading-tight">
-                    {{ review.product?.name ?? 'Produit non disponible' }}
+                    class="block text-sm font-black text-[#274a82] hover:text-[#e60012] transition-colors truncate leading-tight"
+                  >
+                    {{ review.product?.name ?? $t('avis_compte.product_unavailable') }}
                   </NuxtLink>
                   <p class="text-[11px] text-gray-400 mt-0.5">{{ formatDate(review.created_at) }}</p>
                 </div>
@@ -205,12 +212,12 @@ onMounted(fetchMyReviews)
                   <span v-if="review.is_approved"
                     class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-green-100 text-green-700 border border-green-200 whitespace-nowrap">
                     <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                    Publié
+                    {{ $t('avis_compte.status_published') }}
                   </span>
                   <span v-else
                     class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-yellow-100 text-yellow-700 border border-yellow-200 whitespace-nowrap">
                     <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span>
-                    En attente
+                    {{ $t('avis_compte.status_pending') }}
                   </span>
                 </div>
               </div>
@@ -218,9 +225,10 @@ onMounted(fetchMyReviews)
               <!-- Étoiles + note -->
               <div class="flex items-center gap-2 mb-2.5">
                 <div class="flex items-center gap-0.5">
-                  <UIcon v-for="n in 5" :key="n"
+                  <UIcon
+                    v-for="n in 5" :key="n"
                     :name="n <= review.rating ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
-                    class="w-4 h-4 transition-colors"
+                    class="w-4 h-4"
                     :style="n <= review.rating ? { color: starColor(review.rating) } : { color: '#e5e7eb' }"
                   />
                 </div>
@@ -237,39 +245,42 @@ onMounted(fetchMyReviews)
                   "{{ review.comment }}"
                 </p>
               </div>
-              <p v-else class="text-xs text-gray-400 italic mb-3">Aucun commentaire laissé.</p>
+              <p v-else class="text-xs text-gray-400 italic mb-3">
+                {{ $t('avis_compte.no_comment') }}
+              </p>
 
-              <!-- Info publication + action supprimer -->
+              <!-- Statut modération + bouton supprimer -->
               <div class="flex items-center justify-between gap-3">
-                <p v-if="!review.is_approved" class="text-[11px] text-yellow-600 font-medium flex items-center gap-1">
+                <p v-if="!review.is_approved"
+                  class="text-[11px] text-yellow-600 font-medium flex items-center gap-1">
                   <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5" />
-                  En cours de modération — visible après validation
+                  {{ $t('avis_compte.moderation_pending') }}
                 </p>
-                <p v-else class="text-[11px] text-green-600 font-medium flex items-center gap-1">
+                <p v-else
+                  class="text-[11px] text-green-600 font-medium flex items-center gap-1">
                   <UIcon name="i-heroicons-eye" class="w-3.5 h-3.5" />
-                  Visible sur la fiche produit
+                  {{ $t('avis_compte.moderation_visible') }}
                 </p>
 
-                <!-- Supprimer -->
                 <button
                   @click="deleteReview(review)"
                   :disabled="deletingId === review.id"
-                  class="flex items-center gap-1.5 text-[11px] font-bold text-gray-400 hover:text-[#e60012] transition-colors disabled:opacity-40 flex-shrink-0">
+                  class="flex items-center gap-1.5 text-[11px] font-bold text-gray-400 hover:text-[#e60012] transition-colors disabled:opacity-40 flex-shrink-0"
+                >
                   <UIcon
                     :name="deletingId === review.id ? 'i-heroicons-arrow-path' : 'i-heroicons-trash'"
                     class="w-3.5 h-3.5"
                     :class="deletingId === review.id ? 'animate-spin' : ''"
                   />
-                  Supprimer
+                  {{ $t('avis_compte.btn_delete') }}
                 </button>
               </div>
-            </div>
 
+            </div>
           </div>
         </div>
       </div>
 
     </template>
-
-  
+  </div>
 </template>

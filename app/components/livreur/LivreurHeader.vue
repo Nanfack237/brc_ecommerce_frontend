@@ -6,8 +6,8 @@ const router = useRouter()
 const toast  = useToast()
 const token  = useCookie('auth_token')
 const route  = useRoute()
+const { t }  = useI18n()
 
-// Configuration dynamique de l'API
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
 
@@ -17,7 +17,6 @@ const mobileOpen = useState<boolean>('deliverer_sidebar_open', () => false)
 onMounted(async () => {
   if (!user.value && token.value) {
     try {
-      // Utilisation de la variable API au lieu de l'URL en dur
       const res = await axios.get(`${API}/auth/me`, {
         headers: { Authorization: `Bearer ${token.value}` }
       })
@@ -39,17 +38,16 @@ const initials = computed(() => {
 
 const pageTitle = computed(() => {
   const map: Record<string, string> = {
-    '/livreur/livraisons': 'Mes livraisons',
-    '/livreur/historique': 'Historique',
+    '/livreur/livraisons': t('livreur_header.page_livraisons'),
+    '/livreur/historique': t('livreur_header.page_historique'),
   }
-  return map[route.path] ?? 'Espace Livreur'
+  return map[route.path] ?? t('livreur_header.page_default')
 })
 
 const showUserMenu = ref(false)
 
 const handleLogout = async () => {
   try {
-    // Utilisation de la variable API pour la déconnexion
     await axios.post(`${API}/auth/logout`, {}, {
       headers: { Authorization: `Bearer ${token.value}` }
     })
@@ -59,8 +57,8 @@ const handleLogout = async () => {
   user.value  = null
   
   toast.add({
-    title: 'Déconnecté', 
-    description: 'À bientôt sur BRC Market !',
+    title: t('livreur_header.toast_logout_title'),
+    description: t('livreur_header.toast_logout_desc'),
     color: 'success', 
     icon: 'i-heroicons-check-circle',
   } as ToastProps)
@@ -128,7 +126,7 @@ const handleLogout = async () => {
                 <p class="text-xs text-gray-400 truncate">{{ user?.email }}</p>
                 <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#274a82]/10 text-[#274a82]">
                   <UIcon name="i-heroicons-truck" class="w-3 h-3" />
-                  Livreur
+                  {{ $t('livreur_header.role_livreur') }}
                 </span>
               </div>
 
@@ -138,7 +136,7 @@ const handleLogout = async () => {
                   class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-red-500 hover:bg-red-50 transition font-medium"
                 >
                   <UIcon name="i-heroicons-arrow-left-on-rectangle" class="w-4 h-4" />
-                  Se déconnecter
+                  {{ $t('livreur_header.logout_btn') }}
                 </button>
               </div>
             </div>
