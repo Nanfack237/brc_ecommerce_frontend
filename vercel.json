@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/sitemap.xml",
-      "destination": "https://api.brcmarket.cm/sitemap.xml"
-    }
-  ]
-}
