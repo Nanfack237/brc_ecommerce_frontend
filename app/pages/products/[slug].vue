@@ -56,7 +56,7 @@ const {
 } = await useAsyncData(
   () => `product-${slug.value}`,
   () => $fetch<Product>(`${API}/products/${slug.value}`),
-  { lazy: true },
+  
 )
 
 const product  = computed(() => productData.value ?? null)
@@ -119,8 +119,8 @@ const setSeo = (p: Product) => {
           '@type':         'Offer',
           priceCurrency:   'XAF',
           price:           p.price,
-          priceValidUntil: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
-                             .toISOString().split('T')[0],
+          priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+                   .toISOString().split('T')[0],
           availability:  p.stock > 0
             ? 'https://schema.org/InStock'
             : 'https://schema.org/OutOfStock',
@@ -131,7 +131,7 @@ const setSeo = (p: Product) => {
         ...(reviews.value.length > 0 || p.reviews_count > 0 ? {
           aggregateRating: {
             '@type':      'AggregateRating',
-            ratingValue:  avgRating.value || 0,
+            ratingValue:  avgRating.value,
             reviewCount:  p.reviews_count || reviews.value.length,
             bestRating:   5,
             worstRating:  1,

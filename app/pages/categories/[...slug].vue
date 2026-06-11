@@ -57,29 +57,64 @@ const breadcrumbItems = computed(() => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════
-// INFO CATÉGORIE
+// INFO CATÉGORIE — SSR via useAsyncData
 // ══════════════════════════════════════════════════════════════════════════
 
 interface CategoryInfo {
   id: number; name: string; slug: string; description: string | null; image: string | null
 }
+
 const categoryInfo        = ref<CategoryInfo | null>(null)
 const loadingCatInfo      = ref(false)
 const categoryDisplayName = computed(() => categoryInfo.value?.name ?? categoryName.value)
 const categoryDesc        = computed(() => categoryInfo.value?.description ?? null)
 
-const fetchCategoryInfo = async () => {
-  if (!activeSlug.value) return
-  loadingCatInfo.value = true
-  try {
-    categoryInfo.value = await $fetch<CategoryInfo>(`${API}/categories/${activeSlug.value}`)
-    setSeo()
-  } catch {
-    categoryInfo.value = null
-  } finally {
-    loadingCatInfo.value = false
-  }
+// ✅ SSR bloquant : Google reçoit le nom + description dès le premier rendu
+const { data: categoryData, refresh: refreshCategoryInfo } = await useAsyncData(
+  () => `category-${activeSlug.value}`,
+  () => $fetch<CategoryInfo>(`${API}/categories/${activeSlug.value}`),
+)
+
+// Initialisation immédiate depuis le fetch SSR
+categoryInfo.value = categoryData.value ?? null
+
+// ══════════════════════════════════════════════════════════════════════════
+// TYPES
+// ══════════════════════════════════════════════════════════════════════════
+
+interface Product {
+  id:               number
+  name:             string
+  slug:             string
+  brand:            string | null
+  price:            number
+  old_price:        number | null
+  stock:            number
+  status:           string
+  images:           string[]
+  category:         { id: number; name: string; slug: string } | null
+  discount_percent?: number
+  specs?:           Record<string, string>
 }
+interface PaginationMeta {
+  current_page: number; last_page: number; per_page: number; total: number
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ÉTAT
+// ══════════════════════════════════════════════════════════════════════════
+
+const products           = ref<Product[]>([])
+const recentProducts     = ref<Product[]>([])
+const promoProducts      = ref<Product[]>([])
+const loadingRecent      = ref(false)
+const loadingPromos      = ref(false)
+const meta               = ref<PaginationMeta>({ current_page: 1, last_page: 1, per_page: 24, total: 0 })
+const loadingProds       = ref(false)
+const currentPage        = ref(1)
+const itemsPerPage       = 24
+const viewMode           = ref<'grid' | 'grid-small' | 'list' | 'list-compact'>('grid')
+const isMobileFilterOpen = ref(false)
 
 // ══════════════════════════════════════════════════════════════════════════
 // SEO DYNAMIQUE
@@ -135,18 +170,21 @@ const setSeo = () => {
               url:        `https://brcmarket.cm/products/${p.slug}`,
               name:       p.name,
               item: {
-                '@type':     'Product',
-                name:        p.name,
-                url:         `https://brcmarket.cm/products/${p.slug}`,
-                image:       p.images?.[0] ?? undefined,
+                '@type': 'Product',
+                name:    p.name,
+                url:     `https://brcmarket.cm/products/${p.slug}`,
+                image:   p.images?.[0] ?? undefined,
                 offers: {
-                  '@type':       'Offer',
-                  priceCurrency: 'XAF',
-                  price:         p.price,
-                  availability:  p.stock > 0
+                  '@type':         'Offer',
+                  priceCurrency:   'XAF',
+                  price:           p.price,
+                  // ✅ priceValidUntil à 3 mois au lieu de +1 an
+                  priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+                                     .toISOString().split('T')[0],
+                  availability:    p.stock > 0
                     ? 'https://schema.org/InStock'
                     : 'https://schema.org/OutOfStock',
-                  itemCondition: 'https://schema.org/NewCondition',
+                  itemCondition:   'https://schema.org/NewCondition',
                 },
               },
             })),
@@ -157,11 +195,19 @@ const setSeo = () => {
   })
 }
 
-useHead({ title: `${categoryName.value} - BRC Market` })
+// ✅ SEO SSR immédiat dès le premier rendu (Google reçoit titre + description)
+if (import.meta.server && categoryData.value) {
+  setSeo()
+} else if (import.meta.server && !categoryData.value) {
+  // Fallback SSR si l'API échoue
+  useHead({ title: `${categoryName.value} - BRC Market` })
+  useSeoMeta({
+    description: `Découvrez tous nos produits ${categoryName.value} au meilleur prix au Cameroun.`,
+  })
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 // OPTIMISATION IMAGES CLOUDINARY
-// FIX LIGHTHOUSE: Améliorer l'affichage des images (économie ~5 000 Kio)
 // ══════════════════════════════════════════════════════════════════════════
 
 const optimizeCloudinary = (url: string, width = 400) => {
@@ -184,44 +230,6 @@ const showAdvancedFilters = computed(() => {
   const apiMatch      = ADVANCED_FILTER_SLUGS.includes(catSlug) || ADVANCED_FILTER_SLUGS.includes(parentCatSlug)
   return slugMatch || apiMatch
 })
-
-// ══════════════════════════════════════════════════════════════════════════
-// TYPES
-// ══════════════════════════════════════════════════════════════════════════
-
-interface Product {
-  id:               number
-  name:             string
-  slug:             string
-  brand:            string | null
-  price:            number
-  old_price:        number | null
-  stock:            number
-  status:           string
-  images:           string[]
-  category:         { id: number; name: string; slug: string } | null
-  discount_percent?: number
-  specs?:           Record<string, string>
-}
-interface PaginationMeta {
-  current_page: number; last_page: number; per_page: number; total: number
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// ÉTAT
-// ══════════════════════════════════════════════════════════════════════════
-
-const products           = ref<Product[]>([])
-const recentProducts     = ref<Product[]>([])
-const promoProducts      = ref<Product[]>([])
-const loadingRecent      = ref(false)
-const loadingPromos      = ref(false)
-const meta               = ref<PaginationMeta>({ current_page: 1, last_page: 1, per_page: 24, total: 0 })
-const loadingProds       = ref(false)
-const currentPage        = ref(1)
-const itemsPerPage       = 24
-const viewMode           = ref<'grid' | 'grid-small' | 'list' | 'list-compact'>('grid')
-const isMobileFilterOpen = ref(false)
 
 // ══════════════════════════════════════════════════════════════════════════
 // FILTRES
@@ -285,7 +293,7 @@ const fetchFilterCounts = async () => {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// TRI — labels depuis i18n
+// TRI
 // ══════════════════════════════════════════════════════════════════════════
 
 const SORT_OPTIONS = computed(() => [
@@ -406,19 +414,29 @@ const setPage = (page: number) => {
 // ══════════════════════════════════════════════════════════════════════════
 
 const loadPage = async () => {
-  products.value       = []
-  appliedFilters.value = {}
-  priceRange.value     = [0, PRICE_MAX_DEFAULT]
-  priceMax.value       = PRICE_MAX_DEFAULT
-  currentPage.value    = 1
-  filterGroups.value   = {}
-  fetchCategoryInfo()
+  products.value        = []
+  appliedFilters.value  = {}
+  priceRange.value      = [0, PRICE_MAX_DEFAULT]
+  priceMax.value        = PRICE_MAX_DEFAULT
+  currentPage.value     = 1
+  filterGroups.value    = {}
+  // ✅ On refresh le fetch SSR pour mettre à jour categoryInfo lors d'une navigation
+  await refreshCategoryInfo()
   fetchProducts()
   fetchFilterCounts()
   fetchRecentProducts()
 }
 
-watch(activeSlug, (slug) => { if (!slug) return; loadPage() }, { immediate: true })
+// ✅ Réaction au changement de slug (navigation entre catégories)
+watch(activeSlug, (slug) => { if (!slug) return; loadPage() })
+
+// ✅ Mise à jour de categoryInfo + SEO quand categoryData change côté client
+watch(categoryData, (data) => {
+  if (!data) return
+  categoryInfo.value = data
+  setSeo()
+})
+
 watch(sortBy, () => fetchProducts(true))
 
 let priceTimer: ReturnType<typeof setTimeout> | null = null
@@ -426,6 +444,16 @@ watch(priceRange, () => {
   if (priceTimer) clearTimeout(priceTimer)
   priceTimer = setTimeout(() => { fetchProducts(true); fetchFilterCounts() }, 400)
 }, { deep: true })
+
+// ✅ Chargement initial côté client (premier montage)
+onMounted(() => {
+  initWishlist()
+  fetchSidebarPromos()
+  // Lancer les fetches client qui ne sont pas bloquants SSR
+  fetchProducts()
+  fetchFilterCounts()
+  fetchRecentProducts()
+})
 
 // ══════════════════════════════════════════════════════════════════════════
 // HELPERS UI
@@ -442,14 +470,13 @@ const discountPercent = (p: Product) => {
   return null
 }
 
-const hoveredKeys   = ref<Set<string>>(new Set())
-const setHover      = (key: string, on: boolean) => {
+const hoveredKeys = ref<Set<string>>(new Set())
+const setHover    = (key: string, on: boolean) => {
   const s = new Set(hoveredKeys.value)
   on ? s.add(key) : s.delete(key)
   hoveredKeys.value = s
 }
 
-// FIX LIGHTHOUSE: Utilisation de Cloudinary optimisé + dimensions adaptées par contexte
 const getImage      = (p: Product, width = 300) => optimizeCloudinary(p.images?.[0] ?? '/images/placeholder.jpg', width)
 const getImageHover = (p: Product, width = 300) => optimizeCloudinary(p.images?.[1] ?? p.images?.[0] ?? '/images/placeholder.jpg', width)
 const imgSrc        = (p: Product, section: string, width = 300) =>
@@ -467,11 +494,6 @@ const addToCart     = (p: Product) => {
   addToCartStore({ id: p.id, slug: p.slug, name: p.name, price: p.price, image: getImage(p) })
 }
 const addToWishlist = (p: Product) => toggleWishlist(p.id, p.name)
-
-onMounted(() => {
-  initWishlist()
-  fetchSidebarPromos()
-})
 </script>
 
 <template>
