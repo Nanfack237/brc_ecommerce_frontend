@@ -88,16 +88,17 @@ export default defineNuxtConfig({
 
   // ✅ SSR Vercel — plus de preset static
   nitro: {
-    preset: process.env.NODE_ENV === 'production' ? 'vercel' : 'node-server',
+  preset: process.env.NODE_ENV === 'production' ? 'vercel' : 'node-server',
 
-    routeRules: {
-      '/':              { isr: process.env.NODE_ENV === 'production' ? 60 * 10 : false },
-      '/products/**':   { isr: process.env.NODE_ENV === 'production' ? 60 * 60 : false },
-      '/categories/**': { isr: process.env.NODE_ENV === 'production' ? 60 * 60 : false },
-      '/boutique':      { isr: process.env.NODE_ENV === 'production' ? 60 * 5  : false },
-      '/api/**':        { cache: false },
-    },
+  routeRules: {
+    '/':              { isr: process.env.NODE_ENV === 'production' ? 60 * 10 : false },
+    '/products/**':   { isr: process.env.NODE_ENV === 'production' ? 60 * 60 : false },
+    '/categories/**': { isr: process.env.NODE_ENV === 'production' ? 60 * 60 : false },
+    '/boutique':      { isr: process.env.NODE_ENV === 'production' ? 60 * 5  : false },
+    '/api/**':        { cache: false },
+    '/sitemap.xml':   { cache: false }, // ← ajoute ça
   },
+},
 
   icon: {
     serverBundle: {
