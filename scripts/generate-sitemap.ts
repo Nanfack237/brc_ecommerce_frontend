@@ -45,11 +45,21 @@ async function generateSitemap() {
       lastmod:    p.updated_at?.split('T')[0] ?? new Date().toISOString().split('T')[0],
     }))
 
-    categoryUrls = categories.map((c: any) => ({
+   categoryUrls = categories.flatMap((c: any) => {
+    const parent = {
       loc:        `/categories/${c.slug}`,
       priority:   '0.7',
       changefreq: 'weekly',
+    }
+
+    const children = (c.children ?? []).map((sub: any) => ({
+      loc:        `/categories/${sub.slug}`,  // ← juste le slug, sans parent
+      priority:   '0.7',
+      changefreq: 'weekly',
     }))
+
+    return [parent, ...children]
+  })
 
     console.log(`✅ API OK — ${products.length} produits, ${categories.length} catégories`)
   } catch (e) {

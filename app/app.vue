@@ -31,7 +31,6 @@ const { token, isAdmin, user } = useAuth()
 const isLivreur = computed(() => user.value?.role === 'livreur')
 
 // ── Son nouvelle commande ────────────────────────────────────────────────
-// Polling toutes les 5 secondes pour une réactivité quasi-immédiate
 const config      = useRuntimeConfig()
 const API         = config.public.apiBase
 const lastOrderId = ref<number | null>(null)
@@ -56,7 +55,6 @@ const checkNewOrders = async () => {
     const latestId = orders?.[0]?.id ?? null
     if (latestId === null) return
     if (lastOrderId.value === null) {
-      // Premier chargement : on mémorise sans jouer le son
       lastOrderId.value = latestId
     } else if (latestId > lastOrderId.value) {
       lastOrderId.value = latestId
@@ -67,8 +65,8 @@ const checkNewOrders = async () => {
 
 const startPolling = () => {
   if (pollingTimer) return
-  checkNewOrders()                                    // vérification immédiate
-  pollingTimer = setInterval(checkNewOrders, 5_000)   // puis toutes les 5 s
+  checkNewOrders()
+  pollingTimer = setInterval(checkNewOrders, 5_000)
 }
 
 const stopPolling = () => {
@@ -183,7 +181,7 @@ const handleInstall = async () => {
 }
 
 onMounted(async () => {
-  if (isStandaloneMode()) return  // PWA installée → pas de bannière
+  if (isStandaloneMode()) return
 
   alreadyInstalled.value = await checkAlreadyInstalled()
   if (alreadyInstalled.value) return
@@ -204,6 +202,14 @@ onMounted(async () => {
   if (isHomePage.value) {
     autoTimer = setTimeout(() => openBanner(), 3_000)
   }
+
+  // ✅ Ferme la bannière dès que l'utilisateur quitte la page d'accueil
+  watch(isHomePage, (val) => {
+    if (!val) {
+      clearTimers()
+      showBanner.value = false
+    }
+  })
 })
 
 onUnmounted(() => {
