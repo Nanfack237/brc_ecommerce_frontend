@@ -365,6 +365,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  
   <div class="bg-[#f4f4f4] min-h-screen pb-3">
 
     <!-- ═══════════════ HERO ═══════════════ -->

@@ -46,17 +46,14 @@ const authHeaders = computed(() => ({ Authorization: `Bearer ${token.value}` }))
 // ─── État produit ─────────────────────────────────────────────────────────────
 const slug = computed(() => route.params.slug as string)
 
-// ✅ lazy: true → la navigation est immédiate, le fetch se fait en arrière-plan
-// côté SSR (premier chargement / bot Google) le comportement reste bloquant
 const {
   data:    productData,
   error:   productError,
   pending: loading,
   refresh: refreshProduct,
 } = await useAsyncData(
-  () => `product-${slug.value}`,
+  `product-${slug.value}`,
   () => $fetch<Product>(`${API}/products/${slug.value}`),
-  
 )
 
 const product  = computed(() => productData.value ?? null)
@@ -71,6 +68,25 @@ const avgRating = computed(() => {
   if (!reviews.value.length) return 0
   return Math.round(reviews.value.reduce((s, r) => s + r.rating, 0) / reviews.value.length * 10) / 10
 })
+
+// ─── Galerie ──────────────────────────────────────────────────────────────────
+// ✅ Déclarés ici, AVANT le watcher immediate qui les utilise plus bas
+const mainImage  = ref(productData.value?.images?.[0] ?? '')
+const thumbnails = computed(() => product.value?.images ?? [])
+const selectImage = (img: string) => { mainImage.value = img }
+
+// ─── Produits similaires : chargement ──────────────────────────────────────────
+// ✅ Déclarée ici, AVANT le watcher immediate qui l'utilise plus bas
+const loadRelatedProducts = async (categorySlug: string, currentId: number) => {
+  try {
+    const r = await $fetch<any>(`${API}/categories/${categorySlug}/products`, {
+      params: { limit: 6 },
+    })
+    relatedProducts.value = (r.data ?? r)
+      .filter((p: Product) => p.id !== currentId)
+      .slice(0, 6)
+  } catch {}
+}
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 const setSeo = (p: Product) => {
@@ -161,15 +177,9 @@ const setSeo = (p: Product) => {
   })
 }
 
-// ─── SEO SSR (premier chargement) ─────────────────────────────────────────────
-// Côté serveur, productData est déjà disponible (useAsyncData bloque en SSR)
-if (import.meta.server && productData.value) {
-  setSeo(productData.value)
-} else if (import.meta.server && productError.value) {
-  useSeoMeta({ robots: 'noindex, nofollow' })
-}
-
-// ─── Réactions au chargement client (lazy fetch terminé) ──────────────────────
+// ─── Réactions au chargement (SSR + navigation client) ────────────────────────
+// ✅ immediate: true couvre le premier rendu SSR ET la navigation client,
+//    plus besoin du bloc manuel "if (import.meta.server...)"
 watch(productData, (p) => {
   if (!p) return
   setSeo(p)
@@ -177,46 +187,24 @@ watch(productData, (p) => {
   if (p.category?.slug) {
     loadRelatedProducts(p.category.slug, p.id)
   }
-})
+}, { immediate: true })
 
 watch(productError, (e) => {
   if (e) useSeoMeta({ robots: 'noindex, nofollow' })
-})
+}, { immediate: true })
 
 // ─── Rechargement lors d'une navigation entre produits ────────────────────────
-// ✅ On réinitialise les états secondaires puis on re-fetch via refreshProduct()
 watch(slug, async () => {
-  reviews.value       = []
-  reviewsLoaded.value = false
-  relatedProducts.value = []
-  mainImage.value     = ''
+  reviews.value          = []
+  reviewsLoaded.value    = false
+  relatedProducts.value  = []
+  mainImage.value        = ''
   await refreshProduct()
 })
 
-// ─── Produits similaires ───────────────────────────────────────────────────────
-const loadRelatedProducts = async (categorySlug: string, currentId: number) => {
-  try {
-    const r = await $fetch<any>(`${API}/categories/${categorySlug}/products`, {
-      params: { limit: 6 },
-    })
-    relatedProducts.value = (r.data ?? r)
-      .filter((p: Product) => p.id !== currentId)
-      .slice(0, 6)
-  } catch {}
-}
-
 onMounted(() => {
   initWishlist()
-  // ✅ Chargement différé après le rendu initial
-  if (productData.value?.category?.slug && productData.value?.id) {
-    loadRelatedProducts(productData.value.category.slug, productData.value.id)
-  }
 })
-
-// ─── Galerie ──────────────────────────────────────────────────────────────────
-const mainImage  = ref(productData.value?.images?.[0] ?? '')
-const thumbnails = computed(() => product.value?.images ?? [])
-const selectImage = (img: string) => { mainImage.value = img }
 
 // ─── Zoom desktop ─────────────────────────────────────────────────────────────
 const isZoomed = ref(false)
@@ -922,7 +910,7 @@ const formatPrice = (p: number) =>
                 class="absolute inset-0 m-auto w-10 h-10 opacity-10" />
             </div>
             <div class="p-2 flex flex-col flex-1 border-t border-gray-50">
-              <h3 class="text-[11px] text-gray-600 font-medium line-clamp-2 h-[34px] leading-snug mb-2">
+              <h3 class="text-[11px] text-gray-600 font-medium line-clamp-2 leading-tight mb-2">
                 {{ item.name }}
               </h3>
               <div class="mt-auto">

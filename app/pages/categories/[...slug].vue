@@ -87,6 +87,7 @@ interface Product {
   name:             string
   slug:             string
   brand:            string | null
+  description:      string | null
   price:            number
   old_price:        number | null
   stock:            number
@@ -174,16 +175,16 @@ const setSeo = () => {
                 name:    p.name,
                 url:     `https://brcmarket.cm/products/${p.slug}`,
                 image:   p.images?.[0] ?? undefined,
+                description: p.description ?? `${p.name}${p.brand ? ' - ' + p.brand : ''} disponible au Cameroun.`,
+                brand: p.brand ? { '@type': 'Brand', name: p.brand } : undefined,
+                // Si votre API a un champ référence/modèle, ajoutez-le ici :
+                // mpn: p.model_reference,
                 offers: {
                   '@type':         'Offer',
                   priceCurrency:   'XAF',
                   price:           p.price,
-                  // ✅ priceValidUntil à 3 mois au lieu de +1 an
-                  priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-                                     .toISOString().split('T')[0],
-                  availability:    p.stock > 0
-                    ? 'https://schema.org/InStock'
-                    : 'https://schema.org/OutOfStock',
+                  priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  availability:    p.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
                   itemCondition:   'https://schema.org/NewCondition',
                 },
               },
