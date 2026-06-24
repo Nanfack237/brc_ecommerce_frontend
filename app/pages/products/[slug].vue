@@ -54,6 +54,11 @@ const {
 } = await useAsyncData(
   `product-${slug.value}`,
   () => $fetch<Product>(`${API}/products/${slug.value}`),
+  {
+    // SSR activé, pas lazy → HTML complet envoyé à Google dès le premier rendu
+    server: true,
+    lazy:   false,
+  }
 )
 
 const product  = computed(() => productData.value ?? null)
@@ -70,13 +75,11 @@ const avgRating = computed(() => {
 })
 
 // ─── Galerie ──────────────────────────────────────────────────────────────────
-// ✅ Déclarés ici, AVANT le watcher immediate qui les utilise plus bas
-const mainImage  = ref(productData.value?.images?.[0] ?? '')
-const thumbnails = computed(() => product.value?.images ?? [])
+const mainImage   = ref(productData.value?.images?.[0] ?? '')
+const thumbnails  = computed(() => product.value?.images ?? [])
 const selectImage = (img: string) => { mainImage.value = img }
 
-// ─── Produits similaires : chargement ──────────────────────────────────────────
-// ✅ Déclarée ici, AVANT le watcher immediate qui l'utilise plus bas
+// ─── Produits similaires : chargement ─────────────────────────────────────────
 const loadRelatedProducts = async (categorySlug: string, currentId: number) => {
   try {
     const r = await $fetch<any>(`${API}/categories/${categorySlug}/products`, {
@@ -88,12 +91,152 @@ const loadRelatedProducts = async (categorySlug: string, currentId: number) => {
   } catch {}
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const formatPrice = (p: number) =>
+  new Intl.NumberFormat('fr-CM', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 })
+    .format(p).replace('XAF', 'FCFA')
+
 // ─── SEO ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Construit le JSON-LD Schema.org Product.
+ * Séparé de setSeo() pour pouvoir être appelé aussi côté serveur.
+ */
+const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) => {
+  const url              = `https://brcmarket.cm/products/${p.slug}`
+  const availability     = p.stock > 0
+    ? 'https://schema.org/InStock'
+    : 'https://schema.org/OutOfStock'
+  const priceValidUntil  = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+    .toISOString().split('T')[0]
+
+  return {
+    '@context': 'https://schema.org',
+    '@type':    'Product',
+    name:        p.name,
+    description: p.description ?? `${p.name} disponible sur BRC Market`,
+    image:       p.images ?? [],
+    url,
+    ...(p.sku   ? { sku: p.sku }                                  : {}),
+    ...(p.brand ? { brand: { '@type': 'Brand', name: p.brand } }  : {}),
+    ...(p.specs?.length ? {
+      additionalProperty: p.specs.map(s => ({
+        '@type': 'PropertyValue',
+        name:    s.key,
+        value:   s.value,
+      })),
+    } : {}),
+    offers: {
+      '@type':         'Offer',
+      priceCurrency:   'XAF',
+      price:            p.price,
+      priceValidUntil,
+      availability,
+      itemCondition:   'https://schema.org/NewCondition',
+      url,
+      seller:          { '@type': 'Organization', name: 'BRC Market' },
+      // Livraison Cameroun (améliore les rich results Merchant)
+      shippingDetails: {
+        '@type':              'OfferShippingDetails',
+        shippingRate: {
+          '@type':   'MonetaryAmount',
+          value:     0,
+          currency:  'XAF',
+        },
+        shippingDestination: {
+          '@type':           'DefinedRegion',
+          addressCountry:    'CM',
+        },
+        deliveryTime: {
+          '@type':         'ShippingDeliveryTime',
+          handlingTime: {
+            '@type':    'QuantitativeValue',
+            minValue:   0,
+            maxValue:   1,
+            unitCode:   'DAY',
+          },
+          transitTime: {
+            '@type':    'QuantitativeValue',
+            minValue:   1,
+            maxValue:   3,
+            unitCode:   'DAY',
+          },
+        },
+      },
+      // Politique de retour
+      hasMerchantReturnPolicy: {
+        '@type':               'MerchantReturnPolicy',
+        applicableCountry:     'CM',
+        returnPolicyCategory:  'https://schema.org/MerchantReturnFiniteReturnWindow',
+        merchantReturnDays:    7,
+        returnMethod:          'https://schema.org/ReturnInStore',
+        returnFees:            'https://schema.org/FreeReturn',
+      },
+      ...(p.old_price && p.old_price > p.price ? {
+        priceSpecification: [
+          {
+            '@type':        'PriceSpecification',
+            price:           p.price,
+            priceCurrency:  'XAF',
+            priceType:      'https://schema.org/SalePrice',
+          },
+          {
+            '@type':        'PriceSpecification',
+            price:           p.old_price,
+            priceCurrency:  'XAF',
+            priceType:      'https://schema.org/ListPrice',
+          },
+        ],
+      } : {}),
+    },
+    // AggregateRating : uniquement si on a des avis réels
+    ...((currentReviews.length > 0 || p.reviews_count > 0) ? {
+      aggregateRating: {
+        '@type':      'AggregateRating',
+        ratingValue:   currentAvg || 5,
+        reviewCount:   p.reviews_count || currentReviews.length,
+        bestRating:    5,
+        worstRating:   1,
+      },
+    } : {}),
+    // Reviews individuels (max 5)
+    ...(currentReviews.length > 0 ? {
+      review: currentReviews.slice(0, 5).map(r => ({
+        '@type':      'Review',
+        reviewRating: {
+          '@type':      'Rating',
+          ratingValue:  r.rating,
+          bestRating:   5,
+          worstRating:  1,
+        },
+        author: {
+          '@type': 'Person',
+          name:    r.user ? `${r.user.first_name} ${r.user.last_name[0]}.` : 'Anonyme',
+        },
+        datePublished: r.created_at.split('T')[0],
+        ...(r.comment ? { reviewBody: r.comment } : {}),
+      })),
+    } : {}),
+  }
+}
+
+/**
+ * Description stable (sans prix ni stock) pour éviter que Google
+ * marque la meta comme instable et la remplace par son propre extrait.
+ */
+const buildDescription = (p: Product): string => {
+  const brand    = p.brand ? ` ${p.brand}` : ''
+  const category = p.category ? ` – ${p.category.name}` : ''
+  const base     = p.description
+    ? p.description.slice(0, 100)
+    : `${p.name} au meilleur prix au Cameroun`
+  const firstSpec = p.specs?.[0] ? ` | ${p.specs[0].key} : ${p.specs[0].value}` : ''
+  return `${p.name}${brand}${category}${firstSpec}. ${base}`.slice(0, 155)
+}
+
 const setSeo = (p: Product) => {
-  const title       = `${p.name} - BRC Market`
-  const description = p.description
-    ? p.description.slice(0, 155)
-    : `Achetez ${p.name} au meilleur prix au Cameroun. Livraison rapide à Douala et Yaoundé.`
+  const title = `${p.name}${p.brand ? ' – ' + p.brand : ''} | BRC Market Cameroun`
+  const description = buildDescription(p)
   const image = p.images?.[0] ?? 'https://brcmarket.cm/images/og-image.jpg'
   const url   = `https://brcmarket.cm/products/${p.slug}`
 
@@ -105,81 +248,53 @@ const setSeo = (p: Product) => {
     ogImage:            image,
     ogUrl:              url,
     ogType:             'product',
+    twitterCard:        'summary_large_image',
     twitterTitle:       title,
     twitterDescription: description,
     twitterImage:       image,
+    // Open Graph product tags (Facebook / Pinterest)
+    ogPriceAmount:      String(p.price),
+    ogPriceCurrency:    'XAF',
+    // Robots : indexer toutes les pages produit en stock ou hors stock
+    robots: 'index, follow',
   })
+
+  const jsonLd = buildJsonLd(p, reviews.value, avgRating.value)
 
   useHead({
     link: [
       { rel: 'canonical', href: url },
+      // Preload LCP image
       ...(p.images?.[0] ? [{
         rel:           'preload',
         as:            'image',
         href:          p.images[0],
+        // @ts-ignore
         fetchpriority: 'high',
       }] : []),
     ],
     script: [{
+      key:       'product-jsonld',   // ← clé fixe : évite les doublons sur navigation
       type:      'application/ld+json',
-      innerHTML: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type':    'Product',
-        name:       p.name,
-        description,
-        image:      p.images ?? [],
-        sku:        p.sku   ?? undefined,
-        brand:      p.brand ? { '@type': 'Brand', name: p.brand } : undefined,
-        url,
-        offers: {
-          '@type':         'Offer',
-          priceCurrency:   'XAF',
-          price:           p.price,
-          priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-                   .toISOString().split('T')[0],
-          availability:  p.stock > 0
-            ? 'https://schema.org/InStock'
-            : 'https://schema.org/OutOfStock',
-          itemCondition: 'https://schema.org/NewCondition',
-          url,
-          seller: { '@type': 'Organization', name: 'BRC Market' },
-        },
-        ...(reviews.value.length > 0 || p.reviews_count > 0 ? {
-          aggregateRating: {
-            '@type':      'AggregateRating',
-            ratingValue:  avgRating.value,
-            reviewCount:  p.reviews_count || reviews.value.length,
-            bestRating:   5,
-            worstRating:  1,
-          },
-        } : {}),
-        ...(reviews.value.length > 0 ? {
-          review: reviews.value.slice(0, 5).map(r => ({
-            '@type':      'Review',
-            reviewRating: {
-              '@type':      'Rating',
-              ratingValue:  r.rating,
-              bestRating:   5,
-              worstRating:  1,
-            },
-            author: {
-              '@type': 'Person',
-              name:    r.user
-                ? `${r.user.first_name} ${r.user.last_name[0]}.`
-                : 'Anonyme',
-            },
-            datePublished: r.created_at.split('T')[0],
-            reviewBody:    r.comment ?? undefined,
-          })),
-        } : {}),
-      }),
+      innerHTML: JSON.stringify(jsonLd),
     }],
   })
 }
 
-// ─── Réactions au chargement (SSR + navigation client) ────────────────────────
-// ✅ immediate: true couvre le premier rendu SSR ET la navigation client,
-//    plus besoin du bloc manuel "if (import.meta.server...)"
+// ─── Injection SEO côté SERVEUR (visible par Googlebot dès le HTML brut) ──────
+if (import.meta.server && productData.value) {
+  setSeo(productData.value)
+}
+
+// ─── Erreur produit ────────────────────────────────────────────────────────────
+if (productError.value) {
+  // noindex côté serveur
+  useSeoMeta({ robots: 'noindex, nofollow' })
+  // Retourner un 404 HTTP correct (important pour Google)
+  throw createError({ statusCode: 404, statusMessage: 'Produit introuvable', fatal: true })
+}
+
+// ─── Watchers ─────────────────────────────────────────────────────────────────
 watch(productData, (p) => {
   if (!p) return
   setSeo(p)
@@ -187,23 +302,30 @@ watch(productData, (p) => {
   if (p.category?.slug) {
     loadRelatedProducts(p.category.slug, p.id)
   }
-}, { immediate: true })
+}, { immediate: false })
 
 watch(productError, (e) => {
   if (e) useSeoMeta({ robots: 'noindex, nofollow' })
-}, { immediate: true })
+}, { immediate: false })
 
-// ─── Rechargement lors d'une navigation entre produits ────────────────────────
+// Chargement initial produits similaires
+if (productData.value?.category?.slug) {
+  await loadRelatedProducts(productData.value.category.slug, productData.value.id)
+}
+
+// Rechargement sur changement de slug (navigation client)
 watch(slug, async () => {
-  reviews.value          = []
-  reviewsLoaded.value    = false
-  relatedProducts.value  = []
-  mainImage.value        = ''
+  reviews.value         = []
+  reviewsLoaded.value   = false
+  relatedProducts.value = []
+  mainImage.value       = ''
   await refreshProduct()
 })
 
 onMounted(() => {
   initWishlist()
+  // setSeo côté client si le SSR n'a pas pu le faire (cas hydration)
+  if (productData.value) setSeo(productData.value)
 })
 
 // ─── Zoom desktop ─────────────────────────────────────────────────────────────
@@ -224,6 +346,10 @@ const handleMouseMove = (e: MouseEvent) => {
     y: ((e.clientY - top) / height) * 100,
   }
 }
+
+// ─── Specs visibles ───────────────────────────────────────────────────────────
+const hasHiddenSpecs   = computed(() => !isMobile.value && (product.value?.specs?.length ?? 0) > 12)
+const hiddenSpecsCount = computed(() => isMobile.value ? 0 : Math.max(0, (product.value?.specs?.length ?? 0) - 12))
 
 // ─── Quantité / Onglets ───────────────────────────────────────────────────────
 const quantity  = ref(1)
@@ -267,7 +393,8 @@ const fetchReviews = async () => {
     const data = await $fetch<any>(`${API}/products/${product.value.id}/reviews`)
     reviews.value       = data.data ?? data
     reviewsLoaded.value = true
-    if (product.value) setSeo(product.value)
+    // Mettre à jour le JSON-LD avec les avis (côté client uniquement)
+    if (import.meta.client && product.value) setSeo(product.value)
   } catch {} finally {
     loadingReviews.value = false
   }
@@ -333,7 +460,7 @@ const submitReview = async () => {
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers UI ───────────────────────────────────────────────────────────────
 const stockLabel = computed(() => {
   if (!product.value) return ''
   if (product.value.stock > 5)  return t('product.stock_available')
@@ -347,10 +474,6 @@ const discountPercent = (item: Product) => {
     return `-${Math.round((1 - item.price / item.old_price) * 100)}%`
   return null
 }
-
-const formatPrice = (p: number) =>
-  new Intl.NumberFormat('fr-CM', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 })
-    .format(p).replace('XAF', 'FCFA')
 </script>
 
 <template>
@@ -470,6 +593,7 @@ const formatPrice = (p: number) =>
                 decoding="async"
                 width="600"
                 height="600"
+                style="aspect-ratio: 1/1"
                 class="w-full h-full object-contain p-4 sm:p-10 transition-transform duration-200"
                 :style="isZoomed && !isMobile
                   ? { transform: 'scale(2.5)', transformOrigin: `${zoomPos.x}% ${zoomPos.y}%` }
@@ -503,7 +627,7 @@ const formatPrice = (p: number) =>
         </div>
 
         <!-- INFOS -->
-        <div class="lg:col-span-6 space-y-4 sm:space-y-6">
+        <div class="lg:col-span-6 space-y-3 sm:space-y-5">
 
           <!-- Prix -->
           <div class="flex items-center gap-3 flex-wrap">
@@ -553,19 +677,46 @@ const formatPrice = (p: number) =>
             </span>
           </div>
 
-          <!-- Specs rapides -->
-          <div
-            v-if="product.specs?.length"
-            class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 py-4 border-y border-gray-100">
-            <div
-              v-for="spec in product.specs" :key="spec.key"
-              class="flex justify-between items-center border-b border-gray-50 pb-1.5">
-              <span class="text-[11px] sm:text-[12px] text-gray-400 font-bold">{{ spec.key }}</span>
-              <span class="text-[12px] sm:text-[13px] text-gray-900 font-black text-right ml-2">
-                {{ spec.value }}
-              </span>
+          <!-- ─── Specs rapides ─────────────────────────────────────────────────── -->
+          <template v-if="product.specs?.length">
+            <div class="py-3 border-y border-gray-100">
+
+              <!-- Mobile : toutes les specs, pas de limite -->
+              <div class="sm:hidden grid grid-cols-1 gap-y-1.5">
+                <div
+                  v-for="spec in product.specs" :key="spec.key"
+                  class="flex justify-between items-center border-b border-gray-50 pb-1.5">
+                  <span class="text-[11px] text-gray-400 font-bold truncate max-w-[45%]">{{ spec.key }}</span>
+                  <span class="text-[12px] text-gray-900 font-black text-right ml-2 truncate max-w-[50%]">
+                    {{ spec.value }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Desktop : limité à 10 specs -->
+              <div class="hidden sm:grid grid-cols-2 gap-x-6 gap-y-1.5">
+                <div
+                  v-for="spec in product.specs.slice(0, 12)" :key="spec.key"
+                  class="flex justify-between items-center border-b border-gray-50 pb-1.5">
+                  <span class="text-[12px] text-gray-400 font-bold truncate max-w-[45%]">{{ spec.key }}</span>
+                  <span class="text-[13px] text-gray-900 font-black text-right ml-2 truncate max-w-[50%]">
+                    {{ spec.value }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Bouton "voir plus" desktop uniquement -->
+              <button
+                v-if="hasHiddenSpecs"
+                @click="activeTab = 'specs'"
+                class="hidden sm:inline-block mt-2 text-[11px] text-[#274a82] underline underline-offset-2 hover:text-[#e60012] transition-colors font-bold">
+                + {{ hiddenSpecsCount }} {{ $t('product.specs_more') }}
+              </button>
+
             </div>
-          </div>
+          </template>
+
+          <!-- Marque seule si pas de specs -->
           <div v-else-if="product.brand" class="py-3 border-y border-gray-100">
             <div class="flex justify-between items-center">
               <span class="text-[12px] text-gray-400 font-bold">{{ $t('product.brand_label') }}</span>
@@ -573,19 +724,20 @@ const formatPrice = (p: number) =>
             </div>
           </div>
 
-          <!-- Quantité + Panier -->
-          <div class="flex items-center gap-3 flex-wrap">
-            <div
-              class="flex items-center border border-gray-200 rounded-sm bg-gray-50 overflow-hidden flex-shrink-0">
+          <!-- ─── Quantité + Panier + Favoris ──────────────────────────────── -->
+          <div class="flex items-center gap-2 sm:gap-3">
+
+            <!-- Compteur quantité -->
+            <div class="flex items-center border border-gray-200 rounded-sm bg-gray-50 overflow-hidden flex-shrink-0">
               <button
                 @click="quantity > 1 ? quantity-- : null"
                 :disabled="quantity <= 1"
                 :aria-label="$t('product.qty_decrease')"
-                class="px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-200 font-bold transition-colors text-lg select-none disabled:opacity-30">
+                class="px-2.5 sm:px-4 py-2 sm:py-3 hover:bg-gray-200 font-bold transition-colors text-base sm:text-lg select-none disabled:opacity-30">
                 −
               </button>
               <span
-                class="px-3 sm:px-4 py-2.5 sm:py-3 font-black text-[#274a82] bg-white min-w-[44px] text-center border-x border-gray-200 text-base"
+                class="px-2.5 sm:px-4 py-2 sm:py-3 font-black text-[#274a82] bg-white min-w-[36px] sm:min-w-[44px] text-center border-x border-gray-200 text-sm sm:text-base"
                 aria-live="polite">
                 {{ quantity }}
               </span>
@@ -593,31 +745,40 @@ const formatPrice = (p: number) =>
                 @click="product.stock > 0 && quantity < product.stock ? quantity++ : null"
                 :disabled="product.stock === 0 || quantity >= product.stock"
                 :aria-label="$t('product.qty_increase')"
-                class="px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-gray-200 font-bold transition-colors text-lg select-none disabled:opacity-30">
+                class="px-2.5 sm:px-4 py-2 sm:py-3 hover:bg-gray-200 font-bold transition-colors text-base sm:text-lg select-none disabled:opacity-30">
                 +
               </button>
             </div>
 
+            <!-- Bouton panier -->
             <UButton
               :disabled="product.stock === 0"
               @click="addToCart()"
               block
-              class="flex-1 bg-[#274a82] hover:bg-[#e60012] text-white font-black py-3 tracking-widest shadow-md transition-all rounded-sm text-sm sm:text-[12px] min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed">
-              <UIcon name="i-heroicons-shopping-cart" class="w-4 h-4 mr-2" />
-              {{ product.stock === 0 ? $t('product.btn_out_of_stock') : $t('product.btn_add_to_cart') }}
+              class="flex-1 bg-[#274a82] hover:bg-[#e60012] text-white font-black py-2 sm:py-3 tracking-wide sm:tracking-widest shadow-md transition-all rounded-sm text-[11px] sm:text-[12px] min-w-0 disabled:opacity-50 disabled:cursor-not-allowed">
+              <UIcon name="i-heroicons-shopping-cart" class="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+              <!-- Texte court sur mobile, complet sur sm+ -->
+              <span class="sm:hidden truncate">
+                {{ product.stock === 0 ? $t('product.btn_out_of_stock_short') : $t('product.btn_add_short') }}
+              </span>
+              <span class="hidden sm:inline truncate">
+                {{ product.stock === 0 ? $t('product.btn_out_of_stock') : $t('product.btn_add_to_cart') }}
+              </span>
             </UButton>
 
+            <!-- Bouton favoris -->
             <button
               @click="addToWishlist(product.id, product.name)"
               :aria-label="isFav(product.id) ? $t('product.btn_fav_remove') : $t('product.btn_fav_add')"
-              class="w-11 h-11 border rounded-sm flex items-center justify-center transition-colors flex-shrink-0"
+              class="w-9 h-9 sm:w-11 sm:h-11 border rounded-sm flex items-center justify-center transition-colors flex-shrink-0"
               :class="isFav(product.id)
                 ? 'border-[#e60012] bg-red-50 text-[#e60012]'
                 : 'border-gray-200 text-gray-400 hover:border-[#e60012] hover:text-[#e60012]'">
               <UIcon
                 :name="isFav(product.id) ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
-                class="w-5 h-5" />
+                class="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
+
           </div>
 
         </div>

@@ -82,7 +82,7 @@ onMounted(() => {
           </div>
 
           <p class="text-[10px] md:text-xs text-gray-400 mt-8 italic border-t pt-4">
-            *Offre valable jusqu'au 31 Mai 2026 dans la limite des stocks.
+            *Offre valable jusqu'a la fin du mois dans la limite des stocks.
           </p>
         </div>
       </div>

@@ -521,6 +521,9 @@
         "qty_increase": "Augmenter la quantité",
         "btn_add_to_cart": "Ajouter au panier",
         "btn_out_of_stock": "Rupture de stock",
+        "btn_add_short": "Ajouter",
+        "btn_out_of_stock_short": "Indispo.",
+        "specs_more": "specs supplémentaires",
         "btn_fav_add": "Ajouter aux favoris",
         "btn_fav_remove": "Retirer des favoris",
 

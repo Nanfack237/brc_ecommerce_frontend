@@ -17,8 +17,8 @@ export default defineNuxtConfig({
     ],
     defaultLocale: 'fr',
     langDir: 'locales/',
-    strategy: 'no_prefix',        // ← change ici
-    detectBrowserLanguage: false, // ← désactive
+    strategy: 'no_prefix',
+    detectBrowserLanguage: false,
   },
 
   plugins: [
@@ -49,10 +49,10 @@ export default defineNuxtConfig({
         { property: 'og:type',      content: 'website' },
         { property: 'og:locale',    content: 'fr_CM' },
         { name: 'twitter:card',  content: 'summary_large_image' },
-        { name: 'mobile-web-app-capable',                 content: 'yes' }, // ✅ remplace apple-mobile-web-app-capable déprécié
-        { name: 'apple-mobile-web-app-status-bar-style',  content: 'black-translucent' },
-        { name: 'apple-mobile-web-app-title',             content: 'BRC Market' },
-        { name: 'theme-color',                            content: '#274a82' },
+        { name: 'mobile-web-app-capable',                content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'apple-mobile-web-app-title',            content: 'BRC Market' },
+        { name: 'theme-color',                           content: '#274a82' },
       ],
       link: [
         { rel: 'apple-touch-icon', href: '/icons/pwa-192x192.png' },
@@ -86,19 +86,27 @@ export default defineNuxtConfig({
     },
   },
 
-  // ✅ SSR Vercel — plus de preset static
   nitro: {
-  preset: process.env.NODE_ENV === 'production' ? 'vercel' : 'node-server',
+    preset: process.env.NODE_ENV === 'production' ? 'vercel' : 'node-server',
 
-  routeRules: {
-    '/':              { isr: process.env.NODE_ENV === 'production' ? 60 * 10 : false },
-    '/products/**':   { isr: process.env.NODE_ENV === 'production' ? 60 * 60 : false },
-    '/categories/**': { isr: process.env.NODE_ENV === 'production' ? 60 * 60 : false },
-    '/boutique':      { isr: process.env.NODE_ENV === 'production' ? 60 * 5  : false },
-    '/api/**':        { cache: false },
-    '/sitemap.xml':   { cache: false }, // ← ajoute ça
+    routeRules: {
+      '/':              { isr: process.env.NODE_ENV === 'production' ? 60 * 10  : false },
+
+      // ✅ SSR pur produits — pas de cache Vercel Edge, Google voit toujours le HTML frais
+      '/products/**': {
+        ssr: true,
+        headers: {
+          // Vercel edge ne cache pas, mais le navigateur peut garder 60s
+          'Cache-Control': 'public, s-maxage=0, stale-while-revalidate=60',
+        },
+      },
+
+      '/categories/**': { isr: process.env.NODE_ENV === 'production' ? 60 * 60  : false },
+      '/boutique':      { isr: process.env.NODE_ENV === 'production' ? 60 * 5   : false },
+      '/api/**':        { cache: false },
+      '/sitemap.xml':   { cache: false },
+    },
   },
-},
 
   icon: {
     serverBundle: {
@@ -141,7 +149,6 @@ export default defineNuxtConfig({
       cleanupOutdatedCaches: true,
       skipWaiting: true,
       clientsClaim: true,
-      navigateFallback: '/',
       globPatterns: ['**/*.{js,css,html,png,svg,ico,woff,woff2}'],
       maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       navigateFallbackDenylist: [
@@ -153,7 +160,7 @@ export default defineNuxtConfig({
           // ✅ API externe brcmarket → NetworkOnly, jamais mis en cache
           urlPattern: ({ url }: { url: URL }) =>
             url.hostname === 'api.brcmarket.cm',
-          handler: 'NetworkOnly',  // ← corrige le ERR_FAILED
+          handler: 'NetworkOnly',
         },
         {
           // ✅ API interne Nuxt → NetworkFirst

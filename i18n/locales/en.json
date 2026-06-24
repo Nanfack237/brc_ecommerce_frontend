@@ -522,6 +522,9 @@
         "qty_increase": "Increase quantity",
         "btn_add_to_cart": "Add to cart",
         "btn_out_of_stock": "Out of stock",
+        "btn_add_short": "Add",
+        "btn_out_of_stock_short": "Unavail.",
+        "specs_more": "more specs",
         "btn_fav_add": "Add to favorites",
         "btn_fav_remove": "Remove from favorites",
 

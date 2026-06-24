@@ -237,7 +237,7 @@ onUnmounted(() => {
 
     <template #title>
       <NuxtLink to="/" class="flex items-center gap-2 shrink-0">
-        <img src="/images/logos/brclogo.png" class="h-10 w-14 object-contain" />
+        <img src="/images/logos/brclogo.png" class="h-16 w-16 object-contain" />
         <span class="font-bold text-base md:text-lg text-[#274a82] whitespace-nowrap">BRC Market</span>
       </NuxtLink>
     </template>
