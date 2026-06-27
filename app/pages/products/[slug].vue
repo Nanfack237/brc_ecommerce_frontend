@@ -55,7 +55,6 @@ const {
   `product-${slug.value}`,
   () => $fetch<Product>(`${API}/products/${slug.value}`),
   {
-    // SSR activé, pas lazy → HTML complet envoyé à Google dès le premier rendu
     server: true,
     lazy:   false,
   }
@@ -99,8 +98,24 @@ const formatPrice = (p: number) =>
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
 /**
+ * ✅ NOUVEAU — Transforme une URL Cloudinary brute en URL optimisée SEO.
+ * og:image / twitter:image  → 1200×630 (format bannière réseaux sociaux + Google)
+ * JSON-LD image             → 800×800  (format carré Google Images / rich results)
+ */
+const toOgImage = (url: string): string => {
+  if (!url) return 'https://brcmarket.cm/images/og-image.jpg'
+  if (url.includes('/upload/w_')) return url
+  return url.replace('/upload/', '/upload/w_1200,h_630,c_pad,bg_white,f_jpg,q_85/')
+}
+
+const toJsonLdImage = (url: string): string => {
+  if (!url) return ''
+  if (url.includes('/upload/w_')) return url
+  return url.replace('/upload/', '/upload/w_800,h_800,c_pad,bg_white,f_jpg,q_85/')
+}
+
+/**
  * Construit le JSON-LD Schema.org Product.
- * Séparé de setSeo() pour pouvoir être appelé aussi côté serveur.
  */
 const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) => {
   const url              = `https://brcmarket.cm/products/${p.slug}`
@@ -115,7 +130,8 @@ const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) 
     '@type':    'Product',
     name:        p.name,
     description: p.description ?? `${p.name} disponible sur BRC Market`,
-    image:       p.images ?? [],
+    // ✅ MODIFIÉ — images transformées 800×800 pour Google Images
+    image:       p.images?.map(toJsonLdImage) ?? [],
     url,
     ...(p.sku   ? { sku: p.sku }                                  : {}),
     ...(p.brand ? { brand: { '@type': 'Brand', name: p.brand } }  : {}),
@@ -135,7 +151,6 @@ const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) 
       itemCondition:   'https://schema.org/NewCondition',
       url,
       seller:          { '@type': 'Organization', name: 'BRC Market' },
-      // Livraison Cameroun (améliore les rich results Merchant)
       shippingDetails: {
         '@type':              'OfferShippingDetails',
         shippingRate: {
@@ -163,7 +178,6 @@ const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) 
           },
         },
       },
-      // Politique de retour
       hasMerchantReturnPolicy: {
         '@type':               'MerchantReturnPolicy',
         applicableCountry:     'CM',
@@ -189,7 +203,6 @@ const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) 
         ],
       } : {}),
     },
-    // AggregateRating : uniquement si on a des avis réels
     ...((currentReviews.length > 0 || p.reviews_count > 0) ? {
       aggregateRating: {
         '@type':      'AggregateRating',
@@ -199,7 +212,6 @@ const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) 
         worstRating:   1,
       },
     } : {}),
-    // Reviews individuels (max 5)
     ...(currentReviews.length > 0 ? {
       review: currentReviews.slice(0, 5).map(r => ({
         '@type':      'Review',
@@ -221,8 +233,7 @@ const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) 
 }
 
 /**
- * Description stable (sans prix ni stock) pour éviter que Google
- * marque la meta comme instable et la remplace par son propre extrait.
+ * Description stable pour éviter que Google la remplace par son propre extrait.
  */
 const buildDescription = (p: Product): string => {
   const brand    = p.brand ? ` ${p.brand}` : ''
@@ -235,10 +246,12 @@ const buildDescription = (p: Product): string => {
 }
 
 const setSeo = (p: Product) => {
-  const title = `${p.name}${p.brand ? ' – ' + p.brand : ''} | BRC Market Cameroun`
+  const title       = `${p.name}${p.brand ? ' – ' + p.brand : ''} | BRC Market Cameroun`
   const description = buildDescription(p)
-  const image = p.images?.[0] ?? 'https://brcmarket.cm/images/og-image.jpg'
-  const url   = `https://brcmarket.cm/products/${p.slug}`
+  const url         = `https://brcmarket.cm/products/${p.slug}`
+
+  // ✅ MODIFIÉ — og:image transformée 1200×630 pour Google / réseaux sociaux
+  const image = toOgImage(p.images?.[0] ?? '')
 
   useSeoMeta({
     title,
@@ -252,11 +265,9 @@ const setSeo = (p: Product) => {
     twitterTitle:       title,
     twitterDescription: description,
     twitterImage:       image,
-    // Open Graph product tags (Facebook / Pinterest)
     ogPriceAmount:      String(p.price),
     ogPriceCurrency:    'XAF',
-    // Robots : indexer toutes les pages produit en stock ou hors stock
-    robots: 'index, follow',
+    robots:             'index, follow',
   })
 
   const jsonLd = buildJsonLd(p, reviews.value, avgRating.value)
@@ -264,33 +275,31 @@ const setSeo = (p: Product) => {
   useHead({
     link: [
       { rel: 'canonical', href: url },
-      // Preload LCP image
+      // ✅ MODIFIÉ — preload LCP avec l'image transformée
       ...(p.images?.[0] ? [{
         rel:           'preload',
         as:            'image',
-        href:          p.images[0],
+        href:          toOgImage(p.images[0]),
         // @ts-ignore
         fetchpriority: 'high',
       }] : []),
     ],
     script: [{
-      key:       'product-jsonld',   // ← clé fixe : évite les doublons sur navigation
+      key:       'product-jsonld',
       type:      'application/ld+json',
       innerHTML: JSON.stringify(jsonLd),
     }],
   })
 }
 
-// ─── Injection SEO côté SERVEUR (visible par Googlebot dès le HTML brut) ──────
+// ─── Injection SEO côté SERVEUR ───────────────────────────────────────────────
 if (import.meta.server && productData.value) {
   setSeo(productData.value)
 }
 
 // ─── Erreur produit ────────────────────────────────────────────────────────────
 if (productError.value) {
-  // noindex côté serveur
   useSeoMeta({ robots: 'noindex, nofollow' })
-  // Retourner un 404 HTTP correct (important pour Google)
   throw createError({ statusCode: 404, statusMessage: 'Produit introuvable', fatal: true })
 }
 
@@ -324,7 +333,6 @@ watch(slug, async () => {
 
 onMounted(() => {
   initWishlist()
-  // setSeo côté client si le SSR n'a pas pu le faire (cas hydration)
   if (productData.value) setSeo(productData.value)
 })
 
@@ -393,7 +401,6 @@ const fetchReviews = async () => {
     const data = await $fetch<any>(`${API}/products/${product.value.id}/reviews`)
     reviews.value       = data.data ?? data
     reviewsLoaded.value = true
-    // Mettre à jour le JSON-LD avec les avis (côté client uniquement)
     if (import.meta.client && product.value) setSeo(product.value)
   } catch {} finally {
     loadingReviews.value = false
