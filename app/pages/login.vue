@@ -44,7 +44,7 @@ const handleLogin = async () => {
       },
     })
 
-    const { token: userToken, user } = response.data
+    const { token: userToken, user, device_limit_reached } = response.data
 
     token.value    = userToken
     authRole.value = user.role
@@ -56,6 +56,16 @@ const handleLogin = async () => {
       color:       'success',
       icon:        'i-heroicons-check-circle',
     } as ToastProps)
+
+    // ✅ Toast i18n si un ancien appareil a été déconnecté (limite de 3 atteinte)
+    if (device_limit_reached) {
+      toast.add({
+        title:       t('login.toast_device_limit_title'),
+        description: t('login.toast_device_limit_desc'),
+        color:       'warning',
+        icon:        'i-heroicons-device-phone-mobile',
+      } as ToastProps)
+    }
 
     setTimeout(() => {
       const redirect = route.query.redirect as string | undefined
@@ -69,7 +79,7 @@ const handleLogin = async () => {
         router.push('/boutique')
       }
     }, 800)
-    
+
   } catch (err: any) {
     if (err.response?.status === 422) {
       errors.value = err.response.data.errors ?? {}
@@ -116,6 +126,7 @@ const handleLogin = async () => {
     loading.value = false
   }
 }
+
 </script>
 
 <template>
