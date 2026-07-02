@@ -105,7 +105,7 @@ const formatPrice = (p: number) =>
 const toOgImage = (url: string): string => {
   if (!url) return 'https://brcmarket.cm/images/og-image.jpg'
   if (url.includes('/upload/w_')) return url
-  return url.replace('/upload/', '/upload/w_1200,h_630,c_pad,bg_white,f_jpg,q_85/')
+  return url.replace('/upload/', '/upload/w_1200,h_630,c_pad,f_jpg,q_85/')
 }
 
 const toJsonLdImage = (url: string): string => {
@@ -238,11 +238,21 @@ const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) 
 const buildDescription = (p: Product): string => {
   const brand    = p.brand ? ` ${p.brand}` : ''
   const category = p.category ? ` – ${p.category.name}` : ''
-  const base     = p.description
+
+  // Construit "RAM : 16 Go DDR4 | Stockage : 256 Go SSD | ..." proprement
+  const specsText = p.specs?.length
+    ? p.specs
+        .map(s => `${s.key.trim()} : ${s.value.trim()}`)
+        .join(' | ')
+    : ''
+
+  const base = p.description
     ? p.description.slice(0, 100)
     : `${p.name} au meilleur prix au Cameroun`
-  const firstSpec = p.specs?.[0] ? ` | ${p.specs[0].key} : ${p.specs[0].value}` : ''
-  return `${p.name}${brand}${category}${firstSpec}. ${base}`.slice(0, 155)
+
+  const parts = [`${p.name}${brand}${category}`, specsText, base].filter(Boolean)
+
+  return parts.join('. ').slice(0, 155)
 }
 
 const setSeo = (p: Product) => {
