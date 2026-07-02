@@ -61,7 +61,7 @@ const handleLogin = async () => {
       const redirect = route.query.redirect as string | undefined
       if (redirect) {
         router.push(redirect)
-      } else if (user.role === 'admin' || user.role === 'super_admin') {
+      } else if (['admin', 'super_admin', 'user'].includes(user.role)) {
         router.push('/admin')
       } else if (user.role === 'livreur') {
         router.push('/livreur/livraisons')
@@ -69,7 +69,7 @@ const handleLogin = async () => {
         router.push('/boutique')
       }
     }, 800)
-
+    
   } catch (err: any) {
     if (err.response?.status === 422) {
       errors.value = err.response.data.errors ?? {}
