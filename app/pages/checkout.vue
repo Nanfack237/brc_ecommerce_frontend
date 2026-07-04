@@ -223,6 +223,17 @@ const submitOrder = async () => {
     icon:        'i-heroicons-check-circle',
     duration:    10000,
   })
+  
+  // ✅ Meta Pixel — événement Purchase (commande validée)
+  if (typeof window !== 'undefined' && typeof (window as any).fbq !== 'undefined') {
+    (window as any).fbq('track', 'Purchase', {
+      value:        grandTotal.value,
+      currency:     'XAF',
+      content_ids:  cartItems.value.map(i => i.id),
+      content_type: 'product',
+      num_items:    cartItems.value.length,
+    })
+  }
 
   window.dispatchEvent(new Event('order:placed'))
   clearCart()

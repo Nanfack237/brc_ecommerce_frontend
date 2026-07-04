@@ -386,6 +386,16 @@ const addToCart = () => {
     price: product.value.price,
     image: product.value.images?.[0] ?? '/images/placeholder.jpg',
   }, quantity.value)
+
+  // ✅ Meta Pixel — événement AddToCart
+  if (typeof window !== 'undefined' && typeof (window as any).fbq !== 'undefined') {
+    (window as any).fbq('track', 'AddToCart', {
+      value:        product.value.price * quantity.value,
+      currency:     'XAF',
+      content_ids:  [product.value.id],
+      content_type: 'product',
+    })
+  }
 }
 
 const addToCartItem = (item: Product) => {
