@@ -105,7 +105,11 @@ if (route.query.promo === '1') {
 const FIXED_FILTER_DEFS: Record<string, string[]> = {
   'Ram':        ['4 Go', '8 Go', '16 Go', '24 Go', '32 Go'],
   'Stockage':   ['128 Go SSD', '256 Go SSD', '512 Go SSD', '1 TB SSD', '500 Go HDD', '1 TB HDD'],
-  'Processeur': ['Dual Core', 'Core i3', 'Core i5', 'Core i7', 'Core i9'],
+  'Processeur': [
+    'Dual Core', 'Core i3', 'Core i5', 'Core i7', 'Core i9',
+    'Ultra 5', 'Ultra 7', 'Ultra 9',
+    'AMD Ryzen 5', 'AMD Ryzen 7', 'AMD Ryzen 9',
+  ],
   'Generation': ['4ieme Gen', '5ieme Gen', '6ieme Gen', '7ieme Gen', '8ieme Gen',
                  '9ieme Gen', '10ieme Gen', '11ieme Gen', '12ieme Gen', '13ieme Gen', '14ieme Gen'],
   'Etat':       ['Neuf', 'Occasion'],
