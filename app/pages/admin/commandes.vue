@@ -125,6 +125,33 @@ const openDetail = (order: Order) => {
   showDetail.value       = true
 }
 
+// ── Normalisation téléphone internationale ──────────────────────────────────
+const normalizePhone = (raw: string | null | undefined, defaultCountry = '237') => {
+  if (!raw) return ''
+  let n = raw.trim()
+
+  // Cas 1 : le "+" est présent → on le respecte tel quel, PAS d'indicatif par défaut
+  if (n.startsWith('+')) {
+    return n.replace(/[\s\-().+]/g, '')
+  }
+
+  // Nettoyer espaces/tirets pour la suite
+  n = n.replace(/[\s\-()]/g, '')
+
+  // Cas 2 : format 00 + indicatif (ex: 00225692715744)
+  if (n.startsWith('00')) {
+    return n.slice(2)
+  }
+
+  // Cas 3 : numéro local commençant par 0 (ex: 0692715744)
+  if (n.startsWith('0')) {
+    return `${defaultCountry}${n.slice(1)}`
+  }
+
+  // Cas 4 : déjà sans 0 ni + (numéro brut supposé local)
+  return `${defaultCountry}${n}`
+}
+
 // ── Frais de livraison ────────────────────────────────────────────────────────
 const newShippingCost = ref<number | null>(null)
 const savingShipping  = ref(false)
@@ -678,11 +705,7 @@ const sendWhatsAppShipping = (order: Order, shippingCost: number) => {
   if (!raw) return // numéro absent → silencieux
 
   // Normalisation vers 237XXXXXXXXX
-  const cleaned   = raw.replace(/[\s\-().+]/g, '')
-  const intlPhone =
-    cleaned.startsWith('237') ? cleaned :
-    cleaned.startsWith('0')   ? `237${cleaned.slice(1)}` :
-                                `237${cleaned}`
+  const intlPhone = normalizePhone(raw)
 
   const clientName_ = order.user
     ? `${order.user.first_name} ${order.user.last_name}`
