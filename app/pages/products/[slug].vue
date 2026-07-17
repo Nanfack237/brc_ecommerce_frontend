@@ -2,6 +2,13 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import axios from 'axios'
 
+// ✅ FIX #1 — force le remontage complet du composant à chaque changement de produit
+// Sans ça, Nuxt réutilise le même composant et l'ancien produit reste visible
+// une fraction de seconde avant que le loading ne s'active.
+definePageMeta({
+  key: (route) => route.fullPath,
+})
+
 const route  = useRoute()
 const config = useRuntimeConfig()
 const API    = config.public.apiBase
@@ -46,6 +53,16 @@ const authHeaders = computed(() => ({ Authorization: `Bearer ${token.value}` }))
 // ─── État produit ─────────────────────────────────────────────────────────────
 const slug = computed(() => route.params.slug as string)
 
+// ✅ FIX #3 — lazy: true rend la navigation client non-bloquante.
+// Avant (lazy: false) : le `await` bloquait la résolution du <Suspense>
+// de Nuxt, donc le changement de route restait "gelé" sur l'ancienne page
+// tant que le fetch produit n'était pas terminé.
+// Après (lazy: true)  : la route change immédiatement, la page se monte
+// tout de suite avec `loading === true`, et c'est le v-if="loading" du
+// template qui affiche le spinner pendant que les données arrivent.
+// Le SSR (arrivée directe / F5) n'est pas impacté : `server: true` garantit
+// que les données sont déjà présentes dans le payload au premier rendu,
+// donc aucune perte pour le SEO.
 const {
   data:    productData,
   error:   productError,
@@ -56,7 +73,7 @@ const {
   () => $fetch<Product>(`${API}/products/${slug.value}`),
   {
     server: true,
-    lazy:   false,
+    lazy:   true,
   }
 )
 
@@ -97,11 +114,6 @@ const formatPrice = (p: number) =>
 
 // ─── SEO ──────────────────────────────────────────────────────────────────────
 
-/**
- * ✅ NOUVEAU — Transforme une URL Cloudinary brute en URL optimisée SEO.
- * og:image / twitter:image  → 1200×630 (format bannière réseaux sociaux + Google)
- * JSON-LD image             → 800×800  (format carré Google Images / rich results)
- */
 const toOgImage = (url: string): string => {
   if (!url) return 'https://brcmarket.cm/images/og-image.jpg'
   if (url.includes('/upload/w_')) return url
@@ -115,7 +127,11 @@ const toJsonLdImage = (url: string): string => {
 }
 
 /**
- * Construit le JSON-LD Schema.org Product.
+ * ✅ FIX #2 — construit le JSON-LD Schema.org Product.
+ * Les additionalProperty (specs) sont déjà bien structurées en objets
+ * {name, value} séparés dans le JSON-LD — ce n'est PAS ici que le
+ * problème de "collage" se produit, mais dans le HTML visible.
+ * Le JSON-LD reste inchangé, il est déjà correct.
  */
 const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) => {
   const url              = `https://brcmarket.cm/products/${p.slug}`
@@ -130,7 +146,6 @@ const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) 
     '@type':    'Product',
     name:        p.name,
     description: p.description ?? `${p.name} disponible sur BRC Market`,
-    // ✅ MODIFIÉ — images transformées 800×800 pour Google Images
     image:       p.images?.map(toJsonLdImage) ?? [],
     url,
     ...(p.sku   ? { sku: p.sku }                                  : {}),
@@ -233,13 +248,13 @@ const buildJsonLd = (p: Product, currentReviews: Review[] = [], currentAvg = 0) 
 }
 
 /**
- * Description stable pour éviter que Google la remplace par son propre extrait.
+ * ✅ FIX #2 (suite) — la meta description utilisait déjà " : " et " | ".
+ * On garde ça inchangé, c'était déjà correct côté texte SEO.
  */
 const buildDescription = (p: Product): string => {
   const brand    = p.brand ? ` ${p.brand}` : ''
   const category = p.category ? ` – ${p.category.name}` : ''
 
-  // Construit "RAM : 16 Go DDR4 | Stockage : 256 Go SSD | ..." proprement
   const specsText = p.specs?.length
     ? p.specs
         .map(s => `${s.key.trim()} : ${s.value.trim()}`)
@@ -260,7 +275,6 @@ const setSeo = (p: Product) => {
   const description = buildDescription(p)
   const url         = `https://brcmarket.cm/products/${p.slug}`
 
-  // ✅ MODIFIÉ — og:image transformée 1200×630 pour Google / réseaux sociaux
   const image = toOgImage(p.images?.[0] ?? '')
 
   useSeoMeta({
@@ -285,7 +299,6 @@ const setSeo = (p: Product) => {
   useHead({
     link: [
       { rel: 'canonical', href: url },
-      // ✅ MODIFIÉ — preload LCP avec l'image transformée
       ...(p.images?.[0] ? [{
         rel:           'preload',
         as:            'image',
@@ -308,6 +321,12 @@ if (import.meta.server && productData.value) {
 }
 
 // ─── Erreur produit ────────────────────────────────────────────────────────────
+// ⚠️ Avec lazy:true, côté client ce bloc s'exécute juste après l'await
+// alors que productError.value est encore `null` (le fetch n'est pas fini).
+// Il ne se déclenchera donc quasiment jamais lors d'une navigation client :
+// c'est voulu, `notFound` (plus bas) prend le relais une fois loading=false.
+// Côté SSR, server:true garde ce throw bloquant, donc un vrai 404 est bien
+// renvoyé aux crawlers pour un slug inexistant.
 if (productError.value) {
   useSeoMeta({ robots: 'noindex, nofollow' })
   throw createError({ statusCode: 404, statusMessage: 'Produit introuvable', fatal: true })
@@ -328,11 +347,14 @@ watch(productError, (e) => {
 }, { immediate: false })
 
 // Chargement initial produits similaires
+// (avec lazy:true côté client, productData.value peut être encore null ici ;
+// le watch ci-dessus prend le relais dès que la donnée arrive)
 if (productData.value?.category?.slug) {
   await loadRelatedProducts(productData.value.category.slug, productData.value.id)
 }
 
 // Rechargement sur changement de slug (navigation client)
+// ⚠️ Gardé par sécurité même avec definePageMeta key, au cas où
 watch(slug, async () => {
   reviews.value         = []
   reviewsLoaded.value   = false
@@ -387,7 +409,6 @@ const addToCart = () => {
     image: product.value.images?.[0] ?? '/images/placeholder.jpg',
   }, quantity.value)
 
-  // ✅ Meta Pixel — événement AddToCart
   if (typeof window !== 'undefined' && typeof (window as any).fbq !== 'undefined') {
     (window as any).fbq('track', 'AddToCart', {
       value:        product.value.price * quantity.value,
@@ -714,20 +735,22 @@ const discountPercent = (item: Product) => {
                   v-for="spec in product.specs" :key="spec.key"
                   class="flex justify-between items-center border-b border-gray-50 pb-1.5">
                   <span class="text-[11px] text-gray-400 font-bold truncate max-w-[45%]">{{ spec.key }}</span>
+                  <!-- ✅ FIX #2 : séparateur ":" ajouté dans le DOM, aria-hidden pour ne pas perturber les lecteurs d'écran -->
                   <span class="text-[12px] text-gray-900 font-black text-right ml-2 truncate max-w-[50%]">
-                    {{ spec.value }}
+                    <span aria-hidden="true" class="text-gray-300 mr-1">:</span>{{ spec.value }}
                   </span>
                 </div>
               </div>
 
-              <!-- Desktop : limité à 10 specs -->
+              <!-- Desktop : limité à 12 specs -->
               <div class="hidden sm:grid grid-cols-2 gap-x-6 gap-y-1.5">
                 <div
                   v-for="spec in product.specs.slice(0, 12)" :key="spec.key"
                   class="flex justify-between items-center border-b border-gray-50 pb-1.5">
                   <span class="text-[12px] text-gray-400 font-bold truncate max-w-[45%]">{{ spec.key }}</span>
+                  <!-- ✅ FIX #2 -->
                   <span class="text-[13px] text-gray-900 font-black text-right ml-2 truncate max-w-[50%]">
-                    {{ spec.value }}
+                    <span aria-hidden="true" class="text-gray-300 mr-1">:</span>{{ spec.value }}
                   </span>
                 </div>
               </div>
@@ -747,7 +770,9 @@ const discountPercent = (item: Product) => {
           <div v-else-if="product.brand" class="py-3 border-y border-gray-100">
             <div class="flex justify-between items-center">
               <span class="text-[12px] text-gray-400 font-bold">{{ $t('product.brand_label') }}</span>
-              <span class="text-[13px] text-gray-900 font-black">{{ product.brand }}</span>
+              <span class="text-[13px] text-gray-900 font-black">
+                <span aria-hidden="true" class="text-gray-300 mr-1">:</span>{{ product.brand }}
+              </span>
             </div>
           </div>
 
@@ -784,7 +809,6 @@ const discountPercent = (item: Product) => {
               block
               class="flex-1 bg-[#274a82] hover:bg-[#e60012] text-white font-black py-2 sm:py-3 tracking-wide sm:tracking-widest shadow-md transition-all rounded-sm text-[11px] sm:text-[12px] min-w-0 disabled:opacity-50 disabled:cursor-not-allowed">
               <UIcon name="i-heroicons-shopping-cart" class="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-              <!-- Texte court sur mobile, complet sur sm+ -->
               <span class="sm:hidden truncate">
                 {{ product.stock === 0 ? $t('product.btn_out_of_stock_short') : $t('product.btn_add_short') }}
               </span>
@@ -873,7 +897,10 @@ const discountPercent = (item: Product) => {
                 <td class="py-3 px-4 font-bold text-gray-500 text-[12px] w-1/3 bg-gray-50/50">
                   {{ spec.key }}
                 </td>
-                <td class="py-3 px-4 font-semibold text-gray-800 text-[13px]">{{ spec.value }}</td>
+                <!-- ✅ FIX #2 -->
+                <td class="py-3 px-4 font-semibold text-gray-800 text-[13px]">
+                  <span aria-hidden="true" class="text-gray-400 mr-1">:</span>{{ spec.value }}
+                </td>
               </tr>
             </tbody>
           </table>

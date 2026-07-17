@@ -40,7 +40,7 @@ const router  = useRouter()
 const route   = useRoute()
 
 router.beforeEach(() => { loading.value = true })
-router.afterEach(() => { setTimeout(() => { loading.value = false }, 400) })
+router.afterEach(() => { setTimeout(() => { loading.value = false }, 200) })
 
 // ── Layout conditions ────────────────────────────────────────────────────
 const isAdminPage   = computed(() => route.path.startsWith('/admin'))
