@@ -78,8 +78,15 @@ interface SearchProduct {
   category?:   { name: string; slug: string } | null
 }
 
+interface SearchResponse {
+  type:     'exact' | 'similar' | 'suggestions' | 'empty'
+  message:  string | null
+  products: SearchProduct[]
+}
+
 const searchQuery            = ref('')
 const searchResults          = ref<SearchProduct[]>([])
+const searchType             = ref<SearchResponse['type']>('empty')
 const searchLoading          = ref(false)
 const searchFocused          = ref(false)
 const mobileFocused          = ref(false)
@@ -97,6 +104,19 @@ const showMobileDropdown = computed(() =>
   searchQuery.value.trim().length >= 2
 )
 
+// Bandeau affiché au-dessus de la liste (traduit côté front selon le type)
+const searchBanner = computed(() => {
+  const q = searchQuery.value.trim()
+  if (searchType.value === 'similar')     return t('search.no_exact',    { q })
+  if (searchType.value === 'suggestions') return t('search.suggestions', { q })
+  return null
+})
+
+const resetSearch = () => {
+  searchResults.value = []
+  searchType.value    = 'empty'
+}
+
 const formatPrice = (p: number) =>
   new Intl.NumberFormat('fr-CM', { maximumFractionDigits: 0 }).format(p)
 
@@ -106,17 +126,20 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(searchQuery, (val) => {
   selectedIndex.value = -1
-  if (val.trim().length < 2) { searchResults.value = []; return }
+  if (val.trim().length < 2) { resetSearch(); return }
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(async () => {
     searchLoading.value = true
     try {
-      const data = await $fetch<SearchProduct[]>(`${API}/products/search`, {
+      const data = await $fetch<SearchResponse>(`${API}/products/search`, {
         params: { q: val.trim() },
       })
-      searchResults.value = data ?? []
+      // ignore une réponse arrivée en retard si l'utilisateur a retapé entre-temps
+      if (val !== searchQuery.value) return
+      searchResults.value = data?.products ?? []
+      searchType.value    = data?.type ?? 'empty'
     } catch {
-      searchResults.value = []
+      resetSearch()
     } finally {
       searchLoading.value = false
     }
@@ -140,7 +163,7 @@ const handleSearch = () => {
   }
   router.push(`/boutique?q=${encodeURIComponent(q)}`)
   searchQuery.value    = ''
-  searchResults.value  = []
+  resetSearch()
   searchFocused.value  = false
   mobileFocused.value  = false
 }
@@ -339,7 +362,7 @@ onUnmounted(() => {
           />
           <button v-if="searchQuery.length > 0"
             @mousedown.prevent
-            @click="searchQuery = ''; searchResults = []; searchInputRef?.focus()"
+            @click="searchQuery = ''; resetSearch(); searchInputRef?.focus()"
             class="flex-shrink-0 w-4 h-4 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors">
             <UIcon name="i-heroicons-x-mark" class="w-2.5 h-2.5 text-gray-600" />
           </button>
@@ -368,10 +391,21 @@ onUnmounted(() => {
               </div>
             </div>
             <template v-else-if="searchResults.length > 0">
+
+              <!-- Bandeau : produits similaires / suggestions -->
+              <div v-if="searchBanner"
+                class="mx-3 mt-3 px-3 py-2 rounded-xl text-xs font-semibold flex items-start gap-2"
+                :class="searchType === 'similar' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-[#274a82]'">
+                <UIcon :name="searchType === 'similar' ? 'i-heroicons-light-bulb' : 'i-heroicons-sparkles'"
+                  class="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{{ searchBanner }}</span>
+              </div>
+
               <div class="px-4 pt-3 pb-1 flex items-center justify-between">
-                <span class="text-xs font-black text-gray-400 tracking-widest">
+                <span v-if="searchType === 'exact'" class="text-xs font-black text-gray-400 tracking-widest">
                   {{ searchResults.length }} {{ searchResults.length > 1 ? $t('search.results') : $t('search.result') }}
                 </span>
+                <span v-else></span>
                 <button @click="handleSearch" class="text-[10px] font-black text-[#274a82] hover:text-[#e60012] transition-colors flex items-center gap-1">
                   {{ $t('search.see_all') }} <UIcon name="i-heroicons-arrow-right" class="w-3 h-3" />
                 </button>
@@ -389,7 +423,7 @@ onUnmounted(() => {
                   <div class="flex-1 min-w-0">
                     <p class="text-sm font-semibold text-gray-800 truncate group-hover:text-[#274a82] transition-colors"
                       :class="selectedIndex === i ? 'text-[#274a82]' : ''"
-                      v-html="highlightMatch(product.name, searchQuery)"></p>
+                      v-html="highlightMatch(product.name, searchType === 'exact' ? searchQuery : '')"></p>
                     <p v-if="product.category?.name" class="text-[11px] text-gray-400 truncate mt-0.5">{{ product.category.name }}</p>
                   </div>
                   <div class="flex-shrink-0 text-right">
@@ -549,7 +583,7 @@ onUnmounted(() => {
               @keyup.enter="handleSearch"
             />
             <button v-if="searchQuery.length > 0"
-              @click="searchQuery = ''; searchResults = []"
+              @click="searchQuery = ''; resetSearch()"
               class="w-5 h-5 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center flex-shrink-0 transition-colors">
               <UIcon name="i-heroicons-x-mark" class="w-3 h-3 text-gray-600" />
             </button>
@@ -570,10 +604,21 @@ onUnmounted(() => {
             </div>
           </div>
           <template v-else-if="searchResults.length > 0">
+
+            <!-- Bandeau : produits similaires / suggestions -->
+            <div v-if="searchBanner"
+              class="mx-3 mt-3 px-3 py-2.5 rounded-xl text-xs font-semibold flex items-start gap-2 flex-shrink-0"
+              :class="searchType === 'similar' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-[#274a82]'">
+              <UIcon :name="searchType === 'similar' ? 'i-heroicons-light-bulb' : 'i-heroicons-sparkles'"
+                class="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{{ searchBanner }}</span>
+            </div>
+
             <div class="px-5 py-2.5 flex items-center justify-between border-b border-gray-100 flex-shrink-0 bg-gray-50/50">
-              <span class="text-xs font-black text-gray-400 tracking-widest">
+              <span v-if="searchType === 'exact'" class="text-xs font-black text-gray-400 tracking-widest">
                 {{ searchResults.length }} {{ searchResults.length > 1 ? $t('search.results') : $t('search.result') }}
               </span>
+              <span v-else></span>
               <button @click="handleSearch" class="text-[11px] font-black text-[#274a82] flex items-center gap-1 hover:text-[#e60012] transition-colors">
                 {{ $t('search.see_all') }} <UIcon name="i-heroicons-arrow-right" class="w-3 h-3" />
               </button>
@@ -587,7 +632,7 @@ onUnmounted(() => {
                   <UIcon v-else name="i-heroicons-photo" class="w-5 h-5 text-gray-300" />
                 </div>
                 <div class="flex-1 min-w-0">
-                  <p class="text-sm font-semibold text-gray-800 truncate leading-tight" v-html="highlightMatch(product.name, searchQuery)"></p>
+                  <p class="text-sm font-semibold text-gray-800 truncate leading-tight" v-html="highlightMatch(product.name, searchType === 'exact' ? searchQuery : '')"></p>
                   <p v-if="product.category?.name" class="text-[11px] text-gray-400 mt-0.5">{{ product.category.name }}</p>
                 </div>
                 <div class="flex-shrink-0 text-right">
@@ -772,10 +817,21 @@ onUnmounted(() => {
 </template>
 
 <script lang="ts">
+// Échappe le HTML pour éviter toute injection via v-html
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function highlightMatch(text: string, query: string): string {
-  if (!query || query.length < 2) return text
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return text.replace(
+  const safeText = escapeHtml(text)
+  if (!query || query.length < 2) return safeText
+  const escaped = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return safeText.replace(
     new RegExp(`(${escaped})`, 'gi'),
     '<mark class="bg-yellow-100 text-yellow-800 rounded px-0.5 not-italic font-bold">$1</mark>'
   )

@@ -9,7 +9,8 @@
   "search": {
     "placeholder": "Search for a product...",
     "no_results_title": "No results for",
-    "no_results": "No results",
+    "no_exact": "No exact match for “{q}”. Here are similar products:",
+    "suggestions": "No product found for “{q}”. You might like:",
     "see_all": "See all",
     "see_all_results": "See all results for",
     "search_anyway": "Search anyway →",
