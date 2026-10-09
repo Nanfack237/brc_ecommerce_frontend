@@ -1,31 +1,30 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 
+const { t, locale } = useI18n()
+const route  = useRoute()
+const config = useRuntimeConfig()
+const API    = config.public.apiBase
+
 /* ══════════════════════════════════════════════════════════════════════════
-   CONFIG — à adapter aux vraies infos de BRC Market
+   CONFIG — infos de l'entreprise (les textes sont dans i18n : clés "chat.*")
    ══════════════════════════════════════════════════════════════════════════ */
 const WHATSAPP_NUMBER = '237689205751'
+const PHONE_DISPLAY   = '+237 6 89 20 57 51'
 
-// ⚠️ À VÉRIFIER : horaires d'ouverture (fuseau Africa/Douala)
-const OPENING = { days: [1, 2, 3, 4, 5, 6], from: 8, to: 18 } // lundi → samedi, 8h → 18h
-
-// ⚠️ À VÉRIFIER : réponses automatiques. Garde uniquement ce qui est exact.
-const KB = {
-  location: "Nous sommes à Akwa, Douala, rue Castelnau, juste après la rue du Collège King Akwa.",
-  warranty: "Tous nos produits sont garantis, avec un SAV assuré par nos techniciens.",
-  delivery: "Nous livrons à Douala et dans les autres villes. Les frais et délais dépendent de votre adresse : un agent peut vous donner le détail exact.",
-  payment:  "Plusieurs moyens de paiement sont acceptés. Un agent peut vous confirmer les options disponibles pour votre commande.",
-  contact:  "Vous pouvez nous joindre directement sur WhatsApp, c'est le moyen le plus rapide.",
+// Horaires (minutes depuis minuit, fuseau Africa/Douala). 0 = dimanche
+// Source : page Contact → Lun–Ven 8h–17h, Sam 8h–14h30
+const SCHEDULE = {
+  1: [8 * 60, 17 * 60], 2: [8 * 60, 17 * 60], 3: [8 * 60, 17 * 60],
+  4: [8 * 60, 17 * 60], 5: [8 * 60, 17 * 60],
+  6: [8 * 60, 14 * 60 + 30],
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
    STATE
    ══════════════════════════════════════════════════════════════════════════ */
-const route  = useRoute()
-const config = useRuntimeConfig()
-const API    = config.public.apiBase
-
 const isOpen    = ref(false)
+const hasOpened = ref(false)
 const isTyping  = ref(false)
 const input     = ref('')
 const unread    = ref(0)
@@ -33,33 +32,40 @@ const isOnline  = ref(false)
 const messages  = ref([])
 const chatBody  = ref(null)
 const inputRef  = ref(null)
-const widgetRef = ref(null)
 
 // Le widget n'a pas sa place dans l'espace admin / livreur
 const hidden = computed(() =>
   route.path.startsWith('/admin') || route.path.startsWith('/livreur')
 )
 
-const STORAGE_KEY = 'brc_chat_v1'
+const STORAGE_KEY = 'brc_chat_v2'
 
 /* ══════════════════════════════════════════════════════════════════════════
    HELPERS
    ══════════════════════════════════════════════════════════════════════════ */
-const nowTime = () =>
-  new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+const intlLocale = computed(() => (locale.value === 'fr' ? 'fr-FR' : 'en-GB'))
+
+const fmtTime = (ts) =>
+  new Date(ts).toLocaleTimeString(intlLocale.value, { hour: '2-digit', minute: '2-digit' })
 
 const formatPrice = (p) =>
-  new Intl.NumberFormat('fr-CM', { maximumFractionDigits: 0 }).format(p)
+  new Intl.NumberFormat(locale.value === 'fr' ? 'fr-CM' : 'en-US', { maximumFractionDigits: 0 }).format(p)
 
 const normalize = (s) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
+// Texte d'un message : clé i18n (retraduite si la langue change) ou texte libre (message client)
+const msgText = (msg) => (msg.key ? t(msg.key, msg.params ?? {}) : msg.text)
+
 const STOP = new Set([
-  'je','tu','il','elle','nous','vous','on','un','une','des','du','de','la','le','les',
-  'et','ou','a','au','aux','en','pour','sur','avec','sans','cherche','recherche','veux',
-  'voudrais','souhaite','avez','avoir','vendez','vend','avez-vous','il-y-a','y','ce',
-  'cet','cette','ces','mon','ma','mes','svp','stp','please','quel','quels','quelle',
-  'prix','combien','coute','est','sont','que','qui','dans','moi','me','ai','besoin',
+  // FR
+  'je','tu','il','elle','nous','vous','on','un','une','des','du','de','la','le','les','et','ou','a','au','aux',
+  'en','pour','sur','avec','sans','cherche','recherche','veux','voudrais','souhaite','avez','avoir','vendez',
+  'vend','y','ce','cet','cette','ces','mon','ma','mes','svp','stp','quel','quels','quelle','prix','combien',
+  'coute','est','sont','que','qui','dans','moi','me','ai','besoin',
+  // EN
+  'i','you','we','the','an','is','are','am','do','does','of','to','for','in','on','with','without','looking',
+  'want','need','buy','sell','have','has','any','price','how','much','what','which','me','my','please','plz',
 ])
 
 const toSearchTerms = (text) =>
@@ -69,19 +75,17 @@ const toSearchTerms = (text) =>
     .filter(w => w.length >= 2 && !STOP.has(w))
     .join(' ')
 
-const greeting = () => {
-  const h = new Date().getHours()
-  return h < 18 ? 'Bonjour' : 'Bonsoir'
-}
+const isEvening = () => new Date().getHours() >= 18
 
 const updateOnline = () => {
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Africa/Douala', weekday: 'short', hour: 'numeric', hour12: false,
+    timeZone: 'Africa/Douala', weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: false,
   }).formatToParts(new Date())
-  const wd   = parts.find(p => p.type === 'weekday')?.value
-  const hour = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0', 10) % 24
-  const dayIdx = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd]
-  isOnline.value = OPENING.days.includes(dayIdx) && hour >= OPENING.from && hour < OPENING.to
+  const get = (type) => parts.find(p => p.type === type)?.value
+  const day  = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[get('weekday')]
+  const mins = (parseInt(get('hour') ?? '0', 10) % 24) * 60 + parseInt(get('minute') ?? '0', 10)
+  const slot = SCHEDULE[day]
+  isOnline.value = !!slot && mins >= slot[0] && mins < slot[1]
 }
 
 const openWhatsApp = (text) => {
@@ -90,8 +94,15 @@ const openWhatsApp = (text) => {
 }
 
 const productWhatsAppText = (p) =>
-  `Bonjour BRC, je suis intéressé par : ${p.name} (${formatPrice(p.price)} FCFA)\n` +
-  `${window.location.origin}/products/${p.slug}`
+  t('chat.wa.product', {
+    name:  p.name,
+    price: formatPrice(p.price),
+    url:   `${window.location.origin}/products/${p.slug}`,
+  })
+
+const runAction = (a) => {
+  if (a.type === 'whatsapp') openWhatsApp(t(a.waKey, a.waParams ?? {}))
+}
 
 const scrollToBottom = () =>
   nextTick(() => {
@@ -103,7 +114,7 @@ const scrollToBottom = () =>
    ══════════════════════════════════════════════════════════════════════════ */
 let uid = 0
 const pushMessage = (msg) => {
-  messages.value.push({ id: `${Date.now()}-${uid++}`, time: nowTime(), ...msg })
+  messages.value.push({ id: `${Date.now()}-${uid++}`, ts: Date.now(), ...msg })
   if (msg.role === 'bot' && !isOpen.value) unread.value++
   scrollToBottom()
 }
@@ -112,50 +123,85 @@ const botReply = async (build, delay = 600) => {
   isTyping.value = true
   scrollToBottom()
   await new Promise(r => setTimeout(r, delay))
+  const reply = await build()
   isTyping.value = false
-  pushMessage({ role: 'bot', ...(await build()) })
+  pushMessage({ role: 'bot', ...reply })
 }
 
 const initChat = () => {
-  pushMessage({
-    role: 'bot',
-    text: `${greeting()} et bienvenue chez BRC Market ! Je peux vous aider à trouver un produit, connaître nos conditions ou vous mettre en relation avec un conseiller.`,
-  })
+  pushMessage({ role: 'bot', key: isEvening() ? 'chat.welcome_evening' : 'chat.welcome_morning' })
   if (!isOnline.value) {
-    pushMessage({
-      role: 'bot',
-      text: `Nos conseillers sont actuellement hors ligne (${OPENING.from}h–${OPENING.to}h, du lundi au samedi). Laissez-nous un message sur WhatsApp, nous vous répondrons dès l'ouverture.`,
-    })
+    pushMessage({ role: 'bot', key: 'chat.offline_notice' })
   }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   INTENTS
+   INTENTS (mots-clés FR + EN, sans accents)
+   - "mot"  : le mot commence par ce préfixe  (livr → livraison, livrer…)
+   - "mot$" : mot entier uniquement           (hi$ ≠ hitachi)
+   - short  : n'est pris en compte que pour les messages courts (≤ 3 mots)
    ══════════════════════════════════════════════════════════════════════════ */
 const INTENTS = [
-  { name: 'greeting', keys: ['bonjour', 'bonsoir', 'salut', 'hello', 'coucou', 'bjr'],
-    answer: () => ({ text: `${greeting()} ! Que recherchez-vous aujourd'hui ?` }) },
-  { name: 'thanks', keys: ['merci', 'thanks', 'thank you'],
-    answer: () => ({ text: "Avec plaisir ! N'hésitez pas si vous avez d'autres questions." }) },
-  { name: 'location', keys: ['adresse', 'emplacement', 'localisation', 'ou etes', 'ou est la boutique', 'magasin', 'situe', 'trouver la boutique'],
-    answer: () => ({ text: KB.location }) },
-  { name: 'hours', keys: ['horaire', 'heure d', 'ouvert', 'ferme', 'ouverture'],
-    answer: () => ({ text: `Nous sommes ouverts du lundi au samedi, de ${OPENING.from}h à ${OPENING.to}h. ${isOnline.value ? 'Nous sommes ouverts en ce moment.' : 'Nous sommes actuellement fermés.'}` }) },
-  { name: 'delivery', keys: ['livraison', 'livrer', 'expedition', 'expedier', 'delai'],
-    answer: () => ({ text: KB.delivery, actions: [{ type: 'whatsapp', label: 'Demander les frais de livraison', text: 'Bonjour BRC, je souhaite connaître les frais et délais de livraison.' }] }) },
-  { name: 'payment', keys: ['paiement', 'payer', 'momo', 'mobile money', 'orange money', 'cash', 'carte bancaire'],
-    answer: () => ({ text: KB.payment, actions: [{ type: 'whatsapp', label: 'Confirmer les moyens de paiement', text: 'Bonjour BRC, quels sont les moyens de paiement disponibles ?' }] }) },
-  { name: 'warranty', keys: ['garantie', 'sav', 'retour', 'rembours', 'echange', 'echanger'],
-    answer: () => ({ text: KB.warranty }) },
-  { name: 'order', keys: ['ma commande', 'suivi', 'suivre', 'colis', 'ou en est'],
-    answer: () => ({ text: "Vous pouvez suivre vos commandes depuis votre compte.", actions: [{ type: 'link', label: 'Voir mes commandes', to: '/compte/commandes' }] }) },
-  { name: 'contact', keys: ['telephone', 'numero', 'appeler', 'contacter', 'agent', 'conseiller', 'humain'],
-    answer: () => ({ text: KB.contact, actions: [{ type: 'whatsapp', label: 'Parler à un conseiller', text: 'Bonjour BRC, je souhaiterais parler à un conseiller.' }] }) },
+  { name: 'order',
+    keys: ['ma commande', 'mes commandes', 'suivi', 'suivre', 'colis', 'ou en est ma', 'my order', 'track', 'order status'],
+    reply: () => ({ key: 'chat.ans.order', actions: [
+      { type: 'link', labelKey: 'chat.act.see_orders', to: '/compte/commandes' },
+    ] }) },
+
+  { name: 'greeting', short: true,
+    keys: ['bonjour', 'bonsoir', 'salut', 'hello', 'hi$', 'hey$', 'coucou', 'bjr'],
+    reply: () => ({ key: isEvening() ? 'chat.ans.greeting_evening' : 'chat.ans.greeting_morning' }) },
+
+  { name: 'thanks', short: true,
+    keys: ['merci', 'thanks', 'thank you', 'thx'],
+    reply: () => ({ key: 'chat.ans.thanks' }) },
+
+  { name: 'location',
+    keys: ['adresse', 'emplacement', 'localisation', 'localiser', 'ou etes', 'ou vous trouvez', 'ou se trouve la boutique',
+           'ou se trouve le magasin', 'ou se trouve votre', 'ou se situe', 'ou est la boutique', 'ou est le magasin',
+           'magasin', 'situe', 'comment venir', 'itineraire', 'trouver la boutique',
+           'address', 'where are you', 'where is the shop', 'where is the store', 'where is your', 'location', 'directions'],
+    reply: () => ({ key: 'chat.ans.location' }) },
+
+  { name: 'hours',
+    keys: ['horaire', 'heure', 'ouvert', 'ferme', 'ouverture', 'hours', 'hour', 'opening', 'open$', 'closed', 'close$'],
+    reply: () => ({ key: isOnline.value ? 'chat.ans.hours_open' : 'chat.ans.hours_closed' }) },
+
+  { name: 'delivery',
+    keys: ['livr', 'expedi', 'delai', 'deliver', 'shipping', 'ship$'],
+    reply: () => ({ key: 'chat.ans.delivery', actions: [
+      { type: 'whatsapp', labelKey: 'chat.act.ask_delivery', waKey: 'chat.wa.delivery' },
+    ] }) },
+
+  { name: 'payment',
+    keys: ['paiement', 'payer', 'payment', 'pay$', 'momo', 'mobile money', 'orange money', 'cash', 'carte bancaire', 'credit card'],
+    reply: () => ({ key: 'chat.ans.payment', actions: [
+      { type: 'whatsapp', labelKey: 'chat.act.ask_payment', waKey: 'chat.wa.payment' },
+    ] }) },
+
+  { name: 'warranty',
+    keys: ['garantie', 'sav$', 'retour', 'rembours', 'echang', 'warranty', 'guarantee', 'return', 'refund', 'exchange'],
+    reply: () => ({ key: 'chat.ans.warranty' }) },
+
+  { name: 'contact',
+    keys: ['telephone', 'numero', 'appel', 'contact', 'agent', 'conseiller', 'humain', 'phone', 'call$', 'human', 'advisor', 'whatsapp'],
+    reply: () => ({ key: 'chat.ans.contact', params: { phone: PHONE_DISPLAY }, actions: [
+      { type: 'whatsapp', labelKey: 'chat.act.advisor', waKey: 'chat.wa.advisor' },
+    ] }) },
 ]
 
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const matchKey = (text, key) => {
+  const whole = key.endsWith('$')
+  const base  = escapeRe(whole ? key.slice(0, -1) : key)
+  return new RegExp(`(^|[^a-z0-9])${base}${whole ? '($|[^a-z0-9])' : ''}`).test(text)
+}
+
 const detectIntent = (text) => {
-  const t = normalize(text)
-  return INTENTS.find(i => i.keys.some(k => t.includes(k)))
+  const n     = normalize(text)
+  const words = n.split(/\s+/).filter(Boolean).length
+  return INTENTS.find(i => (!i.short || words <= 3) && i.keys.some(k => matchKey(n, k)))
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -173,14 +219,12 @@ const searchProducts = async (text) => {
 
 const productAnswer = async (text) => {
   const res = await searchProducts(text)
+  const askAdvisor = { type: 'whatsapp', labelKey: 'chat.act.ask_advisor', waKey: 'chat.wa.search', waParams: { q: text } }
 
   if (!res || !res.products?.length) {
     return {
-      text: "Je n'ai pas trouvé de produit correspondant. Un conseiller peut vous aider à trouver exactement ce que vous cherchez.",
-      actions: [
-        { type: 'whatsapp', label: 'Demander à un conseiller', text: `Bonjour BRC, je cherche : ${text}` },
-        { type: 'link', label: 'Parcourir la boutique', to: '/boutique' },
-      ],
+      key: 'chat.ans.none',
+      actions: [askAdvisor, { type: 'link', labelKey: 'chat.act.browse', to: '/boutique' }],
     }
   }
 
@@ -188,23 +232,20 @@ const productAnswer = async (text) => {
 
   if (res.type === 'exact') {
     return {
-      text: items.length > 1 ? `J'ai trouvé ${res.products.length} produit(s) correspondant à votre recherche :` : "Voici le produit correspondant :",
+      key: res.products.length > 1 ? 'chat.ans.found_many' : 'chat.ans.found_one',
+      params: { count: res.products.length },
       products: items,
-      actions: [{ type: 'link', label: 'Voir tous les résultats', to: `/boutique?q=${encodeURIComponent(text)}` }],
+      actions: [{ type: 'link', labelKey: 'chat.act.see_all', to: `/boutique?q=${encodeURIComponent(text)}` }],
     }
   }
   if (res.type === 'similar') {
     return {
-      text: "Je n'ai pas trouvé exactement ce produit, mais voici des articles proches :",
+      key: 'chat.ans.similar',
       products: items,
-      actions: [{ type: 'whatsapp', label: 'Demander le produit exact', text: `Bonjour BRC, je cherche : ${text}` }],
+      actions: [{ ...askAdvisor, labelKey: 'chat.act.ask_exact' }],
     }
   }
-  return {
-    text: "Je n'ai rien trouvé pour cette recherche. Voici quelques produits populaires, ou parlez à un conseiller :",
-    products: items,
-    actions: [{ type: 'whatsapp', label: 'Demander à un conseiller', text: `Bonjour BRC, je cherche : ${text}` }],
-  }
+  return { key: 'chat.ans.suggestions', products: items, actions: [askAdvisor] }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -218,33 +259,43 @@ const send = async (text) => {
 
   const intent = detectIntent(clean)
   await botReply(
-    () => (intent ? intent.answer() : productAnswer(clean)),
+    () => (intent ? intent.reply() : productAnswer(clean)),
     intent ? 500 : 700,
   )
 }
 
+// Les boutons rapides appellent directement la bonne réponse (aucune détection de mots-clés)
 const quickReplies = [
-  { label: 'Trouver un produit', send: 'Je cherche un produit' },
-  { label: 'Livraison',          send: 'Quelles sont les conditions de livraison ?' },
-  { label: 'Paiement',           send: 'Quels moyens de paiement acceptez-vous ?' },
-  { label: 'Garantie',           send: 'Quelle garantie proposez-vous ?' },
-  { label: 'Adresse',            send: 'Où se trouve la boutique ?' },
+  { labelKey: 'chat.quick.product',  askKey: 'chat.ask.product',  action: 'search' },
+  { labelKey: 'chat.quick.delivery', askKey: 'chat.ask.delivery', intent: 'delivery' },
+  { labelKey: 'chat.quick.payment',  askKey: 'chat.ask.payment',  intent: 'payment' },
+  { labelKey: 'chat.quick.warranty', askKey: 'chat.ask.warranty', intent: 'warranty' },
+  { labelKey: 'chat.quick.address',  askKey: 'chat.ask.address',  intent: 'location' },
+  { labelKey: 'chat.quick.hours',    askKey: 'chat.ask.hours',    intent: 'hours' },
 ]
 
 const onQuickReply = (q) => {
-  if (q.label === 'Trouver un produit') {
-    pushMessage({ role: 'user', text: q.send })
-    botReply(() => ({ text: "Bien sûr ! Écrivez le nom ou le type de produit (ex : « Dell Latitude », « imprimante », « caméra de surveillance »)." }), 400)
+  if (isTyping.value) return
+  pushMessage({ role: 'user', key: q.askKey })
+
+  if (q.action === 'search') {
+    botReply(() => ({ key: 'chat.ans.search_prompt' }), 400)
     nextTick(() => inputRef.value?.focus())
     return
   }
-  send(q.send)
+  const intent = INTENTS.find(i => i.name === q.intent)
+  botReply(() => intent.reply(), 500)
 }
 
 const resetChat = () => {
   messages.value = []
   sessionStorage.removeItem(STORAGE_KEY)
   initChat()
+}
+
+const toggleChat = () => {
+  isOpen.value = !isOpen.value
+  hasOpened.value = true
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -284,7 +335,7 @@ const onKey = (e) => { if (e.key === 'Escape') isOpen.value = false }
 </script>
 
 <template>
-  <div v-if="!hidden" ref="widgetRef" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[60] flex flex-col items-end"
+  <div v-if="!hidden" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[60] flex flex-col items-end"
        @keydown="onKey">
 
     <Transition
@@ -296,7 +347,7 @@ const onKey = (e) => { if (e.key === 'Escape') isOpen.value = false }
       leave-to-class="translate-y-4 opacity-0 scale-95"
     >
       <section v-if="isOpen"
-        role="dialog" aria-label="Assistant BRC Market"
+        role="dialog" :aria-label="t('chat.title')"
         class="mb-3 flex flex-col w-[calc(100vw-2rem)] sm:w-[400px] h-[min(600px,calc(100vh-8rem))] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
 
         <!-- HEADER -->
@@ -307,17 +358,17 @@ const onKey = (e) => { if (e.key === 'Escape') isOpen.value = false }
               :class="isOnline ? 'bg-green-400' : 'bg-gray-400'"></span>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-bold leading-tight truncate">Assistant BRC Market</p>
+            <p class="text-sm font-bold leading-tight truncate">{{ t('chat.title') }}</p>
             <p class="text-[11px] text-white/80">
-              {{ isOnline ? 'En ligne · réponse rapide' : `Hors ligne · ouvert dès ${OPENING.from}h` }}
+              {{ isOnline ? t('chat.status_online') : t('chat.status_offline') }}
             </p>
           </div>
-          <button type="button" title="Nouvelle conversation" aria-label="Nouvelle conversation"
+          <button type="button" :title="t('chat.new_chat')" :aria-label="t('chat.new_chat')"
             class="w-8 h-8 rounded-full hover:bg-white/15 flex items-center justify-center transition-colors"
             @click="resetChat">
             <UIcon name="i-heroicons-arrow-path" class="w-4 h-4" />
           </button>
-          <button type="button" aria-label="Fermer le chat"
+          <button type="button" :aria-label="t('chat.close')"
             class="w-8 h-8 rounded-full hover:bg-white/15 flex items-center justify-center transition-colors"
             @click="isOpen = false">
             <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
@@ -335,7 +386,7 @@ const onKey = (e) => { if (e.key === 'Escape') isOpen.value = false }
               :class="msg.role === 'user'
                 ? 'bg-[#274a82] text-white rounded-br-md'
                 : 'bg-white text-gray-800 border border-gray-200 rounded-bl-md'">
-              {{ msg.text }}
+              {{ msgText(msg) }}
             </div>
 
             <!-- Cartes produits -->
@@ -349,17 +400,17 @@ const onKey = (e) => { if (e.key === 'Escape') isOpen.value = false }
                 <div class="flex-1 min-w-0 flex flex-col">
                   <p class="text-[13px] font-semibold text-gray-800 leading-snug line-clamp-2">{{ p.name }}</p>
                   <p class="text-sm font-black text-[#274a82] mt-0.5">
-                    {{ formatPrice(p.price) }} <span class="text-[10px] font-semibold text-gray-400">FCFA</span>
+                    {{ formatPrice(p.price) }} <span class="text-[10px] font-semibold text-gray-400">{{ t('chat.currency') }}</span>
                   </p>
                   <div class="flex gap-1.5 mt-auto pt-1.5">
                     <NuxtLink :to="`/products/${p.slug}`" @click="isOpen = false"
                       class="flex-1 text-center text-[11px] font-bold px-2 py-1.5 rounded-lg border border-[#274a82] text-[#274a82] hover:bg-[#274a82] hover:text-white transition-colors">
-                      Voir
+                      {{ t('chat.view') }}
                     </NuxtLink>
                     <button type="button"
                       class="flex-1 text-[11px] font-bold px-2 py-1.5 rounded-lg bg-[#25D366] text-white hover:brightness-95 transition flex items-center justify-center gap-1"
                       @click="openWhatsApp(productWhatsAppText(p))">
-                      <UIcon name="i-simple-icons-whatsapp" class="w-3 h-3" /> Commander
+                      <UIcon name="i-simple-icons-whatsapp" class="w-3 h-3" /> {{ t('chat.order') }}
                     </button>
                   </div>
                 </div>
@@ -371,21 +422,21 @@ const onKey = (e) => { if (e.key === 'Escape') isOpen.value = false }
               <template v-for="(a, i) in msg.actions" :key="i">
                 <NuxtLink v-if="a.type === 'link'" :to="a.to" @click="isOpen = false"
                   class="text-xs font-bold px-3 py-1.5 rounded-full border border-[#274a82] text-[#274a82] hover:bg-[#274a82] hover:text-white transition-colors">
-                  {{ a.label }}
+                  {{ t(a.labelKey) }}
                 </NuxtLink>
                 <button v-else type="button"
                   class="text-xs font-bold px-3 py-1.5 rounded-full bg-[#25D366] text-white hover:brightness-95 transition flex items-center gap-1.5"
-                  @click="openWhatsApp(a.text)">
-                  <UIcon name="i-simple-icons-whatsapp" class="w-3.5 h-3.5" /> {{ a.label }}
+                  @click="runAction(a)">
+                  <UIcon name="i-simple-icons-whatsapp" class="w-3.5 h-3.5" /> {{ t(a.labelKey) }}
                 </button>
               </template>
             </div>
 
-            <span class="mt-1 text-[10px] text-gray-400 px-1">{{ msg.time }}</span>
+            <span class="mt-1 text-[10px] text-gray-400 px-1">{{ fmtTime(msg.ts) }}</span>
           </div>
 
           <!-- Indicateur de saisie -->
-          <div v-if="isTyping" class="flex items-center gap-1 px-3.5 py-3 bg-white border border-gray-200 rounded-2xl rounded-bl-md w-fit shadow-sm" aria-label="L'assistant écrit">
+          <div v-if="isTyping" class="flex items-center gap-1 px-3.5 py-3 bg-white border border-gray-200 rounded-2xl rounded-bl-md w-fit shadow-sm" :aria-label="t('chat.typing')">
             <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce"></span>
             <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:120ms]"></span>
             <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:240ms]"></span>
@@ -396,19 +447,19 @@ const onKey = (e) => { if (e.key === 'Escape') isOpen.value = false }
         <footer class="flex-shrink-0 border-t border-gray-100 bg-white p-3 space-y-2.5">
 
           <div class="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button v-for="q in quickReplies" :key="q.label" type="button"
+            <button v-for="q in quickReplies" :key="q.labelKey" type="button"
               :disabled="isTyping"
               class="whitespace-nowrap text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-200 text-gray-700 hover:border-[#274a82] hover:text-[#274a82] hover:bg-[#274a82]/5 transition-colors disabled:opacity-50"
               @click="onQuickReply(q)">
-              {{ q.label }}
+              {{ t(q.labelKey) }}
             </button>
           </div>
 
           <form class="flex items-center gap-2" @submit.prevent="send(input)">
             <input ref="inputRef" v-model="input" type="text" maxlength="300" :disabled="isTyping"
-              placeholder="Écrivez votre message…" aria-label="Votre message"
+              :placeholder="t('chat.placeholder')" :aria-label="t('chat.placeholder')"
               class="flex-1 text-sm px-3.5 py-2.5 rounded-full bg-gray-100 outline-none border border-transparent focus:border-[#274a82] focus:bg-white transition-colors disabled:opacity-60" />
-            <button type="submit" aria-label="Envoyer"
+            <button type="submit" :aria-label="t('chat.send')"
               :disabled="!input.trim() || isTyping"
               class="w-10 h-10 rounded-full bg-[#274a82] text-white flex items-center justify-center hover:bg-[#e60012] transition-colors disabled:opacity-40 disabled:hover:bg-[#274a82] flex-shrink-0">
               <UIcon name="i-heroicons-paper-airplane" class="w-4 h-4" />
@@ -417,9 +468,9 @@ const onKey = (e) => { if (e.key === 'Escape') isOpen.value = false }
 
           <button type="button"
             class="w-full flex items-center justify-center gap-2 text-xs font-bold py-2 rounded-lg text-[#25D366] hover:bg-[#25D366]/10 transition-colors"
-            @click="openWhatsApp('Bonjour BRC, je souhaiterais avoir des informations supplémentaires.')">
+            @click="openWhatsApp(t('chat.wa.generic'))">
             <UIcon name="i-simple-icons-whatsapp" class="w-4 h-4" />
-            Continuer avec un conseiller sur WhatsApp
+            {{ t('chat.whatsapp_cta') }}
           </button>
         </footer>
       </section>
@@ -427,10 +478,25 @@ const onKey = (e) => { if (e.key === 'Escape') isOpen.value = false }
 
     <!-- BOUTON FLOTTANT -->
     <button type="button"
-      :aria-label="isOpen ? 'Fermer le chat' : 'Ouvrir le chat'" :aria-expanded="isOpen"
-      class="relative w-14 h-14 rounded-full bg-[#274a82] text-white shadow-xl hover:bg-[#e60012] hover:scale-105 transition-all flex items-center justify-center"
-      @click="isOpen = !isOpen">
-      <UIcon :name="isOpen ? 'i-heroicons-x-mark' : 'i-heroicons-chat-bubble-left-right-solid'" class="w-6 h-6" />
+      :aria-label="isOpen ? t('chat.close') : t('chat.open')" :aria-expanded="isOpen"
+      class="relative w-14 h-14 rounded-full bg-[#274a82] text-white shadow-xl hover:bg-[#e60012] hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
+      @click="toggleChat">
+
+      <!-- Anneau pulsant : disparaît après la première ouverture -->
+      <span v-if="!hasOpened && !isOpen"
+        class="absolute inset-0 rounded-full bg-[#274a82] opacity-40 animate-ping pointer-events-none"></span>
+
+      <Transition
+        mode="out-in"
+        enter-active-class="transition duration-150"
+        enter-from-class="opacity-0 rotate-90 scale-75"
+        leave-active-class="transition duration-100"
+        leave-to-class="opacity-0 -rotate-90 scale-75"
+      >
+        <UIcon v-if="isOpen" key="close" name="i-lucide-x" class="relative w-6 h-6" />
+        <UIcon v-else key="open" name="i-lucide-message-circle-more" class="relative w-7 h-7" />
+      </Transition>
+
       <span v-if="unread > 0 && !isOpen"
         class="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-[#e60012] text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white">
         {{ unread }}

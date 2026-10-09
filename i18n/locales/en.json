@@ -20,6 +20,77 @@
     "result": "result",
     "results": "results"
   },
+  "chat": {
+    "title": "BRC Market Assistant",
+    "status_online": "Online · quick replies",
+    "status_offline": "Offline · we reply when we open",
+    "new_chat": "New conversation",
+    "open": "Open chat",
+    "close": "Close chat",
+    "placeholder": "Type your message…",
+    "send": "Send",
+    "typing": "The assistant is typing",
+    "whatsapp_cta": "Continue with an advisor on WhatsApp",
+    "view": "View",
+    "order": "Order",
+    "currency": "FCFA",
+    "welcome_morning": "Hello and welcome to BRC Market! I can help you find a product, learn about our policies or connect you with an advisor.",
+    "welcome_evening": "Good evening and welcome to BRC Market! I can help you find a product, learn about our policies or connect you with an advisor.",
+    "offline_notice": "Our advisors are currently offline (Mon–Fri 8 AM–5 PM, Sat 8 AM–2:30 PM). Leave us a message on WhatsApp and we will reply as soon as we open.",
+    "quick": {
+        "product": "Find a product",
+        "delivery": "Delivery",
+        "payment": "Payment",
+        "warranty": "Warranty",
+        "address": "Address",
+        "hours": "Opening hours"
+    },
+    "ask": {
+        "product": "I'm looking for a product",
+        "delivery": "What are your delivery conditions?",
+        "payment": "Which payment methods do you accept?",
+        "warranty": "What warranty do you offer?",
+        "address": "Where is the shop located?",
+        "hours": "What are your opening hours?"
+    },
+    "ans": {
+        "greeting_morning": "Hello! What are you looking for today?",
+        "greeting_evening": "Good evening! What are you looking for today?",
+        "thanks": "You're welcome! Feel free to ask if you have any other questions.",
+        "location": "We are in Cameroon, in Akwa, Douala, rue Castelnau, just past the street of College King Akwa.",
+        "hours_open": "We are open right now. Opening hours: Mon–Fri 8 AM–5 PM, Sat 8 AM–2:30 PM.",
+        "hours_closed": "We are currently closed. Opening hours: Mon–Fri 8 AM–5 PM, Sat 8 AM–2:30 PM.",
+        "delivery": "Fast delivery, usually within 1 to 3 days, across Africa. Exact costs and delivery times are given when you confirm your order.",
+        "payment": "You can pay with Orange Money, MTN Mobile Money or cash on delivery. For Mobile Money, the merchant code is sent after your order is confirmed and you have 24 hours to pay.",
+        "warranty": "All our products come with a 12-month warranty against manufacturing defects, with after-sales service by our technicians. You have 7 days after delivery to return an unused item in its original packaging.",
+        "order": "You can track your orders from your account.",
+        "contact": "The fastest way is to message us on WhatsApp. You can also call us on {phone}.",
+        "search_prompt": "Of course! Type the name or type of product (e.g. \"Dell Latitude\", \"printer\", \"security camera\").",
+        "found_one": "Here is the matching product:",
+        "found_many": "I found {count} products matching your search:",
+        "similar": "I couldn't find exactly that product, but here are some similar items:",
+        "suggestions": "I found nothing for this search. Here are some products you might like:",
+        "none": "I couldn't find a matching product. An advisor can help you find exactly what you need."
+    },
+    "act": {
+        "see_orders": "View my orders",
+        "browse": "Browse the shop",
+        "see_all": "See all results",
+        "ask_delivery": "Ask about delivery costs",
+        "ask_payment": "Confirm payment methods",
+        "ask_advisor": "Ask an advisor",
+        "ask_exact": "Ask for the exact product",
+        "advisor": "Talk to an advisor"
+    },
+    "wa": {
+        "generic": "Hello BRC, I would like some more information.",
+        "delivery": "Hello BRC, I would like to know the delivery costs and times.",
+        "payment": "Hello BRC, which payment methods are available?",
+        "advisor": "Hello BRC, I would like to talk to an advisor.",
+        "search": "Hello BRC, I'm looking for: {q}",
+        "product": "Hello BRC, I'm interested in: {name} ({price} FCFA)\n{url}"
+    }
+    },
   "auth": {
     "login": "Sign in",
     "register": "Create account",

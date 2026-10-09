@@ -20,6 +20,77 @@
     "result": "résultat",
     "results": "résultats"
   },
+  "chat": {
+    "title": "Assistant BRC Market",
+    "status_online": "En ligne · réponse rapide",
+    "status_offline": "Hors ligne · réponse à l'ouverture",
+    "new_chat": "Nouvelle conversation",
+    "open": "Ouvrir le chat",
+    "close": "Fermer le chat",
+    "placeholder": "Écrivez votre message…",
+    "send": "Envoyer",
+    "typing": "L'assistant écrit",
+    "whatsapp_cta": "Continuer avec un conseiller sur WhatsApp",
+    "view": "Voir",
+    "order": "Commander",
+    "currency": "FCFA",
+    "welcome_morning": "Bonjour et bienvenue chez BRC Market ! Je peux vous aider à trouver un produit, connaître nos conditions ou vous mettre en relation avec un conseiller.",
+    "welcome_evening": "Bonsoir et bienvenue chez BRC Market ! Je peux vous aider à trouver un produit, connaître nos conditions ou vous mettre en relation avec un conseiller.",
+    "offline_notice": "Nos conseillers sont actuellement hors ligne (lundi–vendredi 8h–17h, samedi 8h–14h30). Laissez-nous un message sur WhatsApp, nous vous répondrons dès l'ouverture.",
+    "quick": {
+        "product": "Trouver un produit",
+        "delivery": "Livraison",
+        "payment": "Paiement",
+        "warranty": "Garantie",
+        "address": "Adresse",
+        "hours": "Horaires"
+    },
+    "ask": {
+        "product": "Je cherche un produit",
+        "delivery": "Quelles sont les conditions de livraison ?",
+        "payment": "Quels moyens de paiement acceptez-vous ?",
+        "warranty": "Quelle garantie proposez-vous ?",
+        "address": "Où se trouve la boutique ?",
+        "hours": "Quels sont vos horaires ?"
+    },
+    "ans": {
+        "greeting_morning": "Bonjour ! Que recherchez-vous aujourd'hui ?",
+        "greeting_evening": "Bonsoir ! Que recherchez-vous aujourd'hui ?",
+        "thanks": "Avec plaisir ! N'hésitez pas si vous avez d'autres questions.",
+        "location": "Nous sommes au Cameroun, à Akwa, Douala, rue Castelnau, juste après la rue du Collège King Akwa.",
+        "hours_open": "Nous sommes ouverts en ce moment. Horaires : lundi–vendredi 8h–17h, samedi 8h–14h30.",
+        "hours_closed": "Nous sommes actuellement fermés. Horaires : lundi–vendredi 8h–17h, samedi 8h–14h30.",
+        "delivery": "Livraison rapide, généralement entre 1 et 3 jours, partout en Afrique. Les frais et délais exacts vous sont communiqués à la validation de votre commande.",
+        "payment": "Vous pouvez payer par Orange Money, MTN Mobile Money ou en espèces à la livraison. Pour le Mobile Money, le code marchand vous est envoyé après confirmation de la commande et vous avez 24 h pour payer.",
+        "warranty": "Tous nos produits sont garantis 12 mois contre les défauts de fabrication, avec un SAV assuré par nos techniciens. Vous disposez de 7 jours après réception pour retourner un article non utilisé, dans son emballage d'origine.",
+        "order": "Vous pouvez suivre vos commandes depuis votre compte.",
+        "contact": "Le plus rapide est de nous écrire sur WhatsApp. Vous pouvez aussi nous appeler au {phone}.",
+        "search_prompt": "Bien sûr ! Écrivez le nom ou le type de produit (ex : « Dell Latitude », « imprimante », « caméra de surveillance »).",
+        "found_one": "Voici le produit correspondant :",
+        "found_many": "J'ai trouvé {count} produits correspondant à votre recherche :",
+        "similar": "Je n'ai pas trouvé exactement ce produit, mais voici des articles proches :",
+        "suggestions": "Je n'ai rien trouvé pour cette recherche. Voici quelques produits qui pourraient vous plaire :",
+        "none": "Je n'ai pas trouvé de produit correspondant. Un conseiller peut vous aider à trouver exactement ce que vous cherchez."
+    },
+    "act": {
+        "see_orders": "Voir mes commandes",
+        "browse": "Parcourir la boutique",
+        "see_all": "Voir tous les résultats",
+        "ask_delivery": "Demander les frais de livraison",
+        "ask_payment": "Confirmer les moyens de paiement",
+        "ask_advisor": "Demander à un conseiller",
+        "ask_exact": "Demander le produit exact",
+        "advisor": "Parler à un conseiller"
+    },
+    "wa": {
+        "generic": "Bonjour BRC, je souhaiterais avoir des informations supplémentaires.",
+        "delivery": "Bonjour BRC, je souhaite connaître les frais et délais de livraison.",
+        "payment": "Bonjour BRC, quels sont les moyens de paiement disponibles ?",
+        "advisor": "Bonjour BRC, je souhaiterais parler à un conseiller.",
+        "search": "Bonjour BRC, je cherche : {q}",
+        "product": "Bonjour BRC, je suis intéressé par : {name} ({price} FCFA)\n{url}"
+    }
+    },
   "auth": {
     "login": "Se connecter",
     "register": "Créer un compte",
